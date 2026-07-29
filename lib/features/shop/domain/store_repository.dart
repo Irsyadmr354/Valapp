@@ -35,11 +35,13 @@ class StoreRepository {
     return _enrichStorefront(storefront);
   }
 
-  /// Enriches daily skin offers with display names and icons from valorant-api.
+  /// Enriches daily skin offers, Featured Bundle, and Night Market with metadata from valorant-api.
   Future<Storefront> _enrichStorefront(Storefront storefront) async {
     final skinMap = await _assets.getSkinLevelsMap();
+    final bundleMap = await _assets.getBundlesMap();
 
-    final enriched = storefront.dailyOffers.map((offer) {
+    // Enrich daily offers
+    final enrichedOffers = storefront.dailyOffers.map((offer) {
       final meta = skinMap[offer.skinLevelUuid] as Map<String, dynamic>?;
       return offer.copyWith(
         displayName: meta?['skinName'] as String?,
@@ -48,15 +50,41 @@ class StoreRepository {
       );
     }).toList();
 
+    // Enrich Featured Bundle
+    FeaturedBundle? enrichedBundle = storefront.featuredBundle;
+    if (enrichedBundle != null) {
+      final bundleMeta =
+          bundleMap[enrichedBundle.bundleUuid] as Map<String, dynamic>?;
+      if (bundleMeta != null) {
+        enrichedBundle = enrichedBundle.copyWith(
+          displayName: bundleMeta['displayName'] as String?,
+          displayIcon: bundleMeta['displayIcon'] as String?,
+          verticalPromoImage:
+              bundleMeta['verticalPromoImage'] as String? ?? bundleMeta['displayIcon2'] as String?,
+        );
+      }
+    }
+
+    // Enrich Night Market
+    final enrichedNightMarket = storefront.nightMarket.map((nm) {
+      final meta = skinMap[nm.skinLevelUuid] as Map<String, dynamic>?;
+      return nm.copyWith(
+        skinName: meta?['skinName'] as String?,
+        skinIcon: meta?['displayIcon'] as String?,
+        contentTierUuid: meta?['contentTierUuid'] as String?,
+      );
+    }).toList();
+
     return Storefront(
-      dailyOffers: enriched,
+      dailyOffers: enrichedOffers,
       dailyOffersRemainingSeconds: storefront.dailyOffersRemainingSeconds,
-      featuredBundle: storefront.featuredBundle,
-      nightMarket: storefront.nightMarket,
+      featuredBundle: enrichedBundle,
+      nightMarket: enrichedNightMarket,
       accessoryStore: storefront.accessoryStore,
       fetchedAt: storefront.fetchedAt,
     );
   }
+
 
   Future<Wallet> fetchWallet(String shard, String puuid) async {
     final wallet = await _remote.fetchWallet(shard, puuid);

@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/shop/domain/models/skin_offer.dart';
 import '../utils/tier_colors.dart';
 
-/// Card displaying a single skin with its name, tier color, price, and
-/// wishlist toggle.
+/// Card displaying a single skin with its name, tier color, price, and wishlist toggle.
 class SkinCard extends StatelessWidget {
   const SkinCard({
     super.key,
@@ -23,96 +22,158 @@ class SkinCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isHighlighted
               ? const Color(0xFFFF4655)
-              : tierColor.withAlpha(120),
-          width: isHighlighted ? 2 : 1,
+              : tierColor.withAlpha(160),
+          width: isHighlighted ? 2 : 1.2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: (isHighlighted ? const Color(0xFFFF4655) : tierColor)
+                .withAlpha(25),
+            blurRadius: 10,
+            spreadRadius: 1,
+          ),
+        ],
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            tierColor.withAlpha(30),
-            const Color(0xFF1A2634),
+            tierColor.withAlpha(45),
+            const Color(0xFF0F1722),
+            const Color(0xFF0B101A),
           ],
+          stops: const [0.0, 0.4, 1.0],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Skin image
-          Expanded(
-            child: ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(7)),
-              child: offer.displayIcon != null
-                  ? CachedNetworkImage(
-                      imageUrl: offer.displayIcon!,
-                      fit: BoxFit.contain,
-                      placeholder: (_, __) => const _ShimmerBox(),
-                      errorWidget: (_, __, ___) => const _PlaceholderIcon(),
-                    )
-                  : const _PlaceholderIcon(),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Stack(
+          children: [
+            // Top Accent Bar
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 3,
+                color: tierColor,
+              ),
             ),
-          ),
 
-          // Info row
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // Card Body
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Skin name
-                Text(
-                  offer.displayName ?? 'Unknown Skin',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(height: 8),
+                // Skin Image
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: offer.displayIcon != null
+                        ? CachedNetworkImage(
+                            imageUrl: offer.displayIcon!,
+                            fit: BoxFit.contain,
+                            placeholder: (_, __) => const _ShimmerBox(),
+                            errorWidget: (_, __, ___) => const _PlaceholderIcon(),
+                          )
+                        : const _PlaceholderIcon(),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 6),
 
-                Row(
-                  children: [
-                    // VP icon + price
-                    const _VpIcon(),
-                    const SizedBox(width: 4),
-                    Text(
-                      offer.price.toString(),
-                      style: TextStyle(
-                        color: tierColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
+                // Info Footer
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF080D14).withAlpha(220),
+                    border: const Border(
+                      top: BorderSide(color: Color(0xFF1B2738), width: 0.8),
                     ),
-                    const Spacer(),
-
-                    // Wishlist button
-                    if (onWishlistToggle != null)
-                      GestureDetector(
-                        onTap: onWishlistToggle,
-                        child: Icon(
-                          offer.isInWishlist
-                              ? Icons.bookmark
-                              : Icons.bookmark_border,
-                          color: offer.isInWishlist
-                              ? const Color(0xFFFF4655)
-                              : Colors.white38,
-                          size: 20,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Skin Name
+                      Text(
+                        offer.displayName ?? 'Unknown Skin',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
+                      const SizedBox(height: 6),
+
+                      // Price + Wishlist Row
+                      Row(
+                        children: [
+                          // VP Badge Chip
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00F0FF).withAlpha(25),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: const Color(0xFF00F0FF).withAlpha(90),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const _VpIcon(),
+                                const SizedBox(width: 4),
+                                Text(
+                                  offer.price.toString(),
+                                  style: const TextStyle(
+                                    color: Color(0xFF00F0FF),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Spacer(),
+
+                          // Wishlist button
+                          if (onWishlistToggle != null)
+                            GestureDetector(
+                              onTap: onWishlistToggle,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: offer.isInWishlist
+                                      ? const Color(0xFFFF4655).withAlpha(40)
+                                      : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  offer.isInWishlist
+                                      ? Icons.bookmark
+                                      : Icons.bookmark_border,
+                                  color: offer.isInWishlist
+                                      ? const Color(0xFFFF4655)
+                                      : Colors.white38,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -124,18 +185,18 @@ class _VpIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 14,
-      height: 14,
+      width: 12,
+      height: 12,
       decoration: const BoxDecoration(
-        color: Color(0xFF0BC4C4),
+        color: Color(0xFF00F0FF),
         shape: BoxShape.circle,
       ),
       child: const Center(
         child: Text(
-          'VP',
+          'V',
           style: TextStyle(
-              color: Colors.white,
-              fontSize: 6,
+              color: Color(0xFF080D14),
+              fontSize: 8,
               fontWeight: FontWeight.w900),
         ),
       ),
@@ -148,7 +209,12 @@ class _ShimmerBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: const Color(0xFF1E2C3A));
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF141F2D),
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
   }
 }
 
@@ -159,7 +225,8 @@ class _PlaceholderIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(
       child: Icon(Icons.image_not_supported_outlined,
-          color: Colors.white24, size: 40),
+          color: Colors.white24, size: 36),
     );
   }
 }
+

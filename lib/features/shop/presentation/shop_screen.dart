@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
+import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/skin_card.dart';
 import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
@@ -164,29 +166,56 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   Widget _buildContent(Storefront storefront, Set<String> wishlist) {
     return SliverList(
       delegate: SliverChildListDelegate([
-        // Countdown
+        // Header info bar
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Row(
             children: [
-              const Icon(Icons.timer_outlined,
-                  color: Colors.white54, size: 16),
-              const SizedBox(width: 6),
-              const Text('Resets in ',
-                  style: TextStyle(color: Colors.white54, fontSize: 13)),
-              CountdownTimer(
-                remainingSeconds: storefront.dailyOffersRemainingSeconds,
-                onExpired: _refresh,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF4655).withAlpha(25),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: const Color(0xFFFF4655).withAlpha(80), width: 0.8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer_outlined,
+                        color: Color(0xFFFF4655), size: 14),
+                    const SizedBox(width: 6),
+                    const Text('RESET IN ',
+                        style: TextStyle(
+                            color: Color(0xFFFF4655),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0)),
+                    CountdownTimer(
+                      remainingSeconds: storefront.dailyOffersRemainingSeconds,
+                      onExpired: _refresh,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${storefront.dailyOffers.length} ITEMS AVAILABLE',
                 style: const TextStyle(
-                  color: Color(0xFFFF4655),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
 
         // Daily skins grid
         Padding(
@@ -198,7 +227,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
               crossAxisCount: 2,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: 0.75,
+              childAspectRatio: 0.72,
             ),
             itemCount: storefront.dailyOffers.length,
             itemBuilder: (context, i) {
@@ -212,20 +241,20 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
             },
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 28),
 
         // Featured Bundle
         if (storefront.featuredBundle != null) ...[
           const _SectionHeader(title: 'Featured Bundle'),
           _BundleBanner(bundle: storefront.featuredBundle!),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
         ],
 
         // Night Market
         if (storefront.hasNightMarket) ...[
           const _SectionHeader(title: 'Night Market'),
           _NightMarketList(offers: storefront.nightMarket),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
         ],
 
         const SizedBox(height: 80), // bottom nav breathing room
@@ -267,40 +296,78 @@ class _WalletBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
         _CurrencyChip(
-            label: '${wallet.valorantPoints} VP',
-            color: const Color(0xFF0BC4C4)),
-        const SizedBox(width: 8),
+          label: '${wallet.valorantPoints}',
+          unit: 'VP',
+          color: const Color(0xFF00F0FF),
+        ),
+        const SizedBox(width: 6),
         _CurrencyChip(
-            label: '${wallet.radianitePoints} RP',
-            color: const Color(0xFFFF9900)),
-        const SizedBox(width: 8),
+          label: '${wallet.radianitePoints}',
+          unit: 'RP',
+          color: const Color(0xFFFF9900),
+        ),
+        const SizedBox(width: 6),
         _CurrencyChip(
-            label: '${wallet.kingdomCredits} KC',
-            color: const Color(0xFF4CAF50)),
+          label: '${wallet.kingdomCredits}',
+          unit: 'KC',
+          color: const Color(0xFF10B981),
+        ),
       ],
     );
   }
 }
 
 class _CurrencyChip extends StatelessWidget {
-  const _CurrencyChip({required this.label, required this.color});
+  const _CurrencyChip({
+    required this.label,
+    required this.unit,
+    required this.color,
+  });
   final String label;
+  final String unit;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        border: Border.all(color: color.withAlpha(100)),
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF070A10).withAlpha(180),
+        border: Border.all(color: color.withAlpha(100), width: 0.8),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: color.withAlpha(40),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              unit,
+              style: TextStyle(
+                color: color,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -312,15 +379,21 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.5,
-        ),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Row(
+        children: [
+          Container(width: 3, height: 14, color: const Color(0xFFFF4655)),
+          const SizedBox(width: 8),
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -332,55 +405,164 @@ class _BundleBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = bundle.verticalPromoImage ?? bundle.displayIcon;
+    final discountInt = (bundle.totalDiscountPercent > 1
+            ? bundle.totalDiscountPercent
+            : bundle.totalDiscountPercent * 100)
+        .round();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        height: 120,
+        height: 180,
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFF4655).withAlpha(120), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF4655).withAlpha(30),
+              blurRadius: 12,
+              spreadRadius: 1,
+            ),
+          ],
           gradient: const LinearGradient(
-            colors: [Color(0xFF1A2634), Color(0xFF0D1B2A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1E2838), Color(0xFF0D1420)],
           ),
-          borderRadius: BorderRadius.circular(8),
-          border:
-              Border.all(color: const Color(0xFF3D4C5E)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(13),
+          child: Stack(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '${bundle.totalDiscountedCost} VP',
-                      style: const TextStyle(
-                        color: Color(0xFFFF4655),
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
+              // Promo Artwork Background Image
+              if (imageUrl != null)
+                Positioned.fill(
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    placeholder: (_, __) => Container(color: const Color(0xFF141F2D)),
+                    errorWidget: (_, __, ___) => const SizedBox(),
+                  ),
+                ),
+
+              // Gradient Overlay
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        const Color(0xFF070A10).withAlpha(240),
+                        const Color(0xFF070A10).withAlpha(140),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
                     ),
-                    if (bundle.totalDiscountPercent > 0)
-                      Text(
-                        '${(bundle.totalDiscountPercent * 100).toStringAsFixed(0)}% off',
-                        style: const TextStyle(
-                            color: Colors.white54, fontSize: 12),
-                      ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${bundle.itemIds.length} items included',
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              CountdownTimer(
-                remainingSeconds: bundle.durationRemainingSeconds,
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 12,
+
+              // Content Details
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Row(
+                      children: [
+                        if (discountInt > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF4655),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '-$discountInt% OFF',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: Text(
+                            '${bundle.itemIds.length} ITEMS',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        CountdownTimer(
+                          remainingSeconds: bundle.durationRemainingSeconds,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Bundle Title
+                    Text(
+                      bundle.displayName ?? 'Featured Bundle',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+
+                    // VP Cost
+                    Row(
+                      children: [
+                        const Icon(Icons.bolt, color: Color(0xFF00F0FF), size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${bundle.totalDiscountedCost} VP',
+                          style: const TextStyle(
+                            color: Color(0xFF00F0FF),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (bundle.totalBaseCost > bundle.totalDiscountedCost) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '${bundle.totalBaseCost} VP',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 13,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -393,48 +575,119 @@ class _BundleBanner extends StatelessWidget {
 
 class _NightMarketList extends StatelessWidget {
   const _NightMarketList({required this.offers});
-  final List<dynamic> offers;
+  final List<NightMarketOffer> offers;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
-        children: offers
-            .map((o) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1A2634),
-                      borderRadius: BorderRadius.circular(8),
-                      border:
-                          Border.all(color: const Color(0xFF3D4C5E)),
-                    ),
-                    child: Row(
+        children: offers.map((o) {
+          final tierColor = TierColors.forName(o.contentTierUuid);
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F1722),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: tierColor.withAlpha(120), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: tierColor.withAlpha(20),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: Row(
+                children: [
+                  // Accent Tier Bar
+                  Container(width: 4, height: 74, color: tierColor),
+                  const SizedBox(width: 10),
+
+                  // Skin Image
+                  SizedBox(
+                    width: 90,
+                    height: 54,
+                    child: o.skinIcon != null
+                        ? CachedNetworkImage(
+                            imageUrl: o.skinIcon!,
+                            fit: BoxFit.contain,
+                            placeholder: (_, __) => Container(color: const Color(0xFF141F2D)),
+                            errorWidget: (_, __, ___) => const Icon(Icons.image, color: Colors.white24),
+                          )
+                        : const Icon(Icons.image, color: Colors.white24),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Title & Price Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.local_offer,
-                            color: Color(0xFFFF9900), size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Discounted offer',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 14),
-                          ),
-                        ),
                         Text(
-                          '${(o.discountPercent * 100).toStringAsFixed(0)}% off',
+                          o.skinName ?? 'Discounted Skin',
                           style: const TextStyle(
-                              color: Color(0xFFFF9900),
-                              fontWeight: FontWeight.w700),
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              '${o.discountedPrice} VP',
+                              style: TextStyle(
+                                color: tierColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (o.basePrice > o.discountedPrice) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '${o.basePrice}',
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 11,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ))
-            .toList(),
+
+                  // Discount Badge Tag
+                  Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9900).withAlpha(40),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFFF9900), width: 0.8),
+                    ),
+                    child: Text(
+                      '-${o.discountPercent}%',
+                      style: const TextStyle(
+                        color: Color(0xFFFF9900),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 }
+

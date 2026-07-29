@@ -41,13 +41,17 @@ class MatchHistoryScreen extends ConsumerWidget {
     final selectedQueue = ref.watch(_queueFilterProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1923),
+      backgroundColor: const Color(0xFF070A10),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F1923),
-        title: const Text('Match History',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        backgroundColor: const Color(0xFF070A10),
+        title: const Text('MATCH HISTORY',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                fontSize: 16)),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(44),
+          preferredSize: const Size.fromHeight(48),
           child: _QueueFilter(
             selected: selectedQueue,
             onSelected: (q) {
@@ -58,14 +62,15 @@ class MatchHistoryScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         color: const Color(0xFFFF4655),
+        backgroundColor: const Color(0xFF141F2D),
         onRefresh: () async => ref.invalidate(_matchHistoryProvider),
         child: historyAsync.when(
           data: (result) => result == null || result.matches.isEmpty
               ? const Center(
                   child: Text('No matches found.',
-                      style: TextStyle(color: Colors.white54)))
+                      style: TextStyle(color: Colors.white38, fontSize: 13)))
               : ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
                   physics: const AlwaysScrollableScrollPhysics(),
                   itemCount: result.matches.length,
                   itemBuilder: (context, i) => _MatchTile(
@@ -74,8 +79,12 @@ class MatchHistoryScreen extends ConsumerWidget {
                         context.push('/match/${result.matches[i].matchId}'),
                   ),
                 ),
-          loading: () =>
-              const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+            ),
+          ),
           error: (e, _) => Center(
             child: Text('Error: $e',
                 style: const TextStyle(color: Colors.white54)),
@@ -94,7 +103,7 @@ class _QueueFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44,
+      height: 48,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -108,16 +117,16 @@ class _QueueFilter extends StatelessWidget {
               onSelected: (_) => onSelected(q),
               selectedColor: const Color(0xFFFF4655).withAlpha(40),
               labelStyle: TextStyle(
-                color: isSelected
-                    ? const Color(0xFFFF4655)
-                    : Colors.white54,
+                color: isSelected ? const Color(0xFFFF4655) : Colors.white60,
                 fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
               ),
-              backgroundColor: const Color(0xFF1A2634),
+              backgroundColor: const Color(0xFF0E1622),
               side: BorderSide(
                 color: isSelected
                     ? const Color(0xFFFF4655)
-                    : const Color(0xFF3D4C5E),
+                    : const Color(0xFF1B2738),
+                width: isSelected ? 1.2 : 0.8,
               ),
               checkmarkColor: const Color(0xFFFF4655),
             ),
@@ -140,47 +149,53 @@ class _MatchTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2634),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF3D4C5E)),
+          color: const Color(0xFF0E1622),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF1B2738), width: 1),
         ),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: const Color(0xFF0F1923),
-                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFF141F2D),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF00F0FF).withAlpha(60)),
               ),
               child: const Icon(Icons.sports_esports,
-                  color: Colors.white54, size: 20),
+                  color: Color(0xFF00F0FF), size: 22),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    entry.queueDisplayName,
+                    entry.queueDisplayName.toUpperCase(),
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600),
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                  Text(dateStr,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  Text(
+                    dateStr,
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white38),
+            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
           ],
         ),
       ),
     );
   }
 }
+

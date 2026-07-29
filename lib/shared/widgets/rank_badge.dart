@@ -18,9 +18,8 @@ class RankBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = large ? 72.0 : 44.0;
-    final nameSize = large ? 20.0 : 13.0;
-    final rrSize = large ? 14.0 : 11.0;
+    final iconSize = large ? 96.0 : 44.0;
+    final nameSize = large ? 22.0 : 13.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -29,39 +28,37 @@ class RankBadge extends StatelessWidget {
         SizedBox(
           width: iconSize,
           height: iconSize,
-          child: iconUrl != null
+          child: iconUrl != null && iconUrl!.isNotEmpty
               ? CachedNetworkImage(
                   imageUrl: iconUrl!,
                   fit: BoxFit.contain,
-                  placeholder: (_, __) =>
-                      const CircularProgressIndicator(strokeWidth: 2),
+                  placeholder: (_, __) => const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Color(0xFFFF4655)),
+                    ),
+                  ),
                   errorWidget: (_, __, ___) =>
-                      const Icon(Icons.shield, color: Colors.white38),
+                      const Icon(Icons.shield, color: Colors.white38, size: 48),
                 )
-              : const Icon(Icons.shield, color: Colors.white38),
+              : const Icon(Icons.shield, color: Colors.white38, size: 48),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 10),
 
         // Tier name
         Text(
-          tierName,
+          tierName.toUpperCase(),
           style: TextStyle(
             color: Colors.white,
             fontSize: nameSize,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
           ),
         ),
-
-        // RR — hidden for immortal+ where RR isn't shown
-        if (rankedRating > 0)
-          Text(
-            '$rankedRating RR',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: rrSize,
-            ),
-          ),
       ],
     );
   }
 }
+

@@ -95,28 +95,30 @@ class ValorantShopApp extends ConsumerWidget {
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
         primary: Color(0xFFFF4655),
-        secondary: Color(0xFF0BC4C4),
-        surface: Color(0xFF1A2634),
+        secondary: Color(0xFF00F0FF),
+        surface: Color(0xFF0E1622),
         onSurface: Colors.white,
         error: Color(0xFFFF4655),
       ),
-      scaffoldBackgroundColor: const Color(0xFF0F1923),
+      scaffoldBackgroundColor: const Color(0xFF070A10),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF0F1923),
+        backgroundColor: Color(0xFF070A10),
         elevation: 0,
+        centerTitle: true,
         titleTextStyle: TextStyle(
           color: Colors.white,
           fontSize: 18,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
         ),
         iconTheme: IconThemeData(color: Colors.white),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF0F1923),
+        backgroundColor: Color(0xFF0B101A),
         selectedItemColor: Color(0xFFFF4655),
         unselectedItemColor: Colors.white38,
         type: BottomNavigationBarType.fixed,
-        elevation: 8,
+        elevation: 12,
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: Color(0xFFFF4655),
@@ -125,6 +127,7 @@ class ValorantShopApp extends ConsumerWidget {
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFFFF4655),
           foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
@@ -139,8 +142,8 @@ class _ScaffoldWithNav extends StatelessWidget {
 
   static const _tabs = [
     ('/shop', Icons.storefront_outlined, Icons.storefront, 'Shop'),
-    ('/rank', Icons.emoji_events_outlined, Icons.emoji_events, 'Rank'),
-    ('/matches', Icons.history_outlined, Icons.history, 'Matches'),
+    ('/rank', Icons.military_tech_outlined, Icons.military_tech, 'Rank'),
+    ('/matches', Icons.sports_esports_outlined, Icons.sports_esports, 'Matches'),
     ('/progress', Icons.task_alt_outlined, Icons.task_alt, 'Progress'),
     ('/profile', Icons.person_outline, Icons.person, 'Profile'),
   ];
@@ -152,18 +155,54 @@ class _ScaffoldWithNav extends StatelessWidget {
         _tabs.indexWhere((t) => t.$1 == location).clamp(0, 4);
 
     return Scaffold(
+      backgroundColor: const Color(0xFF070A10),
       body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (i) => context.go(_tabs[i].$1),
-        items: _tabs
-            .map((t) => BottomNavigationBarItem(
-                  icon: Icon(t.$2),
-                  activeIcon: Icon(t.$3),
-                  label: t.$4,
-                ))
-            .toList(),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF0B101A),
+          border: Border(
+            top: BorderSide(color: Color(0xFF1B2738), width: 1),
+          ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: currentIndex,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedItemColor: const Color(0xFFFF4655),
+          unselectedItemColor: Colors.white38,
+          selectedLabelStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+          onTap: (i) => context.go(_tabs[i].$1),
+          items: _tabs.map((t) {
+            return BottomNavigationBarItem(
+              icon: Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Icon(t.$2, size: 22),
+              ),
+              activeIcon: Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4655).withAlpha(30),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(t.$3, size: 22, color: const Color(0xFFFF4655)),
+                ),
+              ),
+              label: t.$4,
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 }
+

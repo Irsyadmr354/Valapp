@@ -34,14 +34,18 @@ class ProfileScreen extends ConsumerWidget {
     final nameAsync = ref.watch(_displayNameProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1923),
+      backgroundColor: const Color(0xFF070A10),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F1923),
-        title: const Text('Profile',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        backgroundColor: const Color(0xFF070A10),
+        title: const Text('AGENT PROFILE',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                fontSize: 16)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white54),
+            icon: const Icon(Icons.logout, color: Color(0xFFFF4655)),
             onPressed: () => _confirmLogout(context, ref),
             tooltip: 'Logout',
           ),
@@ -49,6 +53,7 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         color: const Color(0xFFFF4655),
+        backgroundColor: const Color(0xFF141F2D),
         onRefresh: () async {
           ref.invalidate(_accountXpProvider);
           ref.invalidate(_displayNameProvider);
@@ -70,11 +75,16 @@ class ProfileScreen extends ConsumerWidget {
               data: (xp) => xp == null
                   ? const SizedBox()
                   : _XpCard(xp: xp),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+                ),
+              ),
               error: (e, _) => Text('Error: $e',
                   style: const TextStyle(color: Colors.white54)),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             // XP history
             xpAsync.when(
@@ -95,12 +105,13 @@ class ProfileScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2634),
+        backgroundColor: const Color(0xFF0E1622),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text('Logout',
-            style: TextStyle(color: Colors.white)),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
         content: const Text(
-          'Are you sure? You will need to login again.',
-          style: TextStyle(color: Colors.white70),
+          'Are you sure you want to log out? Your stored credentials will be cleared.',
+          style: TextStyle(color: Colors.white70, fontSize: 13),
         ),
         actions: [
           TextButton(
@@ -131,37 +142,72 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 32,
-          backgroundColor: const Color(0xFF1A2634),
-          child: Text(
-            displayName?.substring(0, 1).toUpperCase() ?? '?',
-            style: const TextStyle(
-                color: Color(0xFFFF4655),
-                fontSize: 24,
-                fontWeight: FontWeight.w900),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1622),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF1B2738), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF4655).withAlpha(30),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFFF4655), width: 1.5),
+            ),
+            child: Center(
+              child: Text(
+                displayName?.substring(0, 1).toUpperCase() ?? 'V',
+                style: const TextStyle(
+                  color: Color(0xFFFF4655),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              displayName ?? 'Loading...',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName ?? 'Loading Agent...',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00F0FF).withAlpha(20),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'VALORANT PLAYER',
+                    style: TextStyle(
+                      color: Color(0xFF00F0FF),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const Text(
-              'Valorant Player',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -172,31 +218,40 @@ class _XpCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final progress = (xp.xp % 10000) / 10000.0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF00F0FF).withAlpha(90), width: 1),
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A2634), Color(0xFF0D1B2A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF141F2D), Color(0xFF0E1622)],
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF3D4C5E)),
       ),
       child: Row(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('LEVEL',
-                  style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      letterSpacing: 1.5)),
+              const Text(
+                'ACCOUNT LEVEL',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
               Text(
                 '${xp.level}',
                 style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 40,
-                    fontWeight: FontWeight.w900),
+                  color: Colors.white,
+                  fontSize: 38,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -205,24 +260,38 @@ class _XpCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Account XP',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'CURRENT XP',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    Text(
+                      '${xp.xp % 10000} / 10,000',
+                      style: const TextStyle(
+                        color: Color(0xFF00F0FF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 6),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
-                    value: (xp.xp % 10000) / 10000,
-                    backgroundColor: const Color(0xFF0F1923),
+                    value: progress,
+                    backgroundColor: const Color(0xFF070A10),
                     valueColor:
-                        const AlwaysStoppedAnimation(Color(0xFF0BC4C4)),
+                        const AlwaysStoppedAnimation<Color>(Color(0xFF00F0FF)),
                     minHeight: 8,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${xp.xp % 10000} / 10,000 XP',
-                  style: const TextStyle(
-                      color: Colors.white38, fontSize: 11),
                 ),
               ],
             ),
@@ -242,39 +311,47 @@ class _XpHistorySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'RECENT XP GAINS',
-          style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.5),
+        Row(
+          children: [
+            Container(width: 3, height: 14, color: const Color(0xFFFF4655)),
+            const SizedBox(width: 8),
+            const Text(
+              'RECENT XP GAINS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         ...history.take(10).map((entry) => Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A2634),
-                borderRadius: BorderRadius.circular(6),
+                color: const Color(0xFF0E1622),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF1B2738), width: 1),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.star_outline,
-                      color: Color(0xFF0BC4C4), size: 16),
+                  const Icon(Icons.bolt, color: Color(0xFF00F0FF), size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '+${entry.xpEarned} XP',
                       style: const TextStyle(
-                          color: Colors.white, fontSize: 13),
+                        color: Color(0xFF00F0FF),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   Text(
                     '${entry.playedAt.month}/${entry.playedAt.day}',
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 11),
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
                   ),
                 ],
               ),
@@ -283,3 +360,4 @@ class _XpHistorySection extends StatelessWidget {
     );
   }
 }
+

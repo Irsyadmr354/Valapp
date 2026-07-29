@@ -20,11 +20,15 @@ class ContractsScreen extends ConsumerWidget {
     final contractsAsync = ref.watch(_contractsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1923),
+      backgroundColor: const Color(0xFF070A10),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F1923),
-        title: const Text('Progress',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        backgroundColor: const Color(0xFF070A10),
+        title: const Text('ACT PROGRESS & MISSIONS',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                fontSize: 16)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white54),
@@ -34,15 +38,20 @@ class ContractsScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         color: const Color(0xFFFF4655),
+        backgroundColor: const Color(0xFF141F2D),
         onRefresh: () async => ref.invalidate(_contractsProvider),
         child: contractsAsync.when(
           data: (contracts) => contracts == null
               ? const Center(
                   child: Text('Not logged in.',
-                      style: TextStyle(color: Colors.white54)))
+                      style: TextStyle(color: Colors.white38, fontSize: 13)))
               : _ContractsContent(contracts: contracts),
-          loading: () =>
-              const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+            ),
+          ),
           error: (e, _) => Center(
             child: Text('Error: $e',
                 style: const TextStyle(color: Colors.white54)),
@@ -68,14 +77,14 @@ class _ContractsContent extends StatelessWidget {
       children: [
         // Battlepass
         if (battlepass != null) ...[
-          const _SectionHeader(title: 'Battle Pass'),
+          const _SectionHeader(title: 'BATTLE PASS'),
           _BattlepassCard(contract: battlepass),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
         ],
 
         // Active missions
         if (missions.isNotEmpty) ...[
-          const _SectionHeader(title: 'Active Missions'),
+          const _SectionHeader(title: 'ACTIVE MISSIONS'),
           ...missions.map((m) => _MissionTile(mission: m)),
         ],
 
@@ -84,7 +93,7 @@ class _ContractsContent extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.only(top: 60),
               child: Text('No active contracts or missions.',
-                  style: TextStyle(color: Colors.white54)),
+                  style: TextStyle(color: Colors.white38, fontSize: 13)),
             ),
           ),
         const SizedBox(height: 80),
@@ -100,15 +109,21 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.5,
-        ),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+      child: Row(
+        children: [
+          Container(width: 3, height: 14, color: const Color(0xFFFF4655)),
+          const SizedBox(width: 8),
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -123,54 +138,89 @@ class _BattlepassCard extends StatelessWidget {
     final progress = contract.progressionTowardsNextLevel / 10000;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFF4655).withAlpha(90), width: 1),
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A2634), Color(0xFF0D1B2A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF141F2D), Color(0xFF0E1622)],
         ),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF3D4C5E)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.military_tech,
-                  color: Color(0xFFFF4655), size: 24),
-              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF4655).withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.military_tech,
+                    color: Color(0xFFFF4655), size: 24),
+              ),
+              const SizedBox(width: 14),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Battle Pass',
+                    'BATTLE PASS',
                     style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700),
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    'Level ${contract.progressionLevelReached}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 13),
+                    'TIER LEVEL ${contract.progressionLevelReached}',
+                    style: const TextStyle(
+                      color: Color(0xFF00F0FF),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'XP PROGRESSION',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              Text(
+                '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: progress.clamp(0.0, 1.0),
-              backgroundColor: const Color(0xFF0F1923),
+              backgroundColor: const Color(0xFF070A10),
               valueColor: const AlwaysStoppedAnimation(Color(0xFFFF4655)),
               minHeight: 8,
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
-            style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ],
       ),
@@ -193,12 +243,13 @@ class _MissionTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2634),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFF0E1622),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: mission.isCompleted
-              ? const Color(0xFF4CAF50).withAlpha(80)
-              : const Color(0xFF3D4C5E),
+              ? const Color(0xFF10B981).withAlpha(100)
+              : const Color(0xFF1B2738),
+          width: 1,
         ),
       ),
       child: Column(
@@ -211,7 +262,7 @@ class _MissionTile extends StatelessWidget {
                     ? Icons.check_circle
                     : Icons.radio_button_unchecked,
                 color: mission.isCompleted
-                    ? const Color(0xFF4CAF50)
+                    ? const Color(0xFF10B981)
                     : Colors.white38,
                 size: 18,
               ),
@@ -222,6 +273,7 @@ class _MissionTile extends StatelessWidget {
                   style: TextStyle(
                     color: mission.isCompleted ? Colors.white54 : Colors.white,
                     fontSize: 13,
+                    fontWeight: FontWeight.w700,
                     decoration: mission.isCompleted
                         ? TextDecoration.lineThrough
                         : null,
@@ -229,26 +281,37 @@ class _MissionTile extends StatelessWidget {
                 ),
               ),
               if (expiryStr != null)
-                Text(expiryStr,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 11)),
+                Text(
+                  expiryStr,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
             ],
           ),
           if (!mission.isCompleted) ...[
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                backgroundColor: const Color(0xFF0F1923),
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF0BC4C4)),
-                minHeight: 5,
-              ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const SizedBox(),
+                Text(
+                  '${mission.currentProgress} / ${mission.progressToComplete}',
+                  style: const TextStyle(
+                    color: Color(0xFF00F0FF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
-            Text(
-              '${mission.currentProgress} / ${mission.progressToComplete}',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: const Color(0xFF070A10),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFF00F0FF)),
+                minHeight: 6,
+              ),
             ),
           ],
         ],
@@ -256,3 +319,4 @@ class _MissionTile extends StatelessWidget {
     );
   }
 }
+

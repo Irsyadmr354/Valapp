@@ -136,4 +136,46 @@ class ValorantAssets {
     }
     return map;
   }
+
+  // ── Bundles ────────────────────────────────────────────────────────────────
+
+  /// Returns a map of bundle UUID → bundle metadata (name, icons, promo images).
+  Future<Map<String, dynamic>> getBundlesMap() async {
+    final cache = CacheStorage.instance;
+    const keyBundles = 'bundles_metadata';
+    const keyBundlesFetchedAt = 'bundles_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyBundlesFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyBundles);
+      if (cached != null) return cached;
+    }
+
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/bundles');
+      final bundles = (response.data?['data'] as List<dynamic>?) ?? [];
+
+      final map = <String, dynamic>{};
+      for (final b in bundles) {
+        final uuid = b['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': b['displayName'],
+            'displayIcon': b['displayIcon'],
+            'displayIcon2': b['displayIcon2'],
+            'verticalPromoImage': b['verticalPromoImage'],
+          };
+        }
+      }
+
+      await cache.setJson(keyBundles, map);
+      await cache.setTimestamp(keyBundlesFetchedAt);
+      return map;
+    } catch (_) {
+      final cached = await cache.getJson(keyBundles);
+      return cached ?? {};
+    }
+  }
 }
+

@@ -24,6 +24,24 @@ class FeaturedBundle {
     this.verticalPromoImage,
   });
 
+  FeaturedBundle copyWith({
+    String? displayName,
+    String? displayIcon,
+    String? verticalPromoImage,
+  }) {
+    return FeaturedBundle(
+      bundleUuid: bundleUuid,
+      durationRemainingSeconds: durationRemainingSeconds,
+      itemIds: itemIds,
+      totalBaseCost: totalBaseCost,
+      totalDiscountedCost: totalDiscountedCost,
+      totalDiscountPercent: totalDiscountPercent,
+      displayName: displayName ?? this.displayName,
+      displayIcon: displayIcon ?? this.displayIcon,
+      verticalPromoImage: verticalPromoImage ?? this.verticalPromoImage,
+    );
+  }
+
   factory FeaturedBundle.fromJson(Map<String, dynamic> json) {
     final items = (json['Items'] as List<dynamic>?) ?? [];
     return FeaturedBundle(
@@ -52,33 +70,73 @@ class FeaturedBundle {
 /// Night market bundle item.
 class NightMarketOffer {
   final String offerId;
+  final String skinLevelUuid;
+  final int basePrice;
   final int discountedPrice;
-  final double discountPercent;
+  final int discountPercent; // e.g. 22 for 22%
   final String? skinName;
   final String? skinIcon;
+  final String? contentTierUuid;
 
   const NightMarketOffer({
     required this.offerId,
+    required this.skinLevelUuid,
+    required this.basePrice,
     required this.discountedPrice,
     required this.discountPercent,
     this.skinName,
     this.skinIcon,
+    this.contentTierUuid,
   });
+
+  NightMarketOffer copyWith({
+    String? skinName,
+    String? skinIcon,
+    String? contentTierUuid,
+  }) {
+    return NightMarketOffer(
+      offerId: offerId,
+      skinLevelUuid: skinLevelUuid,
+      basePrice: basePrice,
+      discountedPrice: discountedPrice,
+      discountPercent: discountPercent,
+      skinName: skinName ?? this.skinName,
+      skinIcon: skinIcon ?? this.skinIcon,
+      contentTierUuid: contentTierUuid ?? this.contentTierUuid,
+    );
+  }
 
   factory NightMarketOffer.fromJson(Map<String, dynamic> json) {
     final offer = json['Offer'] as Map<String, dynamic>? ?? {};
+    final rewards = (offer['Rewards'] as List<dynamic>?) ?? [];
+    String skinLevelUuid = '';
+    if (rewards.isNotEmpty && rewards.first is Map) {
+      skinLevelUuid = rewards.first['ItemID']?.toString() ?? '';
+    }
+
+    final rawCost = offer['Cost'] as Map<String, dynamic>? ?? {};
+    final basePrice =
+        (rawCost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ?? 0;
+
+    final discCost = json['DiscountCosts'] as Map<String, dynamic>? ?? {};
+    final discountedPrice =
+        (discCost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ?? 0;
+
+    final rawDiscount = (json['DiscountPercent'] as num?)?.toDouble() ?? 0.0;
+    final discountPercent = rawDiscount > 1
+        ? rawDiscount.round()
+        : (rawDiscount * 100).round();
+
     return NightMarketOffer(
-      offerId: offer['OfferID'] as String? ?? '',
-      discountedPrice:
-          (json['DiscountCosts']?['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
-                  as num?)
-              ?.toInt() ??
-              0,
-      discountPercent:
-          (json['DiscountPercent'] as num?)?.toDouble() ?? 0.0,
+      offerId: offer['OfferID'] as String? ?? json['BonusOfferID'] as String? ?? '',
+      skinLevelUuid: skinLevelUuid,
+      basePrice: basePrice,
+      discountedPrice: discountedPrice,
+      discountPercent: discountPercent,
     );
   }
 }
+
 
 /// Accessory store — daily rotating accessories (sprays, cards, etc.)
 class AccessoryStore {
