@@ -1,0 +1,31 @@
+import 'package:cookie_jar/cookie_jar.dart';
+import 'package:dio/dio.dart';
+import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+
+const _riotUserAgent =
+    'RiotClient/60.0.6.4770705.4749685 rso-auth (Windows;10;;Professional, x64)';
+
+/// Creates a [Dio] instance dedicated to `auth.riotgames.com` requests.
+/// - Attaches the required Riot User-Agent header on every request.
+/// - Manages cookies via the shared [PersistCookieJar].
+/// - Does NOT follow redirects automatically so we can read the `location`
+///   header for token extraction during cookie reauth.
+Dio createAuthDio(PersistCookieJar cookieJar) {
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: {
+        'User-Agent': _riotUserAgent,
+        'Content-Type': 'application/json',
+      },
+      // Do NOT follow redirects — we need to read location headers ourselves.
+      followRedirects: false,
+      validateStatus: (status) => status != null && status < 400,
+    ),
+  );
+
+  dio.interceptors.add(CookieManager(cookieJar));
+
+  return dio;
+}
