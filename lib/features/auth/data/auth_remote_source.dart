@@ -64,6 +64,7 @@ class AuthRemoteSource {
       return {
         'type': 'multifactor',
         'email': mf['email'] ?? '',
+        'method': mf['method'] ?? 'email', // 'email' or 'totp'
       };
     }
 

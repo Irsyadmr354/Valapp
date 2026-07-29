@@ -17,7 +17,8 @@ class LoginLoading extends LoginState {
 
 class LoginNeedsMfa extends LoginState {
   final String maskedEmail;
-  const LoginNeedsMfa(this.maskedEmail);
+  final String method; // 'email' or 'totp'
+  const LoginNeedsMfa(this.maskedEmail, {this.method = 'email'});
 }
 
 class LoginSuccess extends LoginState {
@@ -53,7 +54,10 @@ class LoginController extends StateNotifier<LoginState> {
       final result = await repo.login(username.trim(), password);
 
       if (result['type'] == 'multifactor') {
-        state = LoginNeedsMfa(result['email'] as String? ?? '');
+        state = LoginNeedsMfa(
+          result['email'] as String? ?? '',
+          method: result['method'] as String? ?? 'email',
+        );
       } else if (result['type'] == 'response') {
         final credentials =
             await repo.completeLogin(result['uri'] as String);

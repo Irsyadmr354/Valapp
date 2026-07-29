@@ -33,6 +33,9 @@ class _MfaScreenState extends ConsumerState<MfaScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(loginControllerProvider);
     final controller = ref.read(loginControllerProvider.notifier);
+
+    // Determine MFA method and labels
+    final isTotp = state is LoginNeedsMfa && state.method == 'totp';
     final maskedEmail =
         state is LoginNeedsMfa ? state.maskedEmail : '';
     final isLoading = state is MfaLoading;
@@ -63,15 +66,15 @@ class _MfaScreenState extends ConsumerState<MfaScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
-              const Icon(
-                Icons.email_outlined,
-                color: Color(0xFFFF4655),
+              Icon(
+                isTotp ? Icons.security : Icons.email_outlined,
+                color: const Color(0xFFFF4655),
                 size: 48,
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Check Your Email',
-                style: TextStyle(
+              Text(
+                isTotp ? 'Authenticator Code' : 'Check Your Email',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -80,9 +83,11 @@ class _MfaScreenState extends ConsumerState<MfaScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                maskedEmail.isNotEmpty
-                    ? 'Enter the 6-digit code sent to $maskedEmail'
-                    : 'Enter the 6-digit code sent to your email.',
+                isTotp
+                    ? 'Enter the 6-digit code from your Authenticator App\n(Google Authenticator, Authy, etc.)'
+                    : maskedEmail.isNotEmpty
+                        ? 'Enter the 6-digit code sent to $maskedEmail'
+                        : 'Enter the 6-digit code sent to your email.',
                 style: const TextStyle(color: Colors.white54, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
@@ -144,6 +149,17 @@ class _MfaScreenState extends ConsumerState<MfaScreen> {
                             letterSpacing: 1.5),
                       ),
               ),
+
+              const SizedBox(height: 20),
+
+              // Hint text
+              Text(
+                isTotp
+                    ? 'Open your Authenticator App and enter the current code.'
+                    : 'The code expires in a few minutes. Check your spam folder if not received.',
+                style: const TextStyle(color: Colors.white24, fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -189,7 +205,7 @@ class _MfaScreenState extends ConsumerState<MfaScreen> {
           } else if (value.isEmpty && index > 0) {
             _focusList[index - 1].requestFocus();
           }
-          setState(() {}); // Rebuild to update button state
+          setState(() {});
         },
       ),
     );
