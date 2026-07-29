@@ -1,0 +1,83 @@
+name: Build iOS IPA + Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  # ── iOS ────────────────────────────────────────────────────────────────────
+  build-ios:
+    name: Build iOS (unsigned IPA)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build iOS (no code signing)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ios/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/Payload/Runner.app
+          cd build/ios
+          zip -r ../../Valorant_ShopMonitor_unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valorant-ShopMonitor-iOS-unsigned
+          path: Valorant_ShopMonitor_unsigned.ipa
+          retention-days: 30
+
+  # ── Android ────────────────────────────────────────────────────────────────
+  build-android:
+    name: Build Android APK (debug)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Android APK (debug)
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Valorant-ShopMonitor-Android-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 30
