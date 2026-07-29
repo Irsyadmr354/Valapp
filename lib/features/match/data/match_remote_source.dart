@@ -24,7 +24,7 @@ class MatchRemoteSource {
     String shard,
     String puuid, {
     int startIndex = 0,
-    int endIndex = 20,
+    int endIndex = 30,
     String? queue,
   }) async {
     final cleanShard = shard.toLowerCase();

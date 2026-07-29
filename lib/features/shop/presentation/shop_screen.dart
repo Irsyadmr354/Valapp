@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
+import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/skin_card.dart';
 import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
@@ -392,6 +393,12 @@ final _bundlesMapProvider =
   return assets.getBundlesMap();
 });
 
+final _skinLevelsMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getSkinLevelsMap();
+});
+
 class _BundleBanner extends ConsumerWidget {
   const _BundleBanner({required this.bundle});
   final FeaturedBundle bundle;
@@ -399,18 +406,35 @@ class _BundleBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bundlesAsync = ref.watch(_bundlesMapProvider);
+    final skinLevelsAsync = ref.watch(_skinLevelsMapProvider);
+
     final bundleMap = bundlesAsync.asData?.value ?? {};
+    final skinMap = skinLevelsAsync.asData?.value ?? {};
+
     final bundleInfo = bundleMap[bundle.bundleUuid.toLowerCase()] ?? bundleMap[bundle.bundleUuid];
 
     final displayIcon2 = bundleInfo?['displayIcon2'] as String?;
     final verticalImage = bundleInfo?['verticalPromoImage'] as String?;
     final displayIcon = bundleInfo?['displayIcon'] as String?;
 
-    final imageUrl = displayIcon2 ??
+    String? imageUrl = displayIcon2 ??
         verticalImage ??
         displayIcon ??
         bundle.verticalPromoImage ??
         bundle.displayIcon;
+
+    // Fallback: If no direct bundle promo image found, use image of the first skin item in bundle
+    if ((imageUrl == null || imageUrl.isEmpty) && bundle.itemIds.isNotEmpty) {
+      for (final itemId in bundle.itemIds) {
+        final skinMeta = skinMap[itemId] as Map<String, dynamic>? ??
+            skinMap[itemId.toLowerCase()] as Map<String, dynamic>?;
+        final icon = skinMeta?['displayIcon'] as String?;
+        if (icon != null && icon.isNotEmpty) {
+          imageUrl = icon;
+          break;
+        }
+      }
+    }
 
     final discountInt = (bundle.totalDiscountPercent > 1
             ? bundle.totalDiscountPercent
@@ -695,6 +719,7 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
             onPageChanged: (idx) => setState(() => _currentPage = idx),
             itemBuilder: (context, i) {
               final offer = widget.offers[i];
+              final tierColor = TierColors.forName(offer.contentTierUuid);
               final discountInt = (offer.discountPercent > 1
                       ? offer.discountPercent
                       : offer.discountPercent * 100)
@@ -706,17 +731,22 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFFA855F7).withAlpha(140),
-                    width: 1.5,
+                    color: tierColor.withAlpha(180),
+                    width: 1.4,
                   ),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF2A153B), Color(0xFF0F0A1A)],
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      tierColor.withAlpha(80),
+                      tierColor.withAlpha(25),
+                      const Color(0xFF0C131D),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFA855F7).withAlpha(30),
+                      color: tierColor.withAlpha(45),
                       blurRadius: 12,
                       spreadRadius: 1,
                     ),
@@ -726,6 +756,17 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                   borderRadius: BorderRadius.circular(15),
                   child: Stack(
                     children: [
+                      // Top Tier Accent Bar
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 3.5,
+                          color: tierColor,
+                        ),
+                      ),
+
                       // Weapon Image
                       Positioned.fill(
                         child: Padding(
@@ -804,8 +845,8 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                                   const SizedBox(width: 6),
                                   Text(
                                     '${offer.discountedPrice} VP',
-                                    style: const TextStyle(
-                                      color: Color(0xFFA855F7),
+                                    style: TextStyle(
+                                      color: tierColor,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w900,
                                     ),

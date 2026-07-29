@@ -44,14 +44,21 @@ class FeaturedBundle {
 
   factory FeaturedBundle.fromJson(Map<String, dynamic> json) {
     final items = (json['Items'] as List<dynamic>?) ?? [];
+    final itemIds = <String>[];
+    for (final e in items) {
+      if (e is Map) {
+        final itemObj = e['Item'] as Map?;
+        final id = itemObj?['ItemID']?.toString() ?? e['ItemID']?.toString() ?? '';
+        if (id.isNotEmpty) itemIds.add(id);
+      }
+    }
+
     return FeaturedBundle(
-      bundleUuid: json['DataAssetID'] as String? ?? '',
+      bundleUuid: json['DataAssetID'] as String? ?? json['ID'] as String? ?? '',
       durationRemainingSeconds:
-          (json['DurationRemainingInSeconds'] as num?)?.toInt() ?? 0,
-      itemIds: items
-          .map((e) => e['Item']?['ItemID'] as String? ?? '')
-          .where((id) => id.isNotEmpty)
-          .toList(),
+          (json['DurationRemainingInSeconds'] as num?)?.toInt() ??
+          (json['BundleRemainingDurationInSeconds'] as num?)?.toInt() ?? 0,
+      itemIds: itemIds,
       totalBaseCost:
           (json['TotalBaseCost']?['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
                   as num?)
@@ -222,11 +229,16 @@ class Storefront {
 
     // Featured bundle
     FeaturedBundle? bundle;
-    final bundlesData =
-        json['FeaturedBundle']?['Bundles'] as List<dynamic>?;
-    if (bundlesData != null && bundlesData.isNotEmpty) {
-      bundle = FeaturedBundle.fromJson(
-          bundlesData.first as Map<String, dynamic>);
+    final fbJson = json['FeaturedBundle'] as Map<String, dynamic>?;
+    if (fbJson != null) {
+      final bundlesList = fbJson['Bundles'] as List<dynamic>?;
+      if (bundlesList != null && bundlesList.isNotEmpty) {
+        bundle = FeaturedBundle.fromJson(
+            bundlesList.first as Map<String, dynamic>);
+      } else if (fbJson['Bundle'] != null && fbJson['Bundle'] is Map) {
+        bundle = FeaturedBundle.fromJson(
+            fbJson['Bundle'] as Map<String, dynamic>);
+      }
     }
 
     // Night market

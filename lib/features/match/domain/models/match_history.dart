@@ -57,11 +57,17 @@ class MatchHistoryEntry {
   }
 
   factory MatchHistoryEntry.fromJson(Map<String, dynamic> json) {
+    final startMs = (json['GameStartTime'] as num?)?.toInt() ??
+        (json['gameStartTime'] as num?)?.toInt() ??
+        (json['MatchStartTime'] as num?)?.toInt() ??
+        (json['matchStartTime'] as num?)?.toInt() ??
+        0;
+
     return MatchHistoryEntry(
-      matchId: json['MatchID'] as String? ?? '',
-      gameStartMillis: (json['GameStartTime'] as num?)?.toInt() ?? 0,
-      queueId: json['QueueID']?.toString() ?? '',
-      teamId: json['TeamID']?.toString() ?? '',
+      matchId: json['MatchID'] as String? ?? json['matchId'] as String? ?? '',
+      gameStartMillis: startMs,
+      queueId: json['QueueID']?.toString() ?? json['queueID']?.toString() ?? '',
+      teamId: json['TeamID']?.toString() ?? json['teamId']?.toString() ?? '',
       isRanked: json['IsRanked'] as bool? ?? false,
       mapId: json['MapID']?.toString() ?? json['mapId']?.toString() ?? '',
     );
