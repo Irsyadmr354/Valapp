@@ -26,13 +26,14 @@ class MatchRemoteSource {
     int endIndex = 20,
     String? queue,
   }) async {
+    final cleanShard = shard.toLowerCase();
     final params = <String, dynamic>{
       'startIndex': startIndex,
       'endIndex': endIndex,
       if (queue != null) 'queue': queue,
     };
     final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/match-history/v1/history/$puuid',
+      'https://pd.$cleanShard.a.pvp.net/match-history/v1/history/$puuid',
       queryParameters: params,
     );
     return MatchHistoryResult.fromJson(_toMap(response.data));
@@ -40,8 +41,9 @@ class MatchRemoteSource {
 
   Future<MatchDetails> fetchMatchDetails(
       String shard, String matchId) async {
+    final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/match-details/v1/matches/$matchId',
+      'https://pd.$cleanShard.a.pvp.net/match-details/v1/matches/$matchId',
     );
     return MatchDetails.fromJson(_toMap(response.data));
   }

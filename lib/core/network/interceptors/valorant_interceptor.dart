@@ -47,10 +47,11 @@ class ValorantInterceptor extends Interceptor {
       }
       options.headers['X-Riot-ClientVersion'] = clientVersion;
       options.headers['X-Riot-ClientPlatform'] = _clientPlatform;
-      options.headers['Content-Type'] = 'application/json';
-    } catch (_) {
+      if (options.data != null || (options.method.toUpperCase() != 'GET' && options.method.toUpperCase() != 'HEAD')) {
+        options.headers['Content-Type'] = 'application/json';
+      }
       // Best effort — missing headers will surface as 401 anyway.
-    }
+    } catch (_) {}
 
     handler.next(options);
   }

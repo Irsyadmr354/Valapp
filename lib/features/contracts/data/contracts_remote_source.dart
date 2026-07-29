@@ -20,8 +20,9 @@ class ContractsRemoteSource {
 
   Future<PlayerContracts> fetchContracts(
       String shard, String puuid) async {
+    final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/contracts/v1/contracts/$puuid',
+      'https://pd.$cleanShard.a.pvp.net/contracts/v1/contracts/$puuid',
     );
     return PlayerContracts.fromJson(_toMap(response.data));
   }

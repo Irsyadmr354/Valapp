@@ -19,8 +19,9 @@ class AccountRemoteSource {
   }
 
   Future<AccountXp> fetchAccountXp(String shard, String puuid) async {
+    final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/account-xp/v1/players/$puuid',
+      'https://pd.$cleanShard.a.pvp.net/account-xp/v1/players/$puuid',
     );
     return AccountXp.fromJson(_toMap(response.data));
   }
@@ -35,9 +36,10 @@ class AccountRemoteSource {
   Future<Map<String, String>> fetchDisplayNames(
       String shard, List<String> puuids) async {
     if (puuids.isEmpty) return {};
+    final cleanShard = shard.toLowerCase();
     try {
       final response = await _dio.put<dynamic>(
-        'https://pd.$shard.a.pvp.net/name-service/v2/players',
+        'https://pd.$cleanShard.a.pvp.net/name-service/v2/players',
         data: puuids,
       );
 
@@ -84,8 +86,9 @@ class AccountRemoteSource {
   /// Returns owned item UUIDs for a given item type.
   Future<List<String>> fetchOwnedItems(
       String shard, String puuid, String itemTypeId) async {
+    final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/store/v1/entitlements/$puuid/$itemTypeId',
+      'https://pd.$cleanShard.a.pvp.net/store/v1/entitlements/$puuid/$itemTypeId',
     );
     final data = _toMap(response.data);
     final entitlements = (data['Entitlements'] as List<dynamic>?) ?? [];

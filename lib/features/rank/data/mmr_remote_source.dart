@@ -19,8 +19,9 @@ class MmrRemoteSource {
   }
 
   Future<PlayerMmr> fetchMmr(String shard, String puuid) async {
+    final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/mmr/v1/players/$puuid',
+      'https://pd.$cleanShard.a.pvp.net/mmr/v1/players/$puuid',
     );
     return PlayerMmr.fromJson(_toMap(response.data));
   }
@@ -31,8 +32,9 @@ class MmrRemoteSource {
     int startIndex = 0,
     int endIndex = 20,
   }) async {
+    final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/mmr/v1/players/$puuid/competitiveupdates',
+      'https://pd.$cleanShard.a.pvp.net/mmr/v1/players/$puuid/competitiveupdates',
       queryParameters: {
         'startIndex': startIndex,
         'endIndex': endIndex,
