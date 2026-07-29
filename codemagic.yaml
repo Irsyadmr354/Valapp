@@ -1,0 +1,64 @@
+workflows:
+  ios-release:
+    name: iOS Release (Ad Hoc / Development)
+    max_build_duration: 60
+    environment:
+      flutter: 3.44.8
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.personal.valorantShopMonitor"
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        script: find . -name "Podfile" -execdir pod install \;
+
+      - name: Set build number
+        script: |
+          BUILD_NUMBER=$PROJECT_BUILD_NUMBER
+          cd ios
+          agvtool new-version -all $BUILD_NUMBER
+
+      - name: Build iOS (no code signing — unsigned IPA)
+        script: |
+          flutter build ios --release --no-codesign
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$CM_BUILD_DIR/Runner.xcarchive" \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+          mkdir -p "$CM_BUILD_DIR/Payload"
+          cp -r "$CM_BUILD_DIR/Runner.xcarchive/Products/Applications/Runner.app" \
+            "$CM_BUILD_DIR/Payload/Runner.app"
+          cd "$CM_BUILD_DIR"
+          zip -r Valorant_ShopMonitor_unsigned.ipa Payload
+
+    artifacts:
+      - "$CM_BUILD_DIR/Valorant_ShopMonitor_unsigned.ipa"
+      - build/ios/ipa/*.ipa
+
+  android-debug:
+    name: Android Debug APK
+    max_build_duration: 30
+    environment:
+      flutter: 3.44.8
+      java: 17
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build Android APK (debug)
+        script: flutter build apk --debug
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
