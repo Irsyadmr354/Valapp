@@ -16,14 +16,14 @@ workflows:
           cd ios
           pod install --repo-update
 
-      - name: Build Flutter iOS frameworks only (no Xcode signing)
+      - name: Generate Flutter engine files
         script: |
-          flutter build ios \
-            --release \
-            --no-codesign \
-            --no-tree-shake-icons
+          # Generate necessary Flutter files without triggering full Xcode build
+          flutter build ios --simulator --no-codesign
+          # The above builds for simulator (no signing needed at all)
+          # We'll then build for device using raw xcodebuild
 
-      - name: Archive with xcodebuild (signing completely disabled)
+      - name: Build release for device with xcodebuild
         script: |
           cd ios
           xcodebuild \
@@ -33,23 +33,20 @@ workflows:
             -sdk iphoneos \
             -archivePath "$CM_BUILD_DIR/Runner.xcarchive" \
             archive \
-            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            EXPANDED_CODE_SIGN_IDENTITY="-" \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARIES_FOR_DISTRIBUTION=YES \
-            | xcpretty --color && exit ${PIPESTATUS[0]}
+            | xcpretty --color
 
-      - name: Export unsigned IPA from archive
+      - name: Package as IPA
         script: |
           mkdir -p "$CM_BUILD_DIR/Payload"
-          APP_PATH=$(find "$CM_BUILD_DIR/Runner.xcarchive" -name "*.app" | head -1)
-          cp -r "$APP_PATH" "$CM_BUILD_DIR/Payload/Runner.app"
+          APP=$(find "$CM_BUILD_DIR/Runner.xcarchive/Products/Applications" -name "*.app" | head -1)
+          cp -r "$APP" "$CM_BUILD_DIR/Payload/Runner.app"
           cd "$CM_BUILD_DIR"
-          zip -r "ValApp.ipa" "Payload"
-          echo "✅ IPA size: $(du -sh ValApp.ipa | cut -f1)"
+          zip -r ValApp.ipa Payload
+          echo "IPA: $(du -sh ValApp.ipa)"
 
     artifacts:
       - "$CM_BUILD_DIR/ValApp.ipa"
