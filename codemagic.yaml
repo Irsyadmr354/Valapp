@@ -16,23 +16,41 @@ workflows:
           cd ios
           pod install --repo-update
 
-      - name: Build iOS RELEASE (no code signing)
+      - name: Build Flutter iOS release framework
         script: |
           flutter build ios \
             --release \
-            --no-codesign \
-            --dart-define=FLUTTER_BUILD_MODE=release
+            --no-codesign
+
+      - name: Archive with xcodebuild (no signing)
+        script: |
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$CM_BUILD_DIR/Runner.xcarchive" \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE="" \
+            | xcpretty
 
       - name: Package as IPA
         script: |
           mkdir -p "$CM_BUILD_DIR/Payload"
-          cp -r "build/ios/iphoneos/Runner.app" "$CM_BUILD_DIR/Payload/Runner.app"
+          cp -r \
+            "$CM_BUILD_DIR/Runner.xcarchive/Products/Applications/Runner.app" \
+            "$CM_BUILD_DIR/Payload/Runner.app"
           cd "$CM_BUILD_DIR"
-          zip -r "ValApp_release.ipa" "Payload"
-          echo "IPA created: $CM_BUILD_DIR/ValApp_release.ipa"
+          zip -r "ValApp.ipa" "Payload"
+          ls -lh ValApp.ipa
 
     artifacts:
-      - "$CM_BUILD_DIR/ValApp_release.ipa"
+      - "$CM_BUILD_DIR/ValApp.ipa"
 
   android-release:
     name: Android Release APK
