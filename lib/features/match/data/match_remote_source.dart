@@ -31,18 +31,11 @@ class MatchRemoteSource {
     final params = <String, dynamic>{
       'startIndex': startIndex,
       'endIndex': endIndex,
-      if (queue != null) 'queue': queue,
-      '_t': DateTime.now().millisecondsSinceEpoch,
+      if (queue != null && queue.isNotEmpty) 'queue': queue,
     };
     final response = await _dio.get<dynamic>(
       'https://pd.$cleanShard.a.pvp.net/match-history/v1/history/$puuid',
       queryParameters: params,
-      options: Options(
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-        },
-      ),
     );
     return MatchHistoryResult.fromJson(_toMap(response.data));
   }
