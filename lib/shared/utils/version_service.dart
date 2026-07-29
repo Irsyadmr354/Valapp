@@ -9,9 +9,13 @@ class VersionService {
 
   static const _versionUrl = 'https://valorant-api.com/v1/version';
   static const _cacheDuration = Duration(hours: 24);
-  static const _fallback = 'release-09.08-shipping-17-2496738';
+  static const _fallback = 'release-13.01-shipping-11-5090349';
 
-  Future<String> get() async {
+  // Also invalidate version cache so fresh version is fetched
+  Future<void> invalidate() async {
+    await CacheStorage.instance.remove(CacheStorage.keyClientVersion);
+    await CacheStorage.instance.remove(CacheStorage.keyClientVersionFetchedAt);
+  }
     final cache = CacheStorage.instance;
 
     // Return cached version if still fresh

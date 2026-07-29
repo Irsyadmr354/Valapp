@@ -103,6 +103,9 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
         expiresIn: expiresIn,
       );
 
+      // Invalidate credentials provider so router picks up the new session
+      ref.invalidate(currentCredentialsProvider);
+
       if (mounted) context.go('/shop');
     } on AuthException catch (e) {
       setState(() {

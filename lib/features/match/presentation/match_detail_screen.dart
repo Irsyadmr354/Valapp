@@ -4,7 +4,8 @@ import '../../../core/di/providers.dart';
 import '../domain/models/match_details.dart';
 
 final _matchDetailFamily =
-    FutureProvider.autoDispose.family<MatchDetails?, String>((ref, matchId) async {
+    FutureProvider.autoDispose.family<MatchDetails?, String>(
+        (ref, matchId) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(matchRemoteSourceProvider.future);
@@ -30,11 +31,17 @@ class MatchDetailScreen extends ConsumerWidget {
       body: detailAsync.when(
         data: (details) => details == null
             ? const Center(
-                child: Text('No data', style: TextStyle(color: Colors.white54)))
+                child: Text('No data',
+                    style: TextStyle(color: Colors.white54)))
             : _MatchDetailContent(details: details),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Error: $e', style: const TextStyle(color: Colors.white54)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Error: $e',
+                style: const TextStyle(color: Colors.white54)),
+          ),
         ),
       ),
     );
@@ -45,8 +52,58 @@ class _MatchDetailContent extends StatelessWidget {
   const _MatchDetailContent({required this.details});
   final MatchDetails details;
 
+  /// Converts Riot's raw map path to a readable name.
+  /// e.g. "/Game/Maps/Ascent/Ascent" → "Ascent"
+  /// e.g. "BOMBGAMEMODE.BOMBGAMEMODE_C" → "Unknown Map"
+  String _mapName(String rawMapId) {
+    if (rawMapId.isEmpty) return 'Unknown Map';
+    // Riot map paths end with the map name: /Game/Maps/Ascent/Ascent
+    final parts = rawMapId.split('/');
+    final last = parts.last;
+    if (last.isEmpty || last.contains('.')) return 'Unknown Map';
+    return last;
+  }
+
+  /// Converts raw game mode path to readable name.
+  String _modeName(String rawMode) {
+    if (rawMode.isEmpty) return 'Unknown Mode';
+    final parts = rawMode.split('/');
+    final last = parts.last.toLowerCase();
+    switch (last) {
+      case 'competitive': return 'Competitive';
+      case 'unrated': return 'Unrated';
+      case 'spikerush': return 'Spike Rush';
+      case 'deathmatch': return 'Deathmatch';
+      case 'ggteam': return 'Escalation';
+      case 'onefa': return 'Replication';
+      case 'hurm': return 'Team Deathmatch';
+      case 'swiftplay': return 'Swiftplay';
+      case 'newmap': return 'New Map';
+      default:
+        // Handle UE path like ShooterGame.ShooterGameMode_C
+        if (last.contains('.')) return 'Unknown Mode';
+        return last[0].toUpperCase() + last.substring(1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final redTeam = details.players
+        .where((p) => p.teamId.toLowerCase() == 'red')
+        .toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+    final blueTeam = details.players
+        .where((p) => p.teamId.toLowerCase() == 'blue')
+        .toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+    // Non-team modes (DM etc)
+    final others = details.players
+        .where((p) =>
+            p.teamId.toLowerCase() != 'red' &&
+            p.teamId.toLowerCase() != 'blue')
+        .toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -61,7 +118,7 @@ class _MatchDetailContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                details.matchInfo.gameMode.split('/').last.toUpperCase(),
+                _modeName(details.matchInfo.gameMode).toUpperCase(),
                 style: const TextStyle(
                     color: Color(0xFFFF4655),
                     fontSize: 12,
@@ -70,15 +127,15 @@ class _MatchDetailContent extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                details.matchInfo.mapId.split('/').last,
+                _mapName(details.matchInfo.mapId),
                 style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.w700),
               ),
               Text(
-                '${details.matchInfo.gameDuration.inMinutes} min | '
-                '${details.roundResults.length} rounds',
+                '${details.matchInfo.gameDuration.inMinutes} min'
+                '${details.roundResults.isNotEmpty ? ' · ${details.roundResults.length} rounds' : ''}',
                 style: const TextStyle(color: Colors.white54, fontSize: 13),
               ),
             ],
@@ -86,28 +143,80 @@ class _MatchDetailContent extends StatelessWidget {
         ),
         const SizedBox(height: 20),
 
-        const Text(
-          'SCOREBOARD',
-          style: TextStyle(
-              color: Colors.white,
+        // Team-based scoreboard
+        if (redTeam.isNotEmpty && blueTeam.isNotEmpty) ...[
+          _TeamSection(title: 'ATTACK', players: redTeam, color: const Color(0xFFFF4655)),
+          const SizedBox(height: 12),
+          _TeamSection(title: 'DEFENSE', players: blueTeam, color: const Color(0xFF0BC4C4)),
+        ] else ...[
+          const Text(
+            'SCOREBOARD',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5),
+          ),
+          const SizedBox(height: 10),
+          ...others.map((p) => _PlayerRow(player: p)),
+          if (others.isEmpty)
+            ...details.players.map((p) => _PlayerRow(player: p)),
+        ],
+
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+}
+
+class _TeamSection extends StatelessWidget {
+  const _TeamSection({
+    required this.title,
+    required this.players,
+    required this.color,
+  });
+
+  final String title;
+  final List<PlayerStats> players;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            title,
+            style: TextStyle(
+              color: color,
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.5),
+              letterSpacing: 1.5,
+            ),
+          ),
         ),
-        const SizedBox(height: 10),
-
-        // Players
-        ...details.players
-            .map((p) => _PlayerRow(player: p))
-            ,
+        ...players.map((p) => _PlayerRow(player: p, accentColor: color)),
       ],
     );
   }
 }
 
 class _PlayerRow extends StatelessWidget {
-  const _PlayerRow({required this.player});
+  const _PlayerRow({required this.player, this.accentColor});
   final PlayerStats player;
+  final Color? accentColor;
+
+  String get _name {
+    if (player.displayName.isNotEmpty && player.displayName != '#') {
+      return player.displayName;
+    }
+    if (player.puuid.length >= 8) {
+      return player.puuid.substring(0, 8).toUpperCase();
+    }
+    return 'Player';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,15 +226,18 @@ class _PlayerRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1A2634),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2A3540)),
+        border: Border(
+          left: BorderSide(
+            color: accentColor ?? Colors.white24,
+            width: 3,
+          ),
+        ),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              player.displayName.isNotEmpty
-                  ? player.displayName
-                  : player.puuid.substring(0, 8),
+              _name,
               style: const TextStyle(color: Colors.white, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
@@ -139,7 +251,7 @@ class _PlayerRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           SizedBox(
-            width: 48,
+            width: 52,
             child: Text(
               '${player.averageScore.toStringAsFixed(0)} ACS',
               style: const TextStyle(color: Colors.white38, fontSize: 11),
