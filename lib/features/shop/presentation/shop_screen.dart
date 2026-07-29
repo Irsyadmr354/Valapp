@@ -402,6 +402,24 @@ class _BundleBanner extends ConsumerWidget {
     final bundleMap = bundlesAsync.asData?.value ?? {};
     final bundleInfo = bundleMap[bundle.bundleUuid.toLowerCase()] ?? bundleMap[bundle.bundleUuid];
 
+    // ── DEBUG: Featured Bundle Image Resolution ──
+    debugPrint('══════════════════════════════════════════');
+    debugPrint('🔍 BUNDLE DEBUG');
+    debugPrint('  Riot bundleUuid      : ${bundle.bundleUuid}');
+    debugPrint('  Riot bundleUuid (lc) : ${bundle.bundleUuid.toLowerCase()}');
+    debugPrint('  bundlesMap keys count: ${bundleMap.length}');
+    debugPrint('  bundleInfo found?    : ${bundleInfo != null}');
+    if (bundleInfo != null) {
+      debugPrint('  API displayName      : ${bundleInfo['displayName']}');
+      debugPrint('  API displayIcon      : ${bundleInfo['displayIcon']}');
+      debugPrint('  API displayIcon2     : ${bundleInfo['displayIcon2']}');
+      debugPrint('  API verticalPromo    : ${bundleInfo['verticalPromoImage']}');
+    }
+    debugPrint('  model.displayName    : ${bundle.displayName}');
+    debugPrint('  model.displayIcon    : ${bundle.displayIcon}');
+    debugPrint('  model.verticalPromo  : ${bundle.verticalPromoImage}');
+    // ── END DEBUG ──
+
     final displayIcon2 = bundleInfo?['displayIcon2'] as String?;
     final verticalImage = bundleInfo?['verticalPromoImage'] as String?;
     final displayIcon = bundleInfo?['displayIcon'] as String?;
@@ -411,6 +429,9 @@ class _BundleBanner extends ConsumerWidget {
         displayIcon ??
         bundle.verticalPromoImage ??
         bundle.displayIcon;
+
+    debugPrint('  → RESOLVED imageUrl  : $imageUrl');
+    debugPrint('══════════════════════════════════════════');
 
     final discountInt = (bundle.totalDiscountPercent > 1
             ? bundle.totalDiscountPercent
