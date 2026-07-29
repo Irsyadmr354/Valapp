@@ -29,14 +29,10 @@ class AuthRemoteSource {
         'scope': 'account openid',
       },
     );
-    // Cookies are stored automatically by CookieManager — no body needed.
   }
 
   // ── Step 2: Submit Username & Password ────────────────────────────────────
 
-  /// Returns:
-  /// - `{'type': 'response', 'uri': '...'}` on success without 2FA
-  /// - `{'type': 'multifactor', 'email': 'a***@gmail.com'}` when 2FA required
   Future<Map<String, dynamic>> submitCredentials(
       String username, String password) async {
     final response = await _authDio.put<Map<String, dynamic>>(
@@ -52,29 +48,54 @@ class AuthRemoteSource {
     final data = response.data;
     if (data == null) throw const AuthException('Empty response from auth');
 
-    if (data['error'] == 'auth_failure') {
-      throw const InvalidCredentialsException();
+    final type = data['type'] as String?;
+    final error = data['error'] as String?;
+
+    // CAPTCHA detected
+    if (type == 'auth' && error == 'captcha_not_solved') {
+      throw const CaptchaRequiredException();
     }
-    if (data['type'] == 'auth' && data['error'] != null) {
+
+    // Wrong username/password
+    if (error == 'auth_failure') {
       throw const InvalidCredentialsException();
     }
 
-    if (data['type'] == 'multifactor') {
+    // Rate limited by Riot
+    if (error == 'rate_limited') {
+      throw const AuthException('Too many login attempts. Wait a few minutes.');
+    }
+
+    // Any other error on type=auth
+    if (type == 'auth' && error != null) {
+      // Could be CAPTCHA disguised as auth_failure from new IP
+      // Give a more helpful message
+      throw AuthException(
+        'Login blocked by Riot (error: $error).\n'
+        'This usually means CAPTCHA. Try again in 2-3 minutes.',
+      );
+    }
+
+    if (type == 'multifactor') {
       final mf = data['multifactor'] as Map<String, dynamic>? ?? {};
       return {
         'type': 'multifactor',
         'email': mf['email'] ?? '',
-        'method': mf['method'] ?? 'email', // 'email' or 'totp'
+        'method': mf['method'] ?? 'email',
       };
     }
 
-    if (data['type'] == 'response') {
+    if (type == 'response') {
       final uri = data['response']?['parameters']?['uri'] as String?;
       if (uri == null) throw const AuthException('Missing redirect URI');
       return {'type': 'response', 'uri': uri};
     }
 
-    throw AuthException('Unexpected auth response type: ${data['type']}');
+    // Unknown response — show raw for debugging
+    throw AuthException(
+      'Unexpected response from Riot: type=$type, error=$error\n'
+      'Full: ${jsonEncode(data)}',
+    );
   }
 
   // ── Step 3: Submit 2FA Code ───────────────────────────────────────────────
@@ -92,7 +113,8 @@ class AuthRemoteSource {
     final data = response.data;
     if (data == null) throw const AuthException('Empty response from MFA');
 
-    if (data['error'] != null) throw const InvalidMfaCodeException();
+    final error = data['error'] as String?;
+    if (error != null) throw const InvalidMfaCodeException();
 
     final uri = data['response']?['parameters']?['uri'] as String?;
     if (uri == null) throw const AuthException('Missing redirect URI in MFA');
@@ -139,8 +161,6 @@ class AuthRemoteSource {
 
   // ── Cookie Reauth ─────────────────────────────────────────────────────────
 
-  /// Attempts a silent token refresh using persisted cookies.
-  /// Returns the new redirect URI on success, or throws [TokenExpiredException].
   Future<String> cookieReauth() async {
     final response = await _authDio.get<dynamic>(
       _authBase,
@@ -157,13 +177,11 @@ class AuthRemoteSource {
       ),
     );
 
-    // Token arrives either in Location header (3xx) or response body (2xx)
     final location = response.headers['location']?.first;
     if (location != null && location.contains('access_token')) {
       return location;
     }
 
-    // Some responses carry token in body
     if (response.data is Map) {
       final uri =
           (response.data as Map)['response']?['parameters']?['uri'] as String?;
@@ -176,7 +194,6 @@ class AuthRemoteSource {
   // ── URI Parsing Helpers ───────────────────────────────────────────────────
 
   static Map<String, String> parseTokensFromUri(String redirectUri) {
-    // Fragment comes after '#', treat it as query params
     final normalized = redirectUri.contains('#')
         ? redirectUri.replaceFirst('#', '?')
         : redirectUri;
@@ -203,7 +220,6 @@ class AuthRemoteSource {
     if (parts.length < 2) throw const AuthException('Invalid JWT format');
 
     String payload = parts[1];
-    // Add padding
     payload += '=' * ((4 - payload.length % 4) % 4);
 
     final decoded = utf8.decode(base64Url.decode(payload));
