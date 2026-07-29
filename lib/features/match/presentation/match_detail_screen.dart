@@ -1,7 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../domain/models/match_details.dart';
+
+final _mapsMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getMapsMap();
+});
 
 final _matchDetailFamily =
     FutureProvider.autoDispose.family<MatchDetails?, String>(
@@ -40,78 +47,46 @@ class MatchDetailScreen extends ConsumerWidget {
     final detailAsync = ref.watch(_matchDetailFamily(matchId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1923),
+      backgroundColor: const Color(0xFF070A10),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F1923),
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Match Details',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        backgroundColor: const Color(0xFF070A10),
+        title: const Text('MATCH DETAILS',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+                fontSize: 16)),
       ),
       body: detailAsync.when(
         data: (details) => details == null
             ? const Center(
-                child: Text('No data',
-                    style: TextStyle(color: Colors.white54)))
-            : _MatchDetailContent(details: details),
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+                child: Text('Match not found.',
+                    style: TextStyle(color: Colors.white38)))
+            : _MatchDetailsContent(details: details),
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+        ),
         error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('Error: $e',
-                style: const TextStyle(color: Colors.white54)),
-          ),
+          child: Text('Error: $e',
+              style: const TextStyle(color: Colors.white54)),
         ),
       ),
     );
   }
 }
 
-class _MatchDetailContent extends StatelessWidget {
-  const _MatchDetailContent({required this.details});
+class _MatchDetailsContent extends ConsumerWidget {
+  const _MatchDetailsContent({required this.details});
   final MatchDetails details;
 
-  String _mapName(String rawMapId) {
-    if (rawMapId.isEmpty) return 'Unknown Map';
-
-    // Lookup table: lowercase path → readable name
-    const mapNames = {
-      '/game/maps/ascent/ascent': 'Ascent',
-      '/game/maps/bind/bind': 'Bind',
-      '/game/maps/haven/haven': 'Haven',
-      '/game/maps/split/split': 'Split',
-      '/game/maps/fracture/canyon': 'Fracture',
-      '/game/maps/breeze/breeze': 'Breeze',
-      '/game/maps/icebox/port': 'Icebox',
-      '/game/maps/lowpe/lowpe': 'Pearl',
-      '/game/maps/jam/jam': 'Lotus',
-      '/game/maps/juliett/juliett': 'Sunset',
-      '/game/maps/infinity/infinity': 'Abyss',
-      '/game/maps/pitt/pitt': 'Pearl',
-      '/game/maps/foxtrot/foxtrot': 'Drift',
-      '/game/maps/triad/triad': 'Haven',
-      '/game/maps/range/range': 'The Range',
-    };
-
-    final normalized = rawMapId.toLowerCase();
-    final match = mapNames[normalized];
-    if (match != null) return match;
-
-    // Fallback: try partial match
-    for (final entry in mapNames.entries) {
-      if (normalized.contains(entry.key.split('/').last)) {
-        return entry.value;
-      }
-    }
-
-    // Last resort: split and capitalize
-    final parts = rawMapId.split('/');
-    final last = parts.last;
-    if (last.isEmpty || last.contains('.')) return 'Unknown Map';
+  String _mapName(String rawMap) {
+    if (rawMap.isEmpty) return 'Unknown Map';
+    final parts = rawMap.split('/');
+    final last = parts.last.split('.').first;
+    if (last.isEmpty) return rawMap;
     return last[0].toUpperCase() + last.substring(1);
   }
 
-  /// Converts raw game mode path to readable name.
   String _modeName(String rawMode, String queueId) {
     if (queueId.isNotEmpty) {
       switch (queueId.toLowerCase()) {
@@ -125,13 +100,11 @@ class _MatchDetailContent extends StatelessWidget {
         case 'swiftplay': return 'Swiftplay';
       }
     }
-
     final lower = rawMode.toLowerCase();
-    if (lower.contains('bomb') || lower.contains('standard')) return 'Standard';
-    if (lower.contains('deathmatch')) return 'Deathmatch';
+    if (lower.contains('competitive')) return 'Competitive';
+    if (lower.contains('unrated')) return 'Unrated';
     if (lower.contains('spikerush')) return 'Spike Rush';
-    if (lower.contains('onefa')) return 'Replication';
-    if (lower.contains('ggteam')) return 'Escalation';
+    if (lower.contains('deathmatch')) return 'Deathmatch';
     if (lower.contains('hurm')) return 'Team Deathmatch';
     if (lower.contains('swiftplay')) return 'Swiftplay';
 
@@ -142,9 +115,8 @@ class _MatchDetailContent extends StatelessWidget {
     return last[0].toUpperCase() + last.substring(1);
   }
 
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final redTeam = details.players
         .where((p) => p.teamId.toLowerCase() == 'red')
         .toList()
@@ -161,41 +133,103 @@ class _MatchDetailContent extends StatelessWidget {
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
+    final mapName = _mapName(details.matchInfo.mapId);
+    final mapsAsync = ref.watch(_mapsMapProvider);
+    final mapInfo = mapsAsync.asData?.value[mapName.toLowerCase()];
+    final splashUrl = mapInfo?['splash'] as String? ?? mapInfo?['listViewIcon'] as String?;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Match info header
+        // Match info header with Map Splash Artwork Background
         Container(
-          padding: const EdgeInsets.all(16),
+          height: 130,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A2634),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xFF141F2D),
+            border: Border.all(color: const Color(0xFFFF4655).withAlpha(80), width: 1),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _modeName(details.matchInfo.gameMode, details.matchInfo.queueId).toUpperCase(),
-                style: const TextStyle(
-                    color: Color(0xFFFF4655),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _mapName(details.matchInfo.mapId),
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700),
-              ),
-              Text(
-                '${details.matchInfo.gameDuration.inMinutes} min'
-                '${details.roundResults.isNotEmpty ? ' · ${details.roundResults.length} rounds' : ''}',
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
-              ),
-            ],
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: Stack(
+              children: [
+                // Map Artwork Image Background
+                if (splashUrl != null && splashUrl.isNotEmpty)
+                  Positioned.fill(
+                    child: CachedNetworkImage(
+                      imageUrl: splashUrl,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      placeholder: (_, __) => Container(color: const Color(0xFF141F2D)),
+                      errorWidget: (_, __, ___) => Container(color: const Color(0xFF141F2D)),
+                    ),
+                  ),
+
+                // Dark Overlay for readability
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          const Color(0xFF070A10).withAlpha(240),
+                          const Color(0xFF070A10).withAlpha(180),
+                          const Color(0xFF070A10).withAlpha(100),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Text Content
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF4655),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _modeName(details.matchInfo.gameMode, details.matchInfo.queueId).toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        mapName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${details.matchInfo.gameDuration.inMinutes} min'
+                        '${details.roundResults.isNotEmpty ? ' • ${details.roundResults.length} rounds' : ''}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -279,14 +313,14 @@ class _PlayerRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2634),
-        borderRadius: BorderRadius.circular(6),
+        color: const Color(0xFF0E1622),
+        borderRadius: BorderRadius.circular(8),
         border: Border(
           left: BorderSide(
             color: accentColor ?? Colors.white24,
-            width: 3,
+            width: 3.5,
           ),
         ),
       ),
@@ -295,23 +329,32 @@ class _PlayerRow extends StatelessWidget {
           Expanded(
             child: Text(
               _name,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(
             '${player.kills}/${player.deaths}/${player.assists}',
             style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                fontWeight: FontWeight.w600),
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           SizedBox(
-            width: 52,
+            width: 60,
             child: Text(
               '${player.averageScore.toStringAsFixed(0)} ACS',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
               textAlign: TextAlign.end,
             ),
           ),

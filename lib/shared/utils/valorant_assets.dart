@@ -177,5 +177,55 @@ class ValorantAssets {
       return cached ?? {};
     }
   }
+
+  // ── Maps ───────────────────────────────────────────────────────────────────
+
+  /// Returns a map of map name / path → map metadata (splash image, icons).
+  Future<Map<String, dynamic>> getMapsMap() async {
+    final cache = CacheStorage.instance;
+    const keyMaps = 'maps_metadata';
+    const keyMapsFetchedAt = 'maps_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyMapsFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyMaps);
+      if (cached != null) return cached;
+    }
+
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('$_base/maps');
+      final maps = (response.data?['data'] as List<dynamic>?) ?? [];
+
+      final map = <String, dynamic>{};
+      for (final m in maps) {
+        final displayName = m['displayName']?.toString() ?? '';
+        final mapUrl = m['mapUrl']?.toString() ?? '';
+        final splash = m['splash']?.toString() ?? m['listViewIcon']?.toString() ?? '';
+        final displayIcon = m['displayIcon']?.toString() ?? '';
+
+        final info = {
+          'displayName': displayName,
+          'splash': splash,
+          'displayIcon': displayIcon,
+          'listViewIcon': m['listViewIcon']?.toString() ?? splash,
+        };
+
+        if (displayName.isNotEmpty) {
+          map[displayName.toLowerCase()] = info;
+        }
+        if (mapUrl.isNotEmpty) {
+          map[mapUrl.toLowerCase()] = info;
+        }
+      }
+
+      await cache.setJson(keyMaps, map);
+      await cache.setTimestamp(keyMapsFetchedAt);
+      return map;
+    } catch (_) {
+      final cached = await cache.getJson(keyMaps);
+      return cached ?? {};
+    }
+  }
 }
+
 

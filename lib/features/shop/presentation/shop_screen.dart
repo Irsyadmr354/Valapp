@@ -142,24 +142,29 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
 
   Widget _buildAppBar(AsyncValue<Wallet?> walletAsync) {
     return SliverAppBar(
-      backgroundColor: const Color(0xFF0F1923),
+      backgroundColor: const Color(0xFF070A10),
       pinned: true,
-      expandedHeight: 100,
-      flexibleSpace: FlexibleSpaceBar(
-        title: const Text(
-          'Daily Shop',
-          style: TextStyle(
-              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+      floating: false,
+      centerTitle: false,
+      title: const Text(
+        'DAILY SHOP',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.2,
         ),
-        background: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 60, 16, 0),
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
           child: walletAsync.when(
             data: (wallet) => wallet != null ? _WalletBar(wallet: wallet) : const SizedBox(),
             loading: () => const SizedBox(),
             error: (_, __) => const SizedBox(),
           ),
         ),
-      ),
+      ],
     );
   }
 

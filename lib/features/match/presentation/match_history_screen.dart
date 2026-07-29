@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,12 @@ import '../../../core/di/providers.dart';
 import '../domain/models/match_history.dart';
 
 final _queueFilterProvider = StateProvider<String?>((ref) => null);
+
+final _mapsMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getMapsMap();
+});
 
 final _matchHistoryProvider =
     FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
@@ -137,20 +144,25 @@ class _QueueFilter extends StatelessWidget {
   }
 }
 
-class _MatchTile extends StatelessWidget {
+class _MatchTile extends ConsumerWidget {
   const _MatchTile({required this.entry, required this.onTap});
   final MatchHistoryEntry entry;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final dateStr = DateFormat('MMM d, HH:mm').format(entry.gameStartTime);
+    final mapName = entry.mapDisplayName;
+
+    final mapsAsync = ref.watch(_mapsMapProvider);
+    final mapInfo = mapsAsync.asData?.value[mapName.toLowerCase()];
+    final mapIconUrl = mapInfo?['listViewIcon'] as String? ?? mapInfo?['displayIcon'] as String?;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: const Color(0xFF0E1622),
           borderRadius: BorderRadius.circular(12),
@@ -158,32 +170,60 @@ class _MatchTile extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // Map Image Thumbnail (Replacing gamepad icon)
             Container(
-              width: 42,
-              height: 42,
+              width: 54,
+              height: 54,
               decoration: BoxDecoration(
                 color: const Color(0xFF141F2D),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF00F0FF).withAlpha(60)),
+                border: Border.all(color: const Color(0xFFFF4655).withAlpha(80)),
               ),
-              child: const Icon(Icons.sports_esports,
-                  color: Color(0xFF00F0FF), size: 22),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: mapIconUrl != null && mapIconUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: mapIconUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(color: const Color(0xFF141F2D)),
+                        errorWidget: (_, __, ___) =>
+                            const Icon(Icons.map, color: Color(0xFFFF4655)),
+                      )
+                    : const Icon(Icons.map, color: Color(0xFFFF4655), size: 24),
+              ),
             ),
             const SizedBox(width: 14),
+
+            // Match Title & Map Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    entry.queueDisplayName.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        entry.queueDisplayName.toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      if (mapName.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          '• $mapName',
+                          style: const TextStyle(
+                            color: Color(0xFFFF4655),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     dateStr,
                     style: const TextStyle(color: Colors.white38, fontSize: 11),
@@ -198,4 +238,5 @@ class _MatchTile extends StatelessWidget {
     );
   }
 }
+
 

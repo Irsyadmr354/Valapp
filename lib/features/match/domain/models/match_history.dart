@@ -5,6 +5,7 @@ class MatchHistoryEntry {
   final String queueId;   // Riot returns this as String e.g. "competitive"
   final String teamId;
   final bool isRanked;
+  final String mapId;
 
   const MatchHistoryEntry({
     required this.matchId,
@@ -12,10 +13,19 @@ class MatchHistoryEntry {
     required this.queueId,
     required this.teamId,
     required this.isRanked,
+    this.mapId = '',
   });
 
   DateTime get gameStartTime =>
       DateTime.fromMillisecondsSinceEpoch(gameStartMillis);
+
+  String get mapDisplayName {
+    if (mapId.isEmpty) return '';
+    final parts = mapId.split('/');
+    final last = parts.last.split('.').first;
+    if (last.isEmpty) return '';
+    return last[0].toUpperCase() + last.substring(1);
+  }
 
   String get queueDisplayName {
     switch (queueId.toLowerCase()) {
@@ -35,10 +45,10 @@ class MatchHistoryEntry {
     return MatchHistoryEntry(
       matchId: json['MatchID'] as String? ?? '',
       gameStartMillis: (json['GameStartTime'] as num?)?.toInt() ?? 0,
-      // QueueID is a String in Riot's API, not a num
       queueId: json['QueueID']?.toString() ?? '',
       teamId: json['TeamID']?.toString() ?? '',
       isRanked: json['IsRanked'] as bool? ?? false,
+      mapId: json['MapID']?.toString() ?? json['mapId']?.toString() ?? '',
     );
   }
 }
