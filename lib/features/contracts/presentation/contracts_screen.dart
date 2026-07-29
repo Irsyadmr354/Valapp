@@ -184,9 +184,7 @@ class _MissionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = mission.progressToComplete > 0
-        ? mission.progressionStatus / mission.progressToComplete
-        : 0.0;
+    final progress = mission.progressFraction;
     final expiryStr = mission.expirationTime != null
         ? 'Expires ${DateFormat('MMM d').format(mission.expirationTime!)}'
         : null;
@@ -249,7 +247,7 @@ class _MissionTile extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${mission.progressionStatus} / ${mission.progressToComplete}',
+              '${mission.currentProgress} / ${mission.progressToComplete}',
               style: const TextStyle(color: Colors.white38, fontSize: 11),
             ),
           ],

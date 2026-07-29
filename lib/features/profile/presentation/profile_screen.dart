@@ -264,7 +264,7 @@ class _XpHistorySection extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${entry.playedAtTime.month}/${entry.playedAtTime.day}',
+                    '${entry.playedAt.month}/${entry.playedAt.day}',
                     style: const TextStyle(
                         color: Colors.white38, fontSize: 11),
                   ),

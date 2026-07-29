@@ -66,6 +66,20 @@ class ValorantInterceptor extends Interceptor {
           await onReauth();
           err.requestOptions.extra['authRetried'] = true;
 
+          // Re-read fresh tokens from storage and update headers
+          final freshAccessToken =
+              await _secureStorage.read(SecureStorage.keyAccessToken);
+          final freshEntitlement =
+              await _secureStorage.read(SecureStorage.keyEntitlementToken);
+          if (freshAccessToken != null) {
+            err.requestOptions.headers['Authorization'] =
+                'Bearer $freshAccessToken';
+          }
+          if (freshEntitlement != null) {
+            err.requestOptions.headers['X-Riot-Entitlements-JWT'] =
+                freshEntitlement;
+          }
+
           final dio = Dio();
           final response = await dio.fetch(err.requestOptions);
           handler.resolve(response);

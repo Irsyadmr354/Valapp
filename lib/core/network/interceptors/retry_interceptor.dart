@@ -5,6 +5,9 @@ import '../../exceptions/api_exception.dart';
 /// Retries requests that receive HTTP 429 with exponential backoff.
 /// Delays: 1s → 2s → 4s → 8s (max 4 retries).
 class RetryInterceptor extends Interceptor {
+  RetryInterceptor(this._dio);
+
+  final Dio _dio;
   static const _maxRetries = 4;
 
   @override
@@ -22,8 +25,7 @@ class RetryInterceptor extends Interceptor {
         err.requestOptions.extra['retryCount'] = retryCount + 1;
 
         try {
-          final dio = Dio();
-          final response = await dio.fetch(err.requestOptions);
+          final response = await _dio.fetch(err.requestOptions);
           handler.resolve(response);
           return;
         } catch (e) {

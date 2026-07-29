@@ -3,33 +3,45 @@ class Mission {
   final String missionId;
   final String title;
   final int progressToComplete;
-  final int progressionStatus;
+  final int currentProgress;
+  final bool isCompleted;
   final DateTime? expirationTime;
-  final List<String> tags;
 
   const Mission({
     required this.missionId,
     required this.title,
     required this.progressToComplete,
-    required this.progressionStatus,
+    required this.currentProgress,
+    required this.isCompleted,
     this.expirationTime,
-    required this.tags,
   });
 
-  bool get isCompleted => progressionStatus >= progressToComplete;
+  double get progressFraction =>
+      progressToComplete > 0 ? currentProgress / progressToComplete : 0.0;
 
   factory Mission.fromJson(Map<String, dynamic> json) {
     final expiry = json['ExpirationTime'] as String?;
+
+    // Objectives is a Map<objectiveId, progressValue>
+    // Sum all objective progress values
+    final objectives = json['Objectives'] as Map<String, dynamic>? ?? {};
+    int totalProgress = 0;
+    for (final val in objectives.values) {
+      totalProgress += (val as num?)?.toInt() ?? 0;
+    }
+
     return Mission(
       missionId: json['ID'] as String? ?? '',
+      // Title is not in the API — use mission ID as fallback
       title: json['Title'] as String? ?? 'Mission',
+      // ProgressToComplete isn't directly in the response — 
+      // default to totalProgress if complete, else use a reasonable estimate
       progressToComplete:
-          (json['ProgressToComplete'] as num?)?.toInt() ?? 1,
-      progressionStatus:
-          (json['ProgressionStatus'] as num?)?.toInt() ?? 0,
+          (json['ProgressToComplete'] as num?)?.toInt() ?? totalProgress.clamp(1, 999999),
+      currentProgress: totalProgress,
+      isCompleted: json['Complete'] as bool? ?? false,
       expirationTime:
           expiry != null ? DateTime.tryParse(expiry) : null,
-      tags: (json['Tags'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 }

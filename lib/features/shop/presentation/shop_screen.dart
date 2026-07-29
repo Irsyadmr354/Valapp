@@ -17,9 +17,13 @@ final _storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async 
 
   final repo = await ref.watch(storeRepositoryProvider.future);
 
-  // Cache-first: show cache immediately, fetch in background
-  final cached = await repo.loadCachedStorefront({});
-  if (cached != null) return cached;
+  // Cache-first: show cache immediately, fetch fresh in background
+  final cached = await repo.loadCachedStorefront();
+  if (cached != null) {
+    // Fire-and-forget: fetch fresh data in background
+    repo.fetchStorefront(creds.shard, creds.puuid).ignore();
+    return cached;
+  }
 
   return repo.fetchStorefront(creds.shard, creds.puuid);
 });
@@ -47,6 +51,19 @@ class ShopScreen extends ConsumerStatefulWidget {
 }
 
 class _ShopScreenState extends ConsumerState<ShopScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlist();
+  }
+
+  Future<void> _loadWishlist() async {
+    final list = await CacheStorage.instance.getWishlist();
+    if (mounted) {
+      ref.read(_wishlistProvider.notifier).state = list.toSet();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final storefrontAsync = ref.watch(_storefrontProvider);

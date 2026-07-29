@@ -15,9 +15,22 @@ import 'features/profile/presentation/profile_screen.dart';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
+/// Notifier that GoRouter watches — fires when credentials change.
+class _AuthChangeNotifier extends ChangeNotifier {
+  _AuthChangeNotifier(this._ref) {
+    _ref.listen(currentCredentialsProvider, (_, __) {
+      notifyListeners();
+    });
+  }
+  final Ref _ref;
+}
+
 final _routerProvider = Provider<GoRouter>((ref) {
+  final authNotifier = _AuthChangeNotifier(ref);
+
   return GoRouter(
     initialLocation: '/shop',
+    refreshListenable: authNotifier,
     redirect: (context, state) async {
       final credsAsync = ref.read(currentCredentialsProvider);
       // While loading, don't redirect

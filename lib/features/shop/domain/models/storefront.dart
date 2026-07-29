@@ -124,26 +124,43 @@ class Storefront {
 
   bool get hasNightMarket => nightMarket.isNotEmpty;
 
-  factory Storefront.fromJson(Map<String, dynamic> json,
-      Map<String, int> priceMap) {
+  factory Storefront.fromJson(Map<String, dynamic> json) {
     final skinPanel =
         json['SkinsPanelLayout'] as Map<String, dynamic>? ?? {};
     final singleItemOfferIds =
         (skinPanel['SingleItemOffers'] as List<dynamic>?)
                 ?.cast<String>() ??
             [];
+    final singleItemStoreOffers =
+        (skinPanel['SingleItemStoreOffers'] as List<dynamic>?) ?? [];
     final remainingSec =
         (skinPanel['SingleItemOffersRemainingDurationInSeconds'] as num?)
                 ?.toInt() ??
             0;
 
-    final dailyOffers = singleItemOfferIds.map((id) {
-      return SkinOffer(
+    // Build daily offers — price comes from SingleItemStoreOffers[i].Cost
+    final dailyOffers = <SkinOffer>[];
+    for (int i = 0; i < singleItemOfferIds.length; i++) {
+      final id = singleItemOfferIds[i];
+      int price = 0;
+
+      // Match price from SingleItemStoreOffers (index matches 1:1)
+      if (i < singleItemStoreOffers.length) {
+        final storeOffer =
+            singleItemStoreOffers[i] as Map<String, dynamic>? ?? {};
+        final cost = storeOffer['Cost'] as Map<String, dynamic>? ?? {};
+        // VP currency ID
+        price =
+            (cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ??
+                0;
+      }
+
+      dailyOffers.add(SkinOffer(
         offerId: id,
         skinLevelUuid: id,
-        price: priceMap[id] ?? 0,
-      );
-    }).toList();
+        price: price,
+      ));
+    }
 
     // Featured bundle
     FeaturedBundle? bundle;

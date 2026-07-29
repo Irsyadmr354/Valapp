@@ -52,16 +52,44 @@ class _MatchDetailContent extends StatelessWidget {
   const _MatchDetailContent({required this.details});
   final MatchDetails details;
 
-  /// Converts Riot's raw map path to a readable name.
-  /// e.g. "/Game/Maps/Ascent/Ascent" → "Ascent"
-  /// e.g. "BOMBGAMEMODE.BOMBGAMEMODE_C" → "Unknown Map"
   String _mapName(String rawMapId) {
     if (rawMapId.isEmpty) return 'Unknown Map';
-    // Riot map paths end with the map name: /Game/Maps/Ascent/Ascent
+
+    // Lookup table: lowercase path → readable name
+    const mapNames = {
+      '/game/maps/ascent/ascent': 'Ascent',
+      '/game/maps/bind/bind': 'Bind',
+      '/game/maps/haven/haven': 'Haven',
+      '/game/maps/split/split': 'Split',
+      '/game/maps/fracture/canyon': 'Fracture',
+      '/game/maps/breeze/breeze': 'Breeze',
+      '/game/maps/icebox/port': 'Icebox',
+      '/game/maps/lowpe/lowpe': 'Pearl',
+      '/game/maps/jam/jam': 'Lotus',
+      '/game/maps/juliett/juliett': 'Sunset',
+      '/game/maps/infinity/infinity': 'Abyss',
+      '/game/maps/pitt/pitt': 'Pearl',
+      '/game/maps/foxtrot/foxtrot': 'Drift',
+      '/game/maps/triad/triad': 'Haven',
+      '/game/maps/range/range': 'The Range',
+    };
+
+    final normalized = rawMapId.toLowerCase();
+    final match = mapNames[normalized];
+    if (match != null) return match;
+
+    // Fallback: try partial match
+    for (final entry in mapNames.entries) {
+      if (normalized.contains(entry.key.split('/').last)) {
+        return entry.value;
+      }
+    }
+
+    // Last resort: split and capitalize
     final parts = rawMapId.split('/');
     final last = parts.last;
     if (last.isEmpty || last.contains('.')) return 'Unknown Map';
-    return last;
+    return last[0].toUpperCase() + last.substring(1);
   }
 
   /// Converts raw game mode path to readable name.

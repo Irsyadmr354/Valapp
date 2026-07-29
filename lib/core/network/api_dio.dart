@@ -1,10 +1,11 @@
 import 'package:dio/dio.dart';
+import 'interceptors/rate_limit_interceptor.dart';
 import 'interceptors/retry_interceptor.dart';
 import 'interceptors/valorant_interceptor.dart';
 
 /// Creates the [Dio] instance used for all `pvp.net` and game API endpoints.
 /// Injects auth headers via [ValorantInterceptor] and handles rate-limiting
-/// via [RetryInterceptor].
+/// via [RetryInterceptor] and [RateLimitInterceptor].
 Dio createApiDio(ValorantInterceptor valorantInterceptor) {
   final dio = Dio(
     BaseOptions(
@@ -14,8 +15,9 @@ Dio createApiDio(ValorantInterceptor valorantInterceptor) {
   );
 
   dio.interceptors.addAll([
+    RateLimitInterceptor(),
     valorantInterceptor,
-    RetryInterceptor(),
+    RetryInterceptor(dio),
   ]);
 
   return dio;

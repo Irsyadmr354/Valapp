@@ -29,7 +29,7 @@ class AccountXp {
 class XpEntry {
   final String matchId;
   final int xpEarned;
-  final int playedAt;
+  final DateTime playedAt;
 
   const XpEntry({
     required this.matchId,
@@ -37,14 +37,22 @@ class XpEntry {
     required this.playedAt,
   });
 
-  DateTime get playedAtTime =>
-      DateTime.fromMillisecondsSinceEpoch(playedAt);
-
   factory XpEntry.fromJson(Map<String, dynamic> json) {
+    // MatchStart can be ISO 8601 string or epoch int
+    DateTime parsedTime;
+    final rawTime = json['MatchStart'];
+    if (rawTime is String) {
+      parsedTime = DateTime.tryParse(rawTime) ?? DateTime.now();
+    } else if (rawTime is num) {
+      parsedTime = DateTime.fromMillisecondsSinceEpoch(rawTime.toInt());
+    } else {
+      parsedTime = DateTime.now();
+    }
+
     return XpEntry(
       matchId: json['ID'] as String? ?? '',
       xpEarned: (json['XPDelta'] as num?)?.toInt() ?? 0,
-      playedAt: (json['Time'] as num?)?.toInt() ?? 0,
+      playedAt: parsedTime,
     );
   }
 }

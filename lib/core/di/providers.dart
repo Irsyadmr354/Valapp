@@ -99,8 +99,10 @@ final apiDioProvider = FutureProvider<Dio>((ref) async {
       await authRepo!.reauth();
     },
     onAuthFailed: () async {
-      // Signal to the app that auth has expired — handled by router
-      ref.invalidate(credentialsLocalSourceProvider);
+      // Clear stored credentials and signal router to redirect to login
+      final local = ref.read(credentialsLocalSourceProvider);
+      await local.clear();
+      ref.invalidate(currentCredentialsProvider);
     },
   );
 

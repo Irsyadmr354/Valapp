@@ -19,21 +19,19 @@ class StoreRepository {
 
   /// Fetches fresh storefront data, enriches skin metadata, and caches it.
   Future<Storefront> fetchStorefront(String shard, String puuid) async {
-    final priceMap = await _remote.fetchPrices(shard);
     final raw = await _remote.fetchStorefrontRaw(shard, puuid);
 
     await _cache.saveStorefront(raw);
 
-    final storefront = Storefront.fromJson(raw, priceMap);
+    final storefront = Storefront.fromJson(raw);
     return _enrichStorefront(storefront);
   }
 
   /// Returns cached storefront (if available) with enriched metadata.
-  Future<Storefront?> loadCachedStorefront(
-      Map<String, int> priceMap) async {
+  Future<Storefront?> loadCachedStorefront() async {
     final raw = await _cache.loadStorefrontRaw();
     if (raw == null) return null;
-    final storefront = Storefront.fromJson(raw, priceMap);
+    final storefront = Storefront.fromJson(raw);
     return _enrichStorefront(storefront);
   }
 

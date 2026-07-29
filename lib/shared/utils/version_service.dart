@@ -11,11 +11,14 @@ class VersionService {
   static const _cacheDuration = Duration(hours: 24);
   static const _fallback = 'release-13.01-shipping-11-5090349';
 
-  // Also invalidate version cache so fresh version is fetched
+  /// Invalidate version cache so fresh version is fetched next time.
   Future<void> invalidate() async {
     await CacheStorage.instance.remove(CacheStorage.keyClientVersion);
     await CacheStorage.instance.remove(CacheStorage.keyClientVersionFetchedAt);
   }
+
+  /// Returns the current Riot client version, cached for 24 hours.
+  Future<String> get() async {
     final cache = CacheStorage.instance;
 
     // Return cached version if still fresh

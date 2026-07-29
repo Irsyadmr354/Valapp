@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Maps Valorant content tier names to their representative colors.
+/// Maps Valorant content tier names and UUIDs to their representative colors.
 class TierColors {
   TierColors._();
 
@@ -13,10 +13,26 @@ class TierColors {
     'Melee': Color(0xFF6C4B2A),
   };
 
-  static Color forName(String? name) {
-    if (name == null) return Colors.grey;
+  /// Known content tier UUIDs from valorant-api.com.
+  static const Map<String, Color> byUuid = {
+    '12683d76-48d7-84a3-4e09-6985794f0445': Color(0xFF009587), // Select
+    '0cebb8be-46d7-c12a-d306-e9907bfc5a25': Color(0xFF0D76CB), // Deluxe
+    '60bca009-4182-7998-dee7-b8a2558dc369': Color(0xFF9B4DC1), // Premium
+    '411e4a55-4e59-7757-41f0-86a53f101bb5': Color(0xFFEFB843), // Ultra
+    'e046854e-406c-37f4-6571-7a8baeeb93ab': Color(0xFFFF4655), // Exclusive
+  };
+
+  /// Resolves color from either UUID or name.
+  static Color forName(String? identifier) {
+    if (identifier == null) return Colors.grey;
+
+    // Try UUID first
+    final byUuidMatch = byUuid[identifier.toLowerCase()];
+    if (byUuidMatch != null) return byUuidMatch;
+
+    // Try name match
     for (final entry in byName.entries) {
-      if (name.toLowerCase().contains(entry.key.toLowerCase())) {
+      if (identifier.toLowerCase().contains(entry.key.toLowerCase())) {
         return entry.value;
       }
     }
