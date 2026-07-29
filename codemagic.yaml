@@ -16,13 +16,14 @@ workflows:
           cd ios
           pod install --repo-update
 
-      - name: Build Flutter iOS release framework
+      - name: Build Flutter iOS frameworks only (no Xcode signing)
         script: |
           flutter build ios \
             --release \
-            --no-codesign
+            --no-codesign \
+            --no-tree-shake-icons
 
-      - name: Archive with xcodebuild (no signing)
+      - name: Archive with xcodebuild (signing completely disabled)
         script: |
           cd ios
           xcodebuild \
@@ -32,22 +33,23 @@ workflows:
             -sdk iphoneos \
             -archivePath "$CM_BUILD_DIR/Runner.xcarchive" \
             archive \
-            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE="" \
-            | xcpretty
+            EXPANDED_CODE_SIGN_IDENTITY="-" \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARIES_FOR_DISTRIBUTION=YES \
+            | xcpretty --color && exit ${PIPESTATUS[0]}
 
-      - name: Package as IPA
+      - name: Export unsigned IPA from archive
         script: |
           mkdir -p "$CM_BUILD_DIR/Payload"
-          cp -r \
-            "$CM_BUILD_DIR/Runner.xcarchive/Products/Applications/Runner.app" \
-            "$CM_BUILD_DIR/Payload/Runner.app"
+          APP_PATH=$(find "$CM_BUILD_DIR/Runner.xcarchive" -name "*.app" | head -1)
+          cp -r "$APP_PATH" "$CM_BUILD_DIR/Payload/Runner.app"
           cd "$CM_BUILD_DIR"
           zip -r "ValApp.ipa" "Payload"
-          ls -lh ValApp.ipa
+          echo "✅ IPA size: $(du -sh ValApp.ipa | cut -f1)"
 
     artifacts:
       - "$CM_BUILD_DIR/ValApp.ipa"
