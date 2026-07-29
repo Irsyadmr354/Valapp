@@ -160,12 +160,14 @@ class ValorantAssets {
       for (final b in bundles) {
         final uuid = b['uuid'] as String?;
         if (uuid != null) {
-          map[uuid] = {
+          final info = {
             'displayName': b['displayName'],
             'displayIcon': b['displayIcon'],
             'displayIcon2': b['displayIcon2'],
             'verticalPromoImage': b['verticalPromoImage'],
           };
+          map[uuid] = info;
+          map[uuid.toLowerCase()] = info;
         }
       }
 
@@ -209,6 +211,9 @@ class ValorantAssets {
         'lowpe': 'pearl',
         'pitt': 'pearl',
         'foxtrot': 'drift',
+        'triad': 'haven',
+        'bonsai': 'split',
+        'duality': 'bind',
       };
 
       for (final m in maps) {

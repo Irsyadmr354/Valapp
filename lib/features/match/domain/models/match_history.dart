@@ -30,10 +30,10 @@ class MatchHistoryEntry {
     if (raw.contains('port') || raw.contains('icebox')) return 'Icebox';
     if (raw.contains('lowpe') || raw.contains('pitt') || raw.contains('pearl')) return 'Pearl';
     if (raw.contains('foxtrot')) return 'Drift';
+    if (raw.contains('triad') || raw.contains('haven')) return 'Haven';
+    if (raw.contains('bonsai') || raw.contains('split')) return 'Split';
+    if (raw.contains('duality') || raw.contains('bind')) return 'Bind';
     if (raw.contains('ascent')) return 'Ascent';
-    if (raw.contains('bind')) return 'Bind';
-    if (raw.contains('haven')) return 'Haven';
-    if (raw.contains('split')) return 'Split';
     if (raw.contains('breeze')) return 'Breeze';
 
     final parts = mapId.split('/');
