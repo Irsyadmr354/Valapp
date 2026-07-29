@@ -1,64 +1,52 @@
 workflows:
   ios-release:
-    name: iOS Release (Ad Hoc / Development)
+    name: iOS Release IPA (unsigned)
     max_build_duration: 60
     environment:
       flutter: 3.44.8
       xcode: latest
       cocoapods: default
-      vars:
-        BUNDLE_ID: "com.personal.valorantShopMonitor"
 
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
 
-      - name: Install CocoaPods dependencies
-        script: find . -name "Podfile" -execdir pod install \;
-
-      - name: Set build number
+      - name: Install CocoaPods
         script: |
-          BUILD_NUMBER=$PROJECT_BUILD_NUMBER
           cd ios
-          agvtool new-version -all $BUILD_NUMBER
+          pod install --repo-update
 
-      - name: Build iOS (no code signing — unsigned IPA)
+      - name: Build iOS RELEASE (no code signing)
         script: |
-          flutter build ios --release --no-codesign
-          cd ios
-          xcodebuild \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -archivePath "$CM_BUILD_DIR/Runner.xcarchive" \
-            archive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --dart-define=FLUTTER_BUILD_MODE=release
+
+      - name: Package as IPA
+        script: |
           mkdir -p "$CM_BUILD_DIR/Payload"
-          cp -r "$CM_BUILD_DIR/Runner.xcarchive/Products/Applications/Runner.app" \
-            "$CM_BUILD_DIR/Payload/Runner.app"
+          cp -r "build/ios/iphoneos/Runner.app" "$CM_BUILD_DIR/Payload/Runner.app"
           cd "$CM_BUILD_DIR"
-          zip -r Valorant_ShopMonitor_unsigned.ipa Payload
+          zip -r "ValApp_release.ipa" "Payload"
+          echo "IPA created: $CM_BUILD_DIR/ValApp_release.ipa"
 
     artifacts:
-      - "$CM_BUILD_DIR/Valorant_ShopMonitor_unsigned.ipa"
-      - build/ios/ipa/*.ipa
+      - "$CM_BUILD_DIR/ValApp_release.ipa"
 
-  android-debug:
-    name: Android Debug APK
+  android-release:
+    name: Android Release APK
     max_build_duration: 30
     environment:
       flutter: 3.44.8
-      java: 17
+      java: '17'
 
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
 
-      - name: Build Android APK (debug)
-        script: flutter build apk --debug
+      - name: Build Android APK release
+        script: flutter build apk --release
 
     artifacts:
-      - build/app/outputs/flutter-apk/app-debug.apk
+      - build/app/outputs/flutter-apk/app-release.apk
