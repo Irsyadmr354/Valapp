@@ -107,6 +107,23 @@ class CacheStorage {
     await setWishlist(list);
   }
 
+  // ── Match Map Cache ────────────────────────────────────────────────────────
+
+  static const keyMatchMapCache = 'match_map_cache';
+
+  Future<Map<String, String>> getMatchMaps() async {
+    final cached = await getJson(keyMatchMapCache);
+    if (cached == null) return {};
+    return cached.map((k, v) => MapEntry(k, v.toString()));
+  }
+
+  Future<void> saveMatchMap(String matchId, String mapId) async {
+    if (matchId.isEmpty || mapId.isEmpty) return;
+    final current = await getMatchMaps();
+    current[matchId] = mapId;
+    await setJson(keyMatchMapCache, current);
+  }
+
   // ── Remove ─────────────────────────────────────────────────────────────────
 
   Future<void> remove(String key) async {

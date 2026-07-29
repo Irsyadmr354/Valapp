@@ -328,12 +328,9 @@ class _XpHistorySection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         ...history.take(10).map((entry) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0E1622),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF1B2738), width: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
               ),
               child: Row(
                 children: [

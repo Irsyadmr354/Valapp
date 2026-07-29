@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import '../../../core/storage/cache_storage.dart';
 import '../domain/models/player_mmr.dart';
 
 class MmrRemoteSource {
@@ -42,10 +43,19 @@ class MmrRemoteSource {
     );
     final data = _toMap(response.data);
     final matches = (data['Matches'] as List<dynamic>?) ?? [];
-    return matches
+    final list = matches
         .whereType<Map>()
         .map((e) => CompetitiveUpdate.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+
+    for (final update in list) {
+      final mapId = update.mapId;
+      if (update.matchId.isNotEmpty && mapId != null && mapId.isNotEmpty) {
+        CacheStorage.instance.saveMatchMap(update.matchId, mapId);
+      }
+    }
+
+    return list;
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/storage/cache_storage.dart';
 import '../domain/models/match_history.dart';
 
 final _queueFilterProvider = StateProvider<String?>((ref) => null);
@@ -12,6 +13,20 @@ final _mapsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
   return assets.getMapsMap();
+});
+
+final _matchMapCacheProvider =
+    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final cached = await CacheStorage.instance.getMatchMaps();
+  try {
+    final creds = await ref.watch(currentCredentialsProvider.future);
+    if (creds != null) {
+      final mmrSource = await ref.watch(mmrRemoteSourceProvider.future);
+      await mmrSource.fetchCompetitiveUpdates(creds.shard, creds.puuid);
+      return await CacheStorage.instance.getMatchMaps();
+    }
+  } catch (_) {}
+  return cached;
 });
 
 final _matchHistoryProvider =
@@ -70,7 +85,10 @@ class MatchHistoryScreen extends ConsumerWidget {
       body: RefreshIndicator(
         color: const Color(0xFFFF4655),
         backgroundColor: const Color(0xFF141F2D),
-        onRefresh: () async => ref.invalidate(_matchHistoryProvider),
+        onRefresh: () async {
+          ref.invalidate(_matchHistoryProvider);
+          ref.invalidate(_matchMapCacheProvider);
+        },
         child: historyAsync.when(
           data: (result) => result == null || result.matches.isEmpty
               ? const Center(
@@ -151,10 +169,37 @@ class _MatchTile extends ConsumerWidget {
   final MatchHistoryEntry entry;
   final VoidCallback onTap;
 
+  String _resolveMapName(String rawMap) {
+    if (rawMap.isEmpty) return '';
+    final raw = rawMap.toLowerCase();
+
+    if (raw.contains('plummet') || raw.contains('infinity') || raw.contains('abyss')) return 'Abyss';
+    if (raw.contains('jam') || raw.contains('lotus')) return 'Lotus';
+    if (raw.contains('juliett') || raw.contains('sunset')) return 'Sunset';
+    if (raw.contains('canyon') || raw.contains('fracture')) return 'Fracture';
+    if (raw.contains('port') || raw.contains('icebox')) return 'Icebox';
+    if (raw.contains('lowpe') || raw.contains('pitt') || raw.contains('pearl')) return 'Pearl';
+    if (raw.contains('foxtrot')) return 'Drift';
+    if (raw.contains('ascent')) return 'Ascent';
+    if (raw.contains('bind')) return 'Bind';
+    if (raw.contains('haven')) return 'Haven';
+    if (raw.contains('split')) return 'Split';
+    if (raw.contains('breeze')) return 'Breeze';
+
+    final parts = rawMap.split('/');
+    final last = parts.last.split('.').first;
+    if (last.isEmpty) return '';
+    return last[0].toUpperCase() + last.substring(1);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dateStr = DateFormat('MMM d, HH:mm').format(entry.gameStartTime);
-    final mapName = entry.mapDisplayName;
+
+    final mapCacheAsync = ref.watch(_matchMapCacheProvider);
+    final mapCache = mapCacheAsync.asData?.value ?? {};
+    final rawMapId = mapCache[entry.matchId] ?? entry.mapId;
+    final mapName = _resolveMapName(rawMapId);
 
     final mapsAsync = ref.watch(_mapsMapProvider);
     final mapInfo = mapsAsync.asData?.value[mapName.toLowerCase()];
@@ -231,6 +276,7 @@ class _MatchTile extends ConsumerWidget {
     );
   }
 }
+
 
 
 

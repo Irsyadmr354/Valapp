@@ -222,29 +222,11 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Daily skins grid
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.72,
-            ),
-            itemCount: storefront.dailyOffers.length,
-            itemBuilder: (context, i) {
-              final offer = storefront.dailyOffers[i];
-              final inWishlist = wishlist.contains(offer.skinLevelUuid);
-              return SkinCard(
-                offer: offer.copyWith(isInWishlist: inWishlist),
-                isHighlighted: inWishlist,
-                onWishlistToggle: () => _toggleWishlist(offer),
-              );
-            },
-          ),
+        // Daily skins carousel (Swipeable / Bisa Digeser)
+        _DailyShopCarousel(
+          offers: storefront.dailyOffers,
+          wishlist: wishlist,
+          onWishlistToggle: _toggleWishlist,
         ),
         const SizedBox(height: 28),
 
@@ -692,6 +674,87 @@ class _NightMarketList extends StatelessWidget {
           );
         }).toList(),
       ),
+    );
+  }
+}
+
+class _DailyShopCarousel extends StatefulWidget {
+  const _DailyShopCarousel({
+    required this.offers,
+    required this.wishlist,
+    required this.onWishlistToggle,
+  });
+
+  final List<SkinOffer> offers;
+  final Set<String> wishlist;
+  final ValueChanged<SkinOffer> onWishlistToggle;
+
+  @override
+  State<_DailyShopCarousel> createState() => _DailyShopCarouselState();
+}
+
+class _DailyShopCarouselState extends State<_DailyShopCarousel> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.84);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.offers.isEmpty) return const SizedBox();
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 270,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: widget.offers.length,
+            onPageChanged: (idx) => setState(() => _currentPage = idx),
+            itemBuilder: (context, i) {
+              final offer = widget.offers[i];
+              final inWishlist = widget.wishlist.contains(offer.skinLevelUuid);
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                child: SkinCard(
+                  offer: offer.copyWith(isInWishlist: inWishlist),
+                  isHighlighted: inWishlist,
+                  onWishlistToggle: () => widget.onWishlistToggle(offer),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Indicator Dots
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.offers.length, (index) {
+            final isSelected = index == _currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isSelected ? 22 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFFFF4655) : Colors.white24,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }

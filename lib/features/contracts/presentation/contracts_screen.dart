@@ -240,17 +240,9 @@ class _MissionTile extends StatelessWidget {
         : null;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: mission.isCompleted
-              ? const Color(0xFF10B981).withAlpha(100)
-              : const Color(0xFF1B2738),
-          width: 1,
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,7 +280,7 @@ class _MissionTile extends StatelessWidget {
             ],
           ),
           if (!mission.isCompleted) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -308,7 +300,7 @@ class _MissionTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
-                backgroundColor: const Color(0xFF070A10),
+                backgroundColor: const Color(0xFF141F2D),
                 valueColor: const AlwaysStoppedAnimation(Color(0xFF00F0FF)),
                 minHeight: 6,
               ),

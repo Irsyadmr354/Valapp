@@ -269,46 +269,37 @@ class _UpdateTile extends StatelessWidget {
     final accentColor = isWin ? const Color(0xFF10B981) : const Color(0xFFFF4655);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF1B2738), width: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
       ),
       child: Row(
         children: [
-          // Accent left bar
           Container(
-            width: 4,
-            height: 32,
+            width: 3,
+            height: 18,
             decoration: BoxDecoration(
               color: accentColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 12),
-
           Icon(
             isWin ? Icons.trending_up : Icons.trending_down,
             color: accentColor,
-            size: 20,
+            size: 18,
           ),
           const SizedBox(width: 10),
-
-          // RR Delta
           Expanded(
             child: Text(
               '${isWin ? '+' : ''}$rrChange RR',
               style: TextStyle(
                 color: accentColor,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
-
-          // Result After
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import '../../../core/storage/cache_storage.dart';
 import '../domain/models/match_history.dart';
 import '../domain/models/match_details.dart';
 
@@ -31,10 +32,17 @@ class MatchRemoteSource {
       'startIndex': startIndex,
       'endIndex': endIndex,
       if (queue != null) 'queue': queue,
+      '_t': DateTime.now().millisecondsSinceEpoch,
     };
     final response = await _dio.get<dynamic>(
       'https://pd.$cleanShard.a.pvp.net/match-history/v1/history/$puuid',
       queryParameters: params,
+      options: Options(
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      ),
     );
     return MatchHistoryResult.fromJson(_toMap(response.data));
   }
@@ -45,7 +53,11 @@ class MatchRemoteSource {
     final response = await _dio.get<dynamic>(
       'https://pd.$cleanShard.a.pvp.net/match-details/v1/matches/$matchId',
     );
-    return MatchDetails.fromJson(_toMap(response.data));
+    final details = MatchDetails.fromJson(_toMap(response.data));
+    if (details.matchInfo.mapId.isNotEmpty) {
+      CacheStorage.instance.saveMatchMap(matchId, details.matchInfo.mapId);
+    }
+    return details;
   }
 }
 
