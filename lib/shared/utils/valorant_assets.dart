@@ -180,7 +180,7 @@ class ValorantAssets {
 
   // ── Maps ───────────────────────────────────────────────────────────────────
 
-  /// Returns a map of map name / path → map metadata (splash image, icons).
+  /// Returns a map of map name / path / codename → map metadata (splash image, icons).
   Future<Map<String, dynamic>> getMapsMap() async {
     final cache = CacheStorage.instance;
     const keyMaps = 'maps_metadata';
@@ -197,6 +197,20 @@ class ValorantAssets {
       final maps = (response.data?['data'] as List<dynamic>?) ?? [];
 
       final map = <String, dynamic>{};
+
+      // Hardcoded codename overrides for Riot internal map paths
+      final codenameMap = {
+        'plummet': 'abyss',
+        'infinity': 'abyss',
+        'jam': 'lotus',
+        'juliett': 'sunset',
+        'canyon': 'fracture',
+        'port': 'icebox',
+        'lowpe': 'pearl',
+        'pitt': 'pearl',
+        'foxtrot': 'drift',
+      };
+
       for (final m in maps) {
         final displayName = m['displayName']?.toString() ?? '';
         final mapUrl = m['mapUrl']?.toString() ?? '';
@@ -214,9 +228,23 @@ class ValorantAssets {
           map[displayName.toLowerCase()] = info;
         }
         if (mapUrl.isNotEmpty) {
-          map[mapUrl.toLowerCase()] = info;
+          final lowerUrl = mapUrl.toLowerCase();
+          map[lowerUrl] = info;
+
+          final lastSeg = lowerUrl.split('/').last;
+          if (lastSeg.isNotEmpty) {
+            map[lastSeg] = info;
+          }
         }
       }
+
+      // Alias internal codenames to their official map metadata
+      codenameMap.forEach((code, official) {
+        final officialInfo = map[official];
+        if (officialInfo != null) {
+          map[code] = officialInfo;
+        }
+      });
 
       await cache.setJson(keyMaps, map);
       await cache.setTimestamp(keyMapsFetchedAt);
@@ -227,5 +255,6 @@ class ValorantAssets {
     }
   }
 }
+
 
 

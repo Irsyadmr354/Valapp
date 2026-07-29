@@ -147,12 +147,12 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
       floating: false,
       centerTitle: false,
       title: const Text(
-        'DAILY SHOP',
+        'ValAPP',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.w900,
-          letterSpacing: 1.2,
+          letterSpacing: 0.5,
         ),
       ),
       actions: [

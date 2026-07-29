@@ -81,6 +81,21 @@ class _MatchDetailsContent extends ConsumerWidget {
 
   String _mapName(String rawMap) {
     if (rawMap.isEmpty) return 'Unknown Map';
+    final raw = rawMap.toLowerCase();
+
+    if (raw.contains('plummet') || raw.contains('infinity') || raw.contains('abyss')) return 'Abyss';
+    if (raw.contains('jam') || raw.contains('lotus')) return 'Lotus';
+    if (raw.contains('juliett') || raw.contains('sunset')) return 'Sunset';
+    if (raw.contains('canyon') || raw.contains('fracture')) return 'Fracture';
+    if (raw.contains('port') || raw.contains('icebox')) return 'Icebox';
+    if (raw.contains('lowpe') || raw.contains('pitt') || raw.contains('pearl')) return 'Pearl';
+    if (raw.contains('foxtrot')) return 'Drift';
+    if (raw.contains('ascent')) return 'Ascent';
+    if (raw.contains('bind')) return 'Bind';
+    if (raw.contains('haven')) return 'Haven';
+    if (raw.contains('split')) return 'Split';
+    if (raw.contains('breeze')) return 'Breeze';
+
     final parts = rawMap.split('/');
     final last = parts.last.split('.').first;
     if (last.isEmpty) return rawMap;
@@ -107,11 +122,12 @@ class _MatchDetailsContent extends ConsumerWidget {
     if (lower.contains('deathmatch')) return 'Deathmatch';
     if (lower.contains('hurm')) return 'Team Deathmatch';
     if (lower.contains('swiftplay')) return 'Swiftplay';
+    if (lower.contains('bomb')) return 'Standard Match';
 
-    if (rawMode.isEmpty) return 'Custom Match';
+    if (rawMode.isEmpty) return 'Standard Match';
     final parts = rawMode.split('/');
     final last = parts.last.split('.').first;
-    if (last.isEmpty) return 'Custom Match';
+    if (last.isEmpty) return 'Standard Match';
     return last[0].toUpperCase() + last.substring(1);
   }
 
@@ -276,16 +292,45 @@ class _TeamSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Section Header Row with Column Titles
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            title,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.5,
-            ),
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+          child: Row(
+            children: [
+              Container(width: 3, height: 12, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'K / D / A',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 24),
+              const SizedBox(
+                width: 48,
+                child: Text(
+                  'ACS',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  textAlign: TextAlign.end,
+                ),
+              ),
+            ],
           ),
         ),
         ...players.map((p) => _PlayerRow(player: p, accentColor: color)),
@@ -312,20 +357,23 @@ class _PlayerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
-        borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: const BoxDecoration(
         border: Border(
-          left: BorderSide(
-            color: accentColor ?? Colors.white24,
-            width: 3.5,
-          ),
+          bottom: BorderSide(color: Colors.white10, width: 0.8),
         ),
       ),
       child: Row(
         children: [
+          Container(
+            width: 3,
+            height: 16,
+            decoration: BoxDecoration(
+              color: accentColor ?? Colors.white38,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               _name,
@@ -345,15 +393,15 @@ class _PlayerRow extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           SizedBox(
-            width: 60,
+            width: 48,
             child: Text(
-              '${player.averageScore.toStringAsFixed(0)} ACS',
+              player.averageScore.toStringAsFixed(0),
               style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                color: Colors.white60,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
               textAlign: TextAlign.end,
             ),

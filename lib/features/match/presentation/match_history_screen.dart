@@ -76,10 +76,12 @@ class MatchHistoryScreen extends ConsumerWidget {
               ? const Center(
                   child: Text('No matches found.',
                       style: TextStyle(color: Colors.white38, fontSize: 13)))
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+              : ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 80),
                   physics: const AlwaysScrollableScrollPhysics(),
                   itemCount: result.matches.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(color: Colors.white10, height: 1, indent: 16, endIndent: 16),
                   itemBuilder: (context, i) => _MatchTile(
                     entry: result.matches[i],
                     onTap: () =>
@@ -118,7 +120,7 @@ class _QueueFilter extends StatelessWidget {
           final isSelected = selected == q;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
+            child: ChoiceChip(
               label: Text(_queueLabels[q] ?? 'All'),
               selected: isSelected,
               onSelected: (_) => onSelected(q),
@@ -135,7 +137,7 @@ class _QueueFilter extends StatelessWidget {
                     : const Color(0xFF1B2738),
                 width: isSelected ? 1.2 : 0.8,
               ),
-              checkmarkColor: const Color(0xFFFF4655),
+              showCheckmark: false,
             ),
           );
         }).toList(),
@@ -158,38 +160,28 @@ class _MatchTile extends ConsumerWidget {
     final mapInfo = mapsAsync.asData?.value[mapName.toLowerCase()];
     final mapIconUrl = mapInfo?['listViewIcon'] as String? ?? mapInfo?['displayIcon'] as String?;
 
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0E1622),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF1B2738), width: 1),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Map Image Thumbnail (Replacing gamepad icon)
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
+            // Map Image Thumbnail
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                width: 46,
+                height: 46,
                 color: const Color(0xFF141F2D),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFFF4655).withAlpha(80)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(9),
                 child: mapIconUrl != null && mapIconUrl.isNotEmpty
                     ? CachedNetworkImage(
                         imageUrl: mapIconUrl,
                         fit: BoxFit.cover,
                         placeholder: (_, __) => Container(color: const Color(0xFF141F2D)),
                         errorWidget: (_, __, ___) =>
-                            const Icon(Icons.map, color: Color(0xFFFF4655)),
+                            const Icon(Icons.map, color: Color(0xFFFF4655), size: 20),
                       )
-                    : const Icon(Icons.map, color: Color(0xFFFF4655), size: 24),
+                    : const Icon(Icons.map, color: Color(0xFFFF4655), size: 20),
               ),
             ),
             const SizedBox(width: 14),
@@ -206,7 +198,7 @@ class _MatchTile extends ConsumerWidget {
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -216,7 +208,7 @@ class _MatchTile extends ConsumerWidget {
                           '• $mapName',
                           style: const TextStyle(
                             color: Color(0xFFFF4655),
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -231,12 +223,14 @@ class _MatchTile extends ConsumerWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+
+            const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
           ],
         ),
       ),
     );
   }
 }
+
 
 

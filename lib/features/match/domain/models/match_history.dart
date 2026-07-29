@@ -21,6 +21,21 @@ class MatchHistoryEntry {
 
   String get mapDisplayName {
     if (mapId.isEmpty) return '';
+    final raw = mapId.toLowerCase();
+
+    if (raw.contains('plummet') || raw.contains('infinity') || raw.contains('abyss')) return 'Abyss';
+    if (raw.contains('jam') || raw.contains('lotus')) return 'Lotus';
+    if (raw.contains('juliett') || raw.contains('sunset')) return 'Sunset';
+    if (raw.contains('canyon') || raw.contains('fracture')) return 'Fracture';
+    if (raw.contains('port') || raw.contains('icebox')) return 'Icebox';
+    if (raw.contains('lowpe') || raw.contains('pitt') || raw.contains('pearl')) return 'Pearl';
+    if (raw.contains('foxtrot')) return 'Drift';
+    if (raw.contains('ascent')) return 'Ascent';
+    if (raw.contains('bind')) return 'Bind';
+    if (raw.contains('haven')) return 'Haven';
+    if (raw.contains('split')) return 'Split';
+    if (raw.contains('breeze')) return 'Breeze';
+
     final parts = mapId.split('/');
     final last = parts.last.split('.').first;
     if (last.isEmpty) return '';
