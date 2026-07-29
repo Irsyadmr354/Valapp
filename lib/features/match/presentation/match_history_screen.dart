@@ -165,7 +165,7 @@ class _MatchTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    entry.matchId.substring(0, 8).toUpperCase(),
+                    entry.queueDisplayName,
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,

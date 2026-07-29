@@ -39,6 +39,12 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0F1923))
+      ..setUserAgent(
+        // Use a real Chrome user agent so Cloudflare doesn't block
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+        'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+        'Version/17.0 Mobile/15E148 Safari/604.1',
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
@@ -54,8 +60,9 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
             return NavigationDecision.navigate;
           },
           onWebResourceError: (error) {
-            // Ignore SSL errors for redirect URIs that don't actually load
-            if (!error.url!.startsWith(_redirectPrefix)) {
+            // Ignore errors for the redirect URI — it doesn't actually load
+            final url = error.url ?? '';
+            if (!url.startsWith(_redirectPrefix)) {
               setState(() {
                 _isLoading = false;
                 _errorMessage = 'Network error: ${error.description}';

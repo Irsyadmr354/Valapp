@@ -1,4 +1,4 @@
-/// Current competitive tier and ranking info.
+/// RR change from a single competitive match.
 class CompetitiveUpdate {
   final String matchId;
   final int tierAfterUpdate;
@@ -29,11 +29,9 @@ class CompetitiveUpdate {
 
   factory CompetitiveUpdate.fromJson(Map<String, dynamic> json) {
     return CompetitiveUpdate(
-      matchId: json['MatchID'] as String? ?? '',
-      tierAfterUpdate:
-          (json['TierAfterUpdate'] as num?)?.toInt() ?? 0,
-      tierBeforeUpdate:
-          (json['TierBeforeUpdate'] as num?)?.toInt() ?? 0,
+      matchId: json['MatchID']?.toString() ?? '',
+      tierAfterUpdate: (json['TierAfterUpdate'] as num?)?.toInt() ?? 0,
+      tierBeforeUpdate: (json['TierBeforeUpdate'] as num?)?.toInt() ?? 0,
       rankedRatingAfterUpdate:
           (json['RankedRatingAfterUpdate'] as num?)?.toInt() ?? 0,
       rankedRatingBeforeUpdate:
@@ -41,14 +39,13 @@ class CompetitiveUpdate {
       rankedRatingEarned:
           (json['RankedRatingEarned'] as num?)?.toInt() ?? 0,
       afkPenalty: (json['AFKPenalty'] as num?)?.toInt() ?? 0,
-      gameStartMillis:
-          (json['MatchStartTime'] as num?)?.toInt() ?? 0,
-      mapId: json['MapID'] as String?,
+      gameStartMillis: (json['MatchStartTime'] as num?)?.toInt() ?? 0,
+      mapId: json['MapID']?.toString(),
     );
   }
 }
 
-/// Player MMR snapshot.
+/// Player MMR snapshot — extracts current tier + RR from the MMR endpoint.
 class PlayerMmr {
   final String puuid;
   final int currentTier;
@@ -66,25 +63,58 @@ class PlayerMmr {
 
   factory PlayerMmr.fromJson(Map<String, dynamic> json) {
     CompetitiveUpdate? latestUpdate;
-    final latest = json['LatestCompetitiveUpdate'] as Map<String, dynamic>?;
-    if (latest != null && latest.isNotEmpty) {
-      latestUpdate = CompetitiveUpdate.fromJson(latest);
+
+    // LatestCompetitiveUpdate can be an empty map {} when unranked
+    final latest = json['LatestCompetitiveUpdate'];
+    if (latest is Map && latest.isNotEmpty) {
+      try {
+        latestUpdate =
+            CompetitiveUpdate.fromJson(latest as Map<String, dynamic>);
+      } catch (_) {}
+    }
+
+    // QueueSkills.competitive.SeasonalInfoBySeasonID has current tier
+    // Walk the structure safely to avoid type cast errors
+    int currentTier = latestUpdate?.tierAfterUpdate ?? 0;
+    int currentRR = latestUpdate?.rankedRatingAfterUpdate ?? 0;
+    int gamesNeeded = 0;
+
+    try {
+      final queueSkills = json['QueueSkills'] as Map<String, dynamic>?;
+      final competitive =
+          queueSkills?['competitive'] as Map<String, dynamic>?;
+
+      if (competitive != null) {
+        gamesNeeded =
+            (competitive['CurrentSeasonGamesNeededForRating'] as num?)
+                    ?.toInt() ??
+                0;
+
+        // SeasonalInfoBySeasonID is a Map<seasonId, seasonData>
+        final seasonal = competitive['SeasonalInfoBySeasonID']
+            as Map<String, dynamic>?;
+        if (seasonal != null && seasonal.isNotEmpty) {
+          // Get the most recent season (last key)
+          final latestSeason =
+              seasonal.values.last as Map<String, dynamic>?;
+          if (latestSeason != null) {
+            currentTier =
+                (latestSeason['CompetitiveTier'] as num?)?.toInt() ??
+                    currentTier;
+            currentRR =
+                (latestSeason['RankedRating'] as num?)?.toInt() ?? currentRR;
+          }
+        }
+      }
+    } catch (_) {
+      // Fall back to latestUpdate values already set above
     }
 
     return PlayerMmr(
-      puuid: json['Subject'] as String? ?? '',
-      currentTier:
-          (json['QueueSkills']?['competitive']?['CurrentSeasonGamesNeededForRating']
-                  as num?)
-              ?.toInt() ??
-              latestUpdate?.tierAfterUpdate ??
-              0,
-      currentRankedRating: latestUpdate?.rankedRatingAfterUpdate ?? 0,
-      gamesNeededForRating:
-          (json['QueueSkills']?['competitive']?['CurrentSeasonGamesNeededForRating']
-                  as num?)
-              ?.toInt() ??
-              0,
+      puuid: json['Subject']?.toString() ?? '',
+      currentTier: currentTier,
+      currentRankedRating: currentRR,
+      gamesNeededForRating: gamesNeeded,
       latestUpdate: latestUpdate,
     );
   }

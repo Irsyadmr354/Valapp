@@ -12,15 +12,40 @@ class AccountRemoteSource {
     return AccountXp.fromJson(response.data ?? {});
   }
 
-  /// Resolves display name for a PUUID.
+  /// Resolves display name via name-service.
+  /// Riot's name-service returns a List, not a Map — handle both.
   Future<String?> fetchDisplayName(String shard, String puuid) async {
-    final response = await _dio.put<List<dynamic>>(
-      'https://pd.$shard.a.pvp.net/name-service/v2/players',
-      data: [puuid],
-    );
-    final list = response.data ?? [];
-    if (list.isEmpty) return null;
-    return list.first['DisplayName'] as String?;
+    try {
+      final response = await _dio.put<dynamic>(
+        'https://pd.$shard.a.pvp.net/name-service/v2/players',
+        data: [puuid],
+      );
+
+      final data = response.data;
+      List<dynamic> list = [];
+
+      if (data is List) {
+        list = data;
+      } else if (data is Map) {
+        // Some regions return a Map keyed by puuid
+        list = data.values.toList();
+      }
+
+      if (list.isEmpty) return null;
+
+      final entry = list.first;
+      if (entry is Map) {
+        final gameName = entry['GameName']?.toString() ?? '';
+        final tagLine = entry['TagLine']?.toString() ?? '';
+        if (gameName.isNotEmpty) {
+          return tagLine.isNotEmpty ? '$gameName#$tagLine' : gameName;
+        }
+        return entry['DisplayName']?.toString();
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Returns owned item UUIDs for a given item type.
@@ -32,7 +57,7 @@ class AccountRemoteSource {
     final entitlements =
         (response.data?['Entitlements'] as List<dynamic>?) ?? [];
     return entitlements
-        .map((e) => e['ItemID'] as String? ?? '')
+        .map((e) => e['ItemID']?.toString() ?? '')
         .where((id) => id.isNotEmpty)
         .toList();
   }

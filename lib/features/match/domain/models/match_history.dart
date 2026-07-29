@@ -2,7 +2,7 @@
 class MatchHistoryEntry {
   final String matchId;
   final int gameStartMillis;
-  final int queueId;
+  final String queueId;   // Riot returns this as String e.g. "competitive"
   final String teamId;
   final bool isRanked;
 
@@ -17,13 +17,27 @@ class MatchHistoryEntry {
   DateTime get gameStartTime =>
       DateTime.fromMillisecondsSinceEpoch(gameStartMillis);
 
+  String get queueDisplayName {
+    switch (queueId.toLowerCase()) {
+      case 'competitive': return 'Competitive';
+      case 'unrated': return 'Unrated';
+      case 'spikerush': return 'Spike Rush';
+      case 'deathmatch': return 'Deathmatch';
+      case 'ggteam': return 'Escalation';
+      case 'onefa': return 'Replication';
+      case 'hurm': return 'Team Deathmatch';
+      case 'swiftplay': return 'Swiftplay';
+      default: return queueId.isEmpty ? 'Custom' : queueId;
+    }
+  }
+
   factory MatchHistoryEntry.fromJson(Map<String, dynamic> json) {
     return MatchHistoryEntry(
       matchId: json['MatchID'] as String? ?? '',
-      gameStartMillis:
-          (json['GameStartTime'] as num?)?.toInt() ?? 0,
-      queueId: (json['QueueID'] as num?)?.toInt() ?? 0,
-      teamId: json['TeamID'] as String? ?? '',
+      gameStartMillis: (json['GameStartTime'] as num?)?.toInt() ?? 0,
+      // QueueID is a String in Riot's API, not a num
+      queueId: json['QueueID']?.toString() ?? '',
+      teamId: json['TeamID']?.toString() ?? '',
       isRanked: json['IsRanked'] as bool? ?? false,
     );
   }

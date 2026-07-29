@@ -7,10 +7,22 @@ class StoreRemoteSource {
 
   Future<Map<String, dynamic>> fetchStorefrontRaw(
       String shard, String puuid) async {
-    final response = await _dio.get<Map<String, dynamic>>(
-      'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
-    );
-    return response.data ?? {};
+    // Try v2 first, fall back to v3 if 404
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
+      );
+      return response.data ?? {};
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        // Some regions use v3
+        final response = await _dio.get<Map<String, dynamic>>(
+          'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
+        );
+        return response.data ?? {};
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, int>> fetchPrices(String shard) async {
