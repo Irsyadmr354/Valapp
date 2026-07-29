@@ -24,11 +24,13 @@ final _routerProvider = Provider<GoRouter>((ref) {
       if (credsAsync.isLoading) return null;
 
       final creds = credsAsync.value;
-      final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/mfa';
+      final location = state.matchedLocation;
+      final isAuthRoute = location == '/login' ||
+          location == '/mfa' ||
+          location.startsWith('/login/');
 
       if (creds == null && !isAuthRoute) return '/login';
-      if (creds != null && state.matchedLocation == '/login') return '/shop';
+      if (creds != null && location == '/login') return '/shop';
       return null;
     },
     routes: [
