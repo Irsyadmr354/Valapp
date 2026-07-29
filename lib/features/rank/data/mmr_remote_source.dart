@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../domain/models/player_mmr.dart';
 
@@ -5,11 +6,23 @@ class MmrRemoteSource {
   const MmrRemoteSource(this._dio);
   final Dio _dio;
 
+  Map<String, dynamic> _toMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is String) {
+      try {
+        final decoded = jsonDecode(data);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    return {};
+  }
+
   Future<PlayerMmr> fetchMmr(String shard, String puuid) async {
-    final response = await _dio.get<Map<String, dynamic>>(
+    final response = await _dio.get<dynamic>(
       'https://pd.$shard.a.pvp.net/mmr/v1/players/$puuid',
     );
-    return PlayerMmr.fromJson(response.data ?? {});
+    return PlayerMmr.fromJson(_toMap(response.data));
   }
 
   Future<List<CompetitiveUpdate>> fetchCompetitiveUpdates(
@@ -18,18 +31,19 @@ class MmrRemoteSource {
     int startIndex = 0,
     int endIndex = 20,
   }) async {
-    final response = await _dio.get<Map<String, dynamic>>(
+    final response = await _dio.get<dynamic>(
       'https://pd.$shard.a.pvp.net/mmr/v1/players/$puuid/competitiveupdates',
       queryParameters: {
         'startIndex': startIndex,
         'endIndex': endIndex,
       },
     );
-    final matches =
-        (response.data?['Matches'] as List<dynamic>?) ?? [];
+    final data = _toMap(response.data);
+    final matches = (data['Matches'] as List<dynamic>?) ?? [];
     return matches
-        .map((e) =>
-            CompetitiveUpdate.fromJson(e as Map<String, dynamic>))
+        .whereType<Map>()
+        .map((e) => CompetitiveUpdate.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
 }
+

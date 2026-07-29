@@ -14,8 +14,16 @@ final _displayNameProvider = FutureProvider.autoDispose<String?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(accountRemoteSourceProvider.future);
-  return source.fetchDisplayName(creds.shard, creds.puuid);
+  final name = await source.fetchDisplayName(creds.shard, creds.puuid);
+  if (name != null && name.isNotEmpty) return name;
+
+  // Fallback: show short PUUID if name-service fails
+  if (creds.puuid.length >= 8) {
+    return 'Player (${creds.puuid.substring(0, 6)}...)';
+  }
+  return 'Valorant Player';
 });
+
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});

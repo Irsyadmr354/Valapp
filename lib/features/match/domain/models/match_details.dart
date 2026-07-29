@@ -71,13 +71,15 @@ class PlayerStats {
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) {
     final stats = json['stats'] as Map<String, dynamic>? ?? {};
+    final gameName = json['gameName']?.toString() ?? json['GameName']?.toString() ?? '';
+    final tagLine = json['tagLine']?.toString() ?? json['TagLine']?.toString() ?? '';
+    final name = gameName.isNotEmpty ? '$gameName#$tagLine' : '';
+
     return PlayerStats(
-      puuid: json['subject'] as String? ?? '',
-      displayName: json['gameName'] != null
-          ? '${json['gameName']}#${json['tagLine']}'
-          : '',
-      teamId: json['teamId'] as String? ?? '',
-      agentId: json['characterId'] as String? ?? '',
+      puuid: json['subject']?.toString() ?? json['Subject']?.toString() ?? '',
+      displayName: name,
+      teamId: json['teamId']?.toString() ?? json['TeamId']?.toString() ?? '',
+      agentId: json['characterId']?.toString() ?? json['CharacterId']?.toString() ?? '',
       kills: (stats['kills'] as num?)?.toInt() ?? 0,
       deaths: (stats['deaths'] as num?)?.toInt() ?? 0,
       assists: (stats['assists'] as num?)?.toInt() ?? 0,
@@ -147,6 +149,33 @@ class MatchDetails {
     }
   }
 
+  /// Returns a copy of MatchDetails with resolved player names.
+  MatchDetails copyWithResolvedNames(Map<String, String> namesMap) {
+    final updatedPlayers = players.map((p) {
+      if (p.displayName.isEmpty && namesMap.containsKey(p.puuid)) {
+        return PlayerStats(
+          puuid: p.puuid,
+          displayName: namesMap[p.puuid]!,
+          teamId: p.teamId,
+          agentId: p.agentId,
+          kills: p.kills,
+          deaths: p.deaths,
+          assists: p.assists,
+          score: p.score,
+          roundsPlayed: p.roundsPlayed,
+          competitiveTier: p.competitiveTier,
+        );
+      }
+      return p;
+    }).toList();
+
+    return MatchDetails(
+      matchInfo: matchInfo,
+      players: updatedPlayers,
+      roundResults: roundResults,
+    );
+  }
+
   factory MatchDetails.fromJson(Map<String, dynamic> json) {
     final matchInfo = MatchInfo.fromJson(
         json['matchInfo'] as Map<String, dynamic>? ?? {});
@@ -160,3 +189,4 @@ class MatchDetails {
         matchInfo: matchInfo, players: players, roundResults: rounds);
   }
 }
+

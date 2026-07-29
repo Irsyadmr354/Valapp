@@ -9,7 +9,26 @@ final _matchDetailFamily =
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(matchRemoteSourceProvider.future);
-  return source.fetchMatchDetails(creds.shard, matchId);
+  final details = await source.fetchMatchDetails(creds.shard, matchId);
+
+  // If any player display name is missing, batch resolve them via name-service
+  final missingPuuids = details.players
+      .where((p) => p.displayName.isEmpty)
+      .map((p) => p.puuid)
+      .where((id) => id.isNotEmpty)
+      .toList();
+
+  if (missingPuuids.isNotEmpty) {
+    try {
+      final accountSource = await ref.watch(accountRemoteSourceProvider.future);
+      final namesMap = await accountSource.fetchDisplayNames(creds.shard, missingPuuids);
+      if (namesMap.isNotEmpty) {
+        return details.copyWithResolvedNames(namesMap);
+      }
+    } catch (_) {}
+  }
+
+  return details;
 });
 
 class MatchDetailScreen extends ConsumerWidget {
@@ -93,26 +112,36 @@ class _MatchDetailContent extends StatelessWidget {
   }
 
   /// Converts raw game mode path to readable name.
-  String _modeName(String rawMode) {
-    if (rawMode.isEmpty) return 'Unknown Mode';
-    final parts = rawMode.split('/');
-    final last = parts.last.toLowerCase();
-    switch (last) {
-      case 'competitive': return 'Competitive';
-      case 'unrated': return 'Unrated';
-      case 'spikerush': return 'Spike Rush';
-      case 'deathmatch': return 'Deathmatch';
-      case 'ggteam': return 'Escalation';
-      case 'onefa': return 'Replication';
-      case 'hurm': return 'Team Deathmatch';
-      case 'swiftplay': return 'Swiftplay';
-      case 'newmap': return 'New Map';
-      default:
-        // Handle UE path like ShooterGame.ShooterGameMode_C
-        if (last.contains('.')) return 'Unknown Mode';
-        return last[0].toUpperCase() + last.substring(1);
+  String _modeName(String rawMode, String queueId) {
+    if (queueId.isNotEmpty) {
+      switch (queueId.toLowerCase()) {
+        case 'competitive': return 'Competitive';
+        case 'unrated': return 'Unrated';
+        case 'spikerush': return 'Spike Rush';
+        case 'deathmatch': return 'Deathmatch';
+        case 'ggteam': return 'Escalation';
+        case 'onefa': return 'Replication';
+        case 'hurm': return 'Team Deathmatch';
+        case 'swiftplay': return 'Swiftplay';
+      }
     }
+
+    final lower = rawMode.toLowerCase();
+    if (lower.contains('bomb') || lower.contains('standard')) return 'Standard';
+    if (lower.contains('deathmatch')) return 'Deathmatch';
+    if (lower.contains('spikerush')) return 'Spike Rush';
+    if (lower.contains('onefa')) return 'Replication';
+    if (lower.contains('ggteam')) return 'Escalation';
+    if (lower.contains('hurm')) return 'Team Deathmatch';
+    if (lower.contains('swiftplay')) return 'Swiftplay';
+
+    if (rawMode.isEmpty) return 'Custom Match';
+    final parts = rawMode.split('/');
+    final last = parts.last.split('.').first;
+    if (last.isEmpty) return 'Custom Match';
+    return last[0].toUpperCase() + last.substring(1);
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +175,7 @@ class _MatchDetailContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _modeName(details.matchInfo.gameMode).toUpperCase(),
+                _modeName(details.matchInfo.gameMode, details.matchInfo.queueId).toUpperCase(),
                 style: const TextStyle(
                     color: Color(0xFFFF4655),
                     fontSize: 12,
