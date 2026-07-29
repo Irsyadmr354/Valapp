@@ -87,6 +87,7 @@ class MatchHistoryResult {
     final matches = (json['History'] as List<dynamic>? ?? [])
         .map((e) => MatchHistoryEntry.fromJson(e as Map<String, dynamic>))
         .toList();
+    matches.sort((a, b) => b.gameStartMillis.compareTo(a.gameStartMillis));
     return MatchHistoryResult(
       puuid: json['Subject'] as String? ?? '',
       total: (json['Total'] as num?)?.toInt() ?? 0,
