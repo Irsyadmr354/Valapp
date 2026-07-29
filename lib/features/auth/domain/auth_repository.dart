@@ -39,6 +39,33 @@ class AuthRepository {
     return _buildCredentialsFromUri(redirectUri);
   }
 
+  /// Called after WebView login — tokens already parsed, just fetch
+  /// entitlement + geo and save credentials.
+  Future<Credentials> completeLoginFromWebView({
+    required String accessToken,
+    required String idToken,
+    required int expiresIn,
+  }) async {
+    final entitlementToken =
+        await _remote.fetchEntitlementToken(accessToken);
+    final geoData =
+        await _remote.fetchRegionAndShard(accessToken, idToken);
+    final puuid = AuthRemoteSource.extractPuuid(accessToken);
+
+    final credentials = Credentials(
+      accessToken: accessToken,
+      idToken: idToken,
+      entitlementToken: entitlementToken,
+      puuid: puuid,
+      region: geoData['region']!,
+      shard: geoData['shard']!,
+      expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
+    );
+
+    await _local.save(credentials);
+    return credentials;
+  }
+
   Future<Credentials> _buildCredentialsFromUri(String redirectUri) async {
     final tokens = AuthRemoteSource.parseTokensFromUri(redirectUri);
     final accessToken = tokens['access_token']!;
