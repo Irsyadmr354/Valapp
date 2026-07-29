@@ -20,17 +20,21 @@ class StoreRemoteSource {
 
   Future<Map<String, dynamic>> fetchStorefrontRaw(
       String shard, String puuid) async {
-    // Storefront is a POST request in Riot's API
+    // Storefront is a POST request in Riot's API — requires empty JSON body {}
     try {
       final response = await _dio.post<dynamic>(
         'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
+        data: {},
       );
       return _toMap(response.data);
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404 || e.response?.statusCode == 405) {
+      if (e.response?.statusCode == 404 ||
+          e.response?.statusCode == 405 ||
+          e.response?.statusCode == 400) {
         // Fall back to v3
         final response = await _dio.post<dynamic>(
           'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
+          data: {},
         );
         return _toMap(response.data);
       }

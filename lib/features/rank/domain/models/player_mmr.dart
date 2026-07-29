@@ -69,12 +69,11 @@ class PlayerMmr {
     if (latest is Map && latest.isNotEmpty) {
       try {
         latestUpdate =
-            CompetitiveUpdate.fromJson(latest as Map<String, dynamic>);
+            CompetitiveUpdate.fromJson(Map<String, dynamic>.from(latest));
       } catch (_) {}
     }
 
     // QueueSkills.competitive.SeasonalInfoBySeasonID has current tier
-    // Walk the structure safely to avoid type cast errors
     int currentTier = latestUpdate?.tierAfterUpdate ?? 0;
     int currentRR = latestUpdate?.rankedRatingAfterUpdate ?? 0;
     int gamesNeeded = 0;
@@ -90,19 +89,24 @@ class PlayerMmr {
                     ?.toInt() ??
                 0;
 
-        // SeasonalInfoBySeasonID is a Map<seasonId, seasonData>
-        final seasonal = competitive['SeasonalInfoBySeasonID']
-            as Map<String, dynamic>?;
-        if (seasonal != null && seasonal.isNotEmpty) {
-          // Get the most recent season (last key)
-          final latestSeason =
-              seasonal.values.last as Map<String, dynamic>?;
-          if (latestSeason != null) {
-            currentTier =
-                (latestSeason['CompetitiveTier'] as num?)?.toInt() ??
-                    currentTier;
-            currentRR =
-                (latestSeason['RankedRating'] as num?)?.toInt() ?? currentRR;
+        // If latestUpdate tier was 0, fallback to SeasonalInfoBySeasonID
+        if (currentTier == 0) {
+          final seasonal = competitive['SeasonalInfoBySeasonID']
+              as Map<String, dynamic>?;
+          if (seasonal != null && seasonal.isNotEmpty) {
+            // Find active season with non-zero tier / games
+            for (final seasonData in seasonal.values.toList().reversed) {
+              if (seasonData is Map) {
+                final tier = (seasonData['CompetitiveTier'] as num?)?.toInt() ?? 0;
+                final rr = (seasonData['RankedRating'] as num?)?.toInt() ?? 0;
+                final games = (seasonData['NumberOfGames'] as num?)?.toInt() ?? 0;
+                if (tier > 0 || games > 0) {
+                  currentTier = tier;
+                  currentRR = rr;
+                  break;
+                }
+              }
+            }
           }
         }
       }
@@ -119,3 +123,4 @@ class PlayerMmr {
     );
   }
 }
+
