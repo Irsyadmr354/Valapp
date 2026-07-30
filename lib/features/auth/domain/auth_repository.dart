@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../data/auth_remote_source.dart';
 import '../data/credentials_local_source.dart';
 import '../data/silent_webview_reauth.dart';
@@ -95,16 +96,26 @@ class AuthRepository {
 
   // ── Silent token refresh ───────────────────────────────────────────────────
 
-  /// Refreshes tokens silently using persisted cookies or background WebView session.
-  /// Never throws TokenExpiredException unless both cookie reauth AND silent webview fail.
+  /// Refreshes tokens silently using background WebView session cookies (primary)
+  /// or Dio cookie reauth (fallback).
+  ///
+  /// On iOS, WKWebView instances share cookies via the default WKWebsiteDataStore,
+  /// so the `ssid` session cookie from the initial WebView login is automatically
+  /// available to SilentWebviewReauth. This is why WebView reauth is tried FIRST.
   Future<Credentials> reauth() async {
     String? uri;
+
+    // PRIMARY: WebView-based reauth — uses shared WKWebView cookie store (ssid)
     try {
-      uri = await _remote.cookieReauth();
-    } catch (_) {
+      uri = await SilentWebviewReauth.instance.refreshTokens();
+    } catch (e) {
+      debugPrint('[AuthRepo] WebView reauth failed: $e');
+
+      // FALLBACK: Dio HTTP cookie reauth — uses PersistCookieJar
       try {
-        uri = await SilentWebviewReauth.instance.refreshTokens();
-      } catch (_) {
+        uri = await _remote.cookieReauth();
+      } catch (e2) {
+        debugPrint('[AuthRepo] Dio cookie reauth also failed: $e2');
         throw const TokenExpiredException();
       }
     }
@@ -128,6 +139,7 @@ class AuthRepository {
     );
 
     await _local.save(updated);
+    debugPrint('[AuthRepo] Reauth SUCCESS — new token expires at ${updated.expiresAt}');
     return updated;
   }
 

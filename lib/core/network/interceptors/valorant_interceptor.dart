@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../../storage/secure_storage.dart';
 import '../../../shared/utils/version_service.dart';
 
@@ -40,9 +42,13 @@ class ValorantInterceptor extends Interceptor {
         final expiresAt = DateTime.tryParse(expiresAtStr);
         if (expiresAt != null &&
             DateTime.now().isAfter(expiresAt.subtract(const Duration(minutes: 5)))) {
+          debugPrint('[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
           try {
             await onReauth();
-          } catch (_) {}
+            debugPrint('[ValorantInterceptor] Proactive reauth completed');
+          } catch (e) {
+            debugPrint('[ValorantInterceptor] Proactive reauth failed: $e');
+          }
         }
       }
 
@@ -62,7 +68,9 @@ class ValorantInterceptor extends Interceptor {
       if (options.data != null || (options.method.toUpperCase() != 'GET' && options.method.toUpperCase() != 'HEAD')) {
         options.headers['Content-Type'] = 'application/json';
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[ValorantInterceptor] Error injecting headers: $e');
+    }
 
     handler.next(options);
   }
@@ -76,6 +84,7 @@ class ValorantInterceptor extends Interceptor {
           err.requestOptions.extra['authRetried'] as bool? ?? false;
 
       if (!alreadyRetried) {
+        debugPrint('[ValorantInterceptor] Got 401 — attempting reauth...');
         try {
           await onReauth();
           err.requestOptions.extra['authRetried'] = true;
@@ -94,16 +103,43 @@ class ValorantInterceptor extends Interceptor {
                 freshEntitlement;
           }
 
-          final dio = Dio();
-          final response = await dio.fetch(err.requestOptions);
+          // Retry the request with a minimal Dio that includes JSON parsing
+          // (do NOT use the original Dio — it would re-trigger all interceptors)
+          final retryDio = Dio();
+          retryDio.interceptors.add(_JsonDecodeInterceptor());
+          final response = await retryDio.fetch(err.requestOptions);
+          debugPrint('[ValorantInterceptor] 401 retry succeeded');
           handler.resolve(response);
           return;
-        } catch (_) {
+        } catch (e) {
+          debugPrint('[ValorantInterceptor] 401 reauth failed — triggering onAuthFailed: $e');
           await onAuthFailed();
         }
       }
     }
 
     handler.next(err);
+  }
+}
+
+/// Minimal interceptor that decodes string JSON responses into Maps/Lists,
+/// needed for the retry Dio instance used after 401 reauth.
+class _JsonDecodeInterceptor extends Interceptor {
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    if (response.data is String) {
+      final str = (response.data as String).trim();
+      if (str.startsWith('{') || str.startsWith('[')) {
+        try {
+          response.data = _jsonDecode(str);
+        } catch (_) {}
+      }
+    }
+    handler.next(response);
+  }
+
+  dynamic _jsonDecode(String str) {
+    // Import-free JSON decode using dart:convert
+    return (const JsonDecoder()).convert(str);
   }
 }

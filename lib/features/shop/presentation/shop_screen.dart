@@ -22,15 +22,12 @@ final _storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async 
 
   final repo = await ref.watch(storeRepositoryProvider.future);
 
-  // Cache-first: show cache immediately, fetch fresh in background
-  final cached = await repo.loadCachedStorefront();
-  if (cached != null) {
-    // Fire-and-forget: fetch fresh data in background
-    repo.fetchStorefront(creds.shard, creds.puuid).ignore();
-    return cached;
+  // Fetch fresh data first — fallback to cache on error
+  try {
+    return await repo.fetchStorefront(creds.shard, creds.puuid);
+  } catch (_) {
+    return repo.loadCachedStorefront();
   }
-
-  return repo.fetchStorefront(creds.shard, creds.puuid);
 });
 
 final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {
@@ -56,6 +53,10 @@ class ShopScreen extends ConsumerStatefulWidget {
 }
 
 class _ShopScreenState extends ConsumerState<ShopScreen> {
+  /// Tracks which skin UUIDs have already triggered a notification this session
+  /// to prevent spam on every widget rebuild.
+  final Set<String> _notifiedSkins = {};
+
   @override
   void initState() {
     super.initState();
@@ -244,11 +245,18 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
             final matches = storefront.dailyOffers
                 .where((o) => wishlist.contains(o.skinLevelUuid))
                 .toList();
+            // Notify ONCE per skin per session — prevents spam on every rebuild
             for (final m in matches) {
-              NotificationService.instance.showWishlistAlert(
-                skinName: m.displayName ?? 'Wishlist Skin',
-                price: m.price,
-              );
+              if (!_notifiedSkins.contains(m.skinLevelUuid)) {
+                _notifiedSkins.add(m.skinLevelUuid);
+                // Schedule notification after frame to avoid async in build()
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  NotificationService.instance.showWishlistAlert(
+                    skinName: m.displayName ?? 'Wishlist Skin',
+                    price: m.price,
+                  );
+                });
+              }
             }
             return _WishlistMatchBanner(matchedSkins: matches);
           }),
