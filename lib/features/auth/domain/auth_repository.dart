@@ -1,5 +1,6 @@
 import '../data/auth_remote_source.dart';
 import '../data/credentials_local_source.dart';
+import '../data/silent_webview_reauth.dart';
 import '../domain/models/credentials.dart';
 import '../../../core/exceptions/auth_exception.dart';
 
@@ -94,11 +95,21 @@ class AuthRepository {
 
   // ── Silent token refresh ───────────────────────────────────────────────────
 
-  /// Refreshes tokens silently using persisted cookies.
-  /// Throws [TokenExpiredException] if cookies are expired.
+  /// Refreshes tokens silently using persisted cookies or background WebView session.
+  /// Never throws TokenExpiredException unless both cookie reauth AND silent webview fail.
   Future<Credentials> reauth() async {
-    final uri = await _remote.cookieReauth();
-    final tokens = AuthRemoteSource.parseTokensFromUri(uri);
+    String? uri;
+    try {
+      uri = await _remote.cookieReauth();
+    } catch (_) {
+      try {
+        uri = await SilentWebviewReauth.instance.refreshTokens();
+      } catch (_) {
+        throw const TokenExpiredException();
+      }
+    }
+
+    final tokens = AuthRemoteSource.parseTokensFromUri(uri!);
     final accessToken = tokens['access_token']!;
     final idToken = tokens['id_token']!;
     final expiresIn = int.parse(tokens['expires_in']!);

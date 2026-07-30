@@ -34,6 +34,18 @@ class ValorantInterceptor extends Interceptor {
   void onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
     try {
+      // Proactive silent refresh: if token is near expiration (<5 mins remaining), refresh before sending
+      final expiresAtStr = await _secureStorage.read(SecureStorage.keyExpiresAt);
+      if (expiresAtStr != null) {
+        final expiresAt = DateTime.tryParse(expiresAtStr);
+        if (expiresAt != null &&
+            DateTime.now().isAfter(expiresAt.subtract(const Duration(minutes: 5)))) {
+          try {
+            await onReauth();
+          } catch (_) {}
+        }
+      }
+
       final accessToken = await _secureStorage.read(SecureStorage.keyAccessToken);
       final entitlementToken =
           await _secureStorage.read(SecureStorage.keyEntitlementToken);
@@ -50,7 +62,6 @@ class ValorantInterceptor extends Interceptor {
       if (options.data != null || (options.method.toUpperCase() != 'GET' && options.method.toUpperCase() != 'HEAD')) {
         options.headers['Content-Type'] = 'application/json';
       }
-      // Best effort — missing headers will surface as 401 anyway.
     } catch (_) {}
 
     handler.next(options);
