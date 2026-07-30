@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
+import '../../shop/presentation/notification_rule_service.dart';
 import '../domain/models/account_xp.dart';
 
 final _accountXpProvider = FutureProvider.autoDispose<AccountXp?>((ref) async {
@@ -95,6 +96,10 @@ class ProfileScreen extends ConsumerWidget {
               loading: () => const SizedBox(),
               error: (_, __) => const SizedBox(),
             ),
+            const SizedBox(height: 28),
+
+            // Smart notification rules card
+            const _SmartNotificationCard(),
             const SizedBox(height: 80),
           ],
         ),
@@ -356,6 +361,151 @@ class _XpHistorySection extends StatelessWidget {
               ),
             )),
       ],
+    );
+  }
+}
+
+class _SmartNotificationCard extends ConsumerWidget {
+  const _SmartNotificationCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rules = ref.watch(notificationRulesProvider);
+    final notifier = ref.read(notificationRulesProvider.notifier);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1622),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFF4655).withAlpha(80), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF4655).withAlpha(30),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.notifications_active,
+                    color: Color(0xFFFF4655), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SMART NOTIFICATION RULES',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    Text(
+                      'Alert me when these categories appear in shop',
+                      style: TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _RuleSwitchTile(
+            title: 'Wishlist Matches',
+            icon: Icons.star,
+            color: const Color(0xFFFFD700),
+            value: rules.contains(NotificationCategory.wishlist),
+            onChanged: (_) => notifier.toggleCategory(NotificationCategory.wishlist),
+          ),
+          _RuleSwitchTile(
+            title: 'Melee / Knife Skins',
+            icon: Icons.colorize,
+            color: const Color(0xFFFF4655),
+            value: rules.contains(NotificationCategory.melee),
+            onChanged: (_) => notifier.toggleCategory(NotificationCategory.melee),
+          ),
+          _RuleSwitchTile(
+            title: 'Vandal Rifle Skins',
+            icon: Icons.sports_esports,
+            color: const Color(0xFF00F0FF),
+            value: rules.contains(NotificationCategory.vandal),
+            onChanged: (_) => notifier.toggleCategory(NotificationCategory.vandal),
+          ),
+          _RuleSwitchTile(
+            title: 'Phantom Rifle Skins',
+            icon: Icons.auto_awesome,
+            color: const Color(0xFFA855F7),
+            value: rules.contains(NotificationCategory.phantom),
+            onChanged: (_) => notifier.toggleCategory(NotificationCategory.phantom),
+          ),
+          _RuleSwitchTile(
+            title: 'Operator Sniper Skins',
+            icon: Icons.center_focus_strong,
+            color: const Color(0xFF10B981),
+            value: rules.contains(NotificationCategory.operator),
+            onChanged: (_) => notifier.toggleCategory(NotificationCategory.operator),
+          ),
+          _RuleSwitchTile(
+            title: 'Night Market Event Alerts',
+            icon: Icons.shopping_bag,
+            color: const Color(0xFFA855F7),
+            value: rules.contains(NotificationCategory.nightMarket),
+            onChanged: (_) => notifier.toggleCategory(NotificationCategory.nightMarket),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RuleSwitchTile extends StatelessWidget {
+  const _RuleSwitchTile({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            activeTrackColor: const Color(0xFFFF4655),
+            onChanged: onChanged,
+          ),
+        ],
+      ),
     );
   }
 }
