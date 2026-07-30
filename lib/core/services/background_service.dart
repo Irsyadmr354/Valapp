@@ -51,7 +51,7 @@ class BackgroundService {
         constraints: Constraints(
           networkType: NetworkType.connected,
         ),
-        existingWorkPolicy: ExistingPeriodicTaskPolicy.replace,
+        existingWorkPolicy: ExistingWorkPolicy.replace,
       );
 
       _isInitialized = true;
