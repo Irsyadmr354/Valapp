@@ -63,6 +63,7 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
         ),
       );
 
+    final videoUrl = widget.videoUrl;
     final html = '''
 <!DOCTYPE html>
 <html>
@@ -70,22 +71,72 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { width: 100%; height: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    video { width: 100%; height: 100%; object-fit: contain; }
+    body, html { width: 100%; height: 100%; background: #000; overflow: hidden; position: relative; }
+    video { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; }
+    #overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55); z-index: 10;
+      transition: opacity 0.3s ease;
+    }
+    #overlay.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #FF4655;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #overlay p {
+      margin-top: 10px; color: rgba(255,255,255,0.6);
+      font: 12px -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    #tap-hint {
+      position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center;
+      color: rgba(255,255,255,0.35); font: 10px -apple-system, sans-serif; z-index: 11;
+    }
   </style>
 </head>
 <body>
-  <video id="vid" src="${widget.videoUrl}" autoplay loop muted playsinline webkit-playsinline></video>
+  <div id="overlay">
+    <div class="spinner"></div>
+    <p>Buffering video...</p>
+  </div>
+  <video id="vid" preload="auto" autoplay loop muted playsinline webkit-playsinline></video>
+  <div id="tap-hint">Tap video to unmute</div>
   <script>
     var v = document.getElementById('vid');
-    v.play();
-    document.body.addEventListener('click', function() {
-      if (v.muted) {
-        v.muted = false;
-      } else {
-        v.muted = true;
+    var ov = document.getElementById('overlay');
+
+    v.src = "$videoUrl";
+
+    v.addEventListener('playing', function() { ov.classList.add('hidden'); });
+    v.addEventListener('waiting', function() { ov.classList.remove('hidden'); });
+    v.addEventListener('stalled', function() { ov.classList.remove('hidden'); });
+    v.addEventListener('canplay', function() {
+      v.play().catch(function(){});
+    });
+
+    // Retry play every 1.5s until video is truly playing
+    var retryId = setInterval(function() {
+      if (!v.paused && v.currentTime > 0) {
+        clearInterval(retryId);
+        return;
       }
-      v.play();
+      v.play().catch(function(){});
+    }, 1500);
+
+    // Stop retrying after 30s to avoid infinite loop
+    setTimeout(function() { clearInterval(retryId); }, 30000);
+
+    // Initial play attempt
+    v.play().catch(function(){});
+
+    // Tap to toggle mute
+    document.body.addEventListener('click', function() {
+      v.muted = !v.muted;
+      v.play().catch(function(){});
     });
   </script>
 </body>
@@ -147,7 +198,7 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
                         CircularProgressIndicator(color: Color(0xFFFF4655)),
                         SizedBox(height: 12),
                         Text(
-                          'Loading Level VFX Video...',
+                          'Loading video player...',
                           style: TextStyle(color: Colors.white54, fontSize: 11),
                         ),
                       ],
