@@ -12,6 +12,7 @@ import '../domain/models/wallet.dart';
 import '../domain/models/skin_offer.dart';
 import '../../../core/services/notification_service.dart';
 import 'skin_detail_modal.dart';
+import 'bundle_detail_modal.dart';
 import 'wishlist_provider.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
@@ -451,11 +452,21 @@ class _BundleBanner extends ConsumerWidget {
             : bundle.totalDiscountPercent * 100)
         .round();
 
+    final finalImageUrl = imageUrl;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        height: 180,
-        decoration: BoxDecoration(
+      child: GestureDetector(
+        onTap: () {
+          BundleDetailModal.show(
+            context,
+            bundle: bundle,
+            bannerImageUrl: finalImageUrl,
+          );
+        },
+        child: Container(
+          height: 180,
+          decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFFF4655).withAlpha(120), width: 1.2),
           boxShadow: [
@@ -595,6 +606,30 @@ class _BundleBanner extends ConsumerWidget {
                             ),
                           ),
                         ],
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF4655).withAlpha(40),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFF4655), width: 0.8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'VIEW ITEMS',
+                                style: TextStyle(
+                                  color: Color(0xFFFF4655),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(Icons.chevron_right, color: Color(0xFFFF4655), size: 14),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -604,6 +639,7 @@ class _BundleBanner extends ConsumerWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
