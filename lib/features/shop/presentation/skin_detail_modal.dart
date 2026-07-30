@@ -375,6 +375,25 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                             ),
                           ),
                         ),
+                        if (idx > 0) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF9900).withAlpha(30),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              '15 RP',
+                              style: TextStyle(
+                                color: Color(0xFFFF9900),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
