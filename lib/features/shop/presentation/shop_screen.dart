@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../../../shared/utils/tier_colors.dart';
@@ -157,6 +158,11 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         ),
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.bookmark_outline, color: Color(0xFFFF4655)),
+          tooltip: 'Skin Catalog & Wishlist',
+          onPressed: () => context.push('/wishlist'),
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 16),
           child: walletAsync.when(

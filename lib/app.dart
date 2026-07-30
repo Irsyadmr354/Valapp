@@ -10,6 +10,7 @@ import 'features/match/presentation/match_detail_screen.dart';
 import 'features/match/presentation/match_history_screen.dart';
 import 'features/rank/presentation/rank_screen.dart';
 import 'features/shop/presentation/shop_screen.dart';
+import 'features/shop/presentation/wishlist_catalog_screen.dart';
 import 'features/contracts/presentation/contracts_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 
@@ -50,6 +51,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/login/webview', builder: (_, __) => const WebViewLoginScreen()),
       GoRoute(path: '/mfa', builder: (_, __) => const MfaScreen()),
+      GoRoute(path: '/wishlist', builder: (_, __) => const WishlistCatalogScreen()),
       GoRoute(
         path: '/match/:id',
         builder: (_, state) =>
