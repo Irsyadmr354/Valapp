@@ -35,21 +35,7 @@ final _matchHistoryProvider =
   if (creds == null) return null;
   final queue = ref.watch(_queueFilterProvider);
   final source = await ref.watch(matchRemoteSourceProvider.future);
-  final result = await source.fetchHistory(creds.shard, creds.puuid, queue: queue);
-
-  // Pre-fetch map details for first few matches to ensure map artwork thumbnails render
-  if (result.matches.isNotEmpty) {
-    final cachedMaps = await CacheStorage.instance.getMatchMaps();
-    for (final m in result.matches.take(8)) {
-      if (!cachedMaps.containsKey(m.matchId)) {
-        try {
-          await source.fetchMatchDetails(creds.shard, m.matchId);
-        } catch (_) {}
-      }
-    }
-  }
-
-  return result;
+  return source.fetchHistory(creds.shard, creds.puuid, queue: queue);
 });
 
 const _queues = [
@@ -128,8 +114,34 @@ class MatchHistoryScreen extends ConsumerWidget {
             ),
           ),
           error: (e, _) => Center(
-            child: Text('Error: $e',
-                style: const TextStyle(color: Colors.white54)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.history_toggle_off, color: Colors.white38, size: 48),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Unable to load match history',
+                    style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pull down to refresh or tap retry below.',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: () {
+                      ref.invalidate(currentCredentialsProvider);
+                      ref.invalidate(_matchHistoryProvider);
+                    },
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF4655)),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
