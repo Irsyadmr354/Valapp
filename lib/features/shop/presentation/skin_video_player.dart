@@ -71,7 +71,7 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { width: 100%; height: 100%; background: #000; overflow: hidden; position: relative; }
+    body, html { width: 100%; height: 100%; background: #000; overflow: hidden; position: relative; user-select: none; }
     video { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; }
     #overlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -103,27 +103,36 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
       font: bold 12px -apple-system, sans-serif;
       cursor: pointer;
     }
+    #audio-badge {
+      position: absolute; top: 10px; left: 10px;
+      padding: 4px 8px; background: rgba(0,0,0,0.7);
+      color: #fff; border-radius: 12px; font: bold 11px -apple-system, sans-serif;
+      border: 1px solid rgba(255,255,255,0.2); z-index: 11;
+      pointer-events: none; transition: background 0.2s;
+    }
     #tap-hint {
       position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center;
-      color: rgba(255,255,255,0.45); font: 10px -apple-system, sans-serif; z-index: 11;
+      color: rgba(255,255,255,0.5); font: 10px -apple-system, sans-serif; z-index: 11;
       pointer-events: none;
     }
   </style>
 </head>
 <body>
+  <div id="audio-badge">🔇 MUTED (TAP TO UNMUTE)</div>
   <div id="overlay">
     <div class="spinner" id="spin"></div>
     <p id="status-txt">Loading video...</p>
     <div id="play-btn" onclick="forcePlay()">▶ TAP TO PLAY</div>
   </div>
   <video id="vid" crossorigin="anonymous" preload="auto" autoplay loop muted playsinline webkit-playsinline></video>
-  <div id="tap-hint">Tap video to unmute</div>
+  <div id="tap-hint">Tap anywhere on video to toggle sound</div>
   <script>
     var v = document.getElementById('vid');
     var ov = document.getElementById('overlay');
     var spin = document.getElementById('spin');
     var statusTxt = document.getElementById('status-txt');
     var playBtn = document.getElementById('play-btn');
+    var audioBadge = document.getElementById('audio-badge');
 
     v.src = "$videoUrl";
 
@@ -136,12 +145,25 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
       if (txt) statusTxt.innerText = txt;
     }
 
+    function updateAudioBadge() {
+      if (v.muted) {
+        audioBadge.innerText = "🔇 MUTED (TAP TO UNMUTE)";
+        audioBadge.style.borderColor = "rgba(255,255,255,0.2)";
+      } else {
+        audioBadge.innerText = "🔊 SOUND ON";
+        audioBadge.style.borderColor = "#00F0FF";
+      }
+    }
+
     function forcePlay() {
-      v.muted = true;
+      v.muted = false;
+      updateAudioBadge();
       v.play().then(function() {
         hideOverlay();
       }).catch(function(err) {
-        showOverlay("Tap anywhere on video");
+        v.muted = true;
+        updateAudioBadge();
+        v.play().then(hideOverlay).catch(function(){});
       });
     }
 
@@ -150,7 +172,11 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
       if (v.currentTime > 0) hideOverlay();
     });
 
-    v.addEventListener('playing', hideOverlay);
+    v.addEventListener('playing', function() {
+      hideOverlay();
+      updateAudioBadge();
+    });
+
     v.addEventListener('canplay', function() {
       v.play().then(hideOverlay).catch(function(){});
     });
@@ -179,6 +205,7 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
         v.play().then(hideOverlay).catch(function(){});
       } else {
         v.muted = !v.muted;
+        updateAudioBadge();
       }
     });
   </script>
@@ -187,6 +214,16 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
 ''';
 
     _controller.loadHtmlString(html, baseUrl: 'https://valorant-api.com');
+  }
+
+  @override
+  void dispose() {
+    // Explicitly pause video and clear source to stop background audio playback on dialog close
+    try {
+      _controller.runJavaScript("var v = document.getElementById('vid'); if (v) { v.pause(); v.src = ''; }");
+      _controller.loadHtmlString('<html><body></body></html>');
+    } catch (_) {}
+    super.dispose();
   }
 
   @override
