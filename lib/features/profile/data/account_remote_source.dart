@@ -19,11 +19,16 @@ class AccountRemoteSource {
   }
 
   Future<AccountXp> fetchAccountXp(String shard, String puuid) async {
+    return AccountXp.fromJson(await fetchAccountXpRaw(shard, puuid));
+  }
+
+  Future<Map<String, dynamic>> fetchAccountXpRaw(
+      String shard, String puuid) async {
     final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
       'https://pd.$cleanShard.a.pvp.net/account-xp/v1/players/$puuid',
     );
-    return AccountXp.fromJson(_toMap(response.data));
+    return _toMap(response.data);
   }
 
   /// Resolves display name via name-service.

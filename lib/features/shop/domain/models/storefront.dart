@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'skin_offer.dart';
 
 /// Featured bundle in the store.
@@ -214,23 +215,36 @@ class Storefront {
                 ?.toInt() ??
             0;
 
-    // Build daily offers — price comes from SingleItemStoreOffers[i].Cost
+    // Build daily offers — match prices by OfferID, not array index.
+    final offerPrices = <String, int>{};
+    for (final item in singleItemStoreOffers) {
+      if (item is! Map) continue;
+      final storeOffer = Map<String, dynamic>.from(item);
+      final offerId = storeOffer['OfferID'] as String?;
+      if (offerId == null || offerId.isEmpty) continue;
+      final cost = storeOffer['Cost'] as Map<String, dynamic>? ?? {};
+      final price =
+          (cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ??
+              0;
+      offerPrices[offerId] = price;
+    }
+
+    if (singleItemOfferIds.length != singleItemStoreOffers.length) {
+      debugPrint(
+        '[Storefront] WARNING: offer/price list length mismatch '
+        '(${singleItemOfferIds.length} offers vs '
+        '${singleItemStoreOffers.length} store offers)',
+      );
+    }
+
     final dailyOffers = <SkinOffer>[];
-    for (int i = 0; i < singleItemOfferIds.length; i++) {
-      final id = singleItemOfferIds[i];
-      int price = 0;
-
-      // Match price from SingleItemStoreOffers (index matches 1:1)
-      if (i < singleItemStoreOffers.length) {
-        final storeOffer =
-            singleItemStoreOffers[i] as Map<String, dynamic>? ?? {};
-        final cost = storeOffer['Cost'] as Map<String, dynamic>? ?? {};
-        // VP currency ID
-        price =
-            (cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ??
-                0;
+    for (final id in singleItemOfferIds) {
+      final price = offerPrices[id] ?? 0;
+      if (price == 0 && offerPrices.isNotEmpty) {
+        debugPrint(
+          '[Storefront] WARNING: no price found for offer ID $id',
+        );
       }
-
       dailyOffers.add(SkinOffer(
         offerId: id,
         skinLevelUuid: id,

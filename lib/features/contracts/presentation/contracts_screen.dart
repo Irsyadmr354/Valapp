@@ -2,14 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/contracts.dart';
 
 final _contractsProvider =
-    FutureProvider.autoDispose<PlayerContracts?>((ref) async {
+    FutureProvider.autoDispose<CachedFetchResult<PlayerContracts>?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(contractsRemoteSourceProvider.future);
-  return source.fetchContracts(creds.shard, creds.puuid);
+  final cache = ref.watch(contractsLocalCacheProvider);
+  try {
+    final raw = await source.fetchContractsRaw(creds.shard, creds.puuid);
+    final contracts = PlayerContracts.fromJson(raw);
+    await cache.saveContracts(raw);
+    return CachedFetchResult(contracts);
+  } catch (_) {
+    final cached = await cache.loadContracts();
+    if (cached != null) return CachedFetchResult(cached, fromCache: true);
+    rethrow;
+  }
 });
 
 class ContractsScreen extends ConsumerWidget {
@@ -41,11 +53,14 @@ class ContractsScreen extends ConsumerWidget {
         backgroundColor: const Color(0xFF141F2D),
         onRefresh: () async => ref.invalidate(_contractsProvider),
         child: contractsAsync.when(
-          data: (contracts) => contracts == null
+          data: (result) => result == null
               ? const Center(
                   child: Text('Not logged in.',
                       style: TextStyle(color: Colors.white38, fontSize: 13)))
-              : _ContractsContent(contracts: contracts),
+              : _ContractsContent(
+                  contracts: result.data,
+                  showCacheBanner: result.fromCache,
+                ),
           loading: () => const Center(
             child: Padding(
               padding: EdgeInsets.all(32),
@@ -63,8 +78,12 @@ class ContractsScreen extends ConsumerWidget {
 }
 
 class _ContractsContent extends StatelessWidget {
-  const _ContractsContent({required this.contracts});
+  const _ContractsContent({
+    required this.contracts,
+    this.showCacheBanner = false,
+  });
   final PlayerContracts contracts;
+  final bool showCacheBanner;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +94,7 @@ class _ContractsContent extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
+        if (showCacheBanner) const CacheDataBanner(),
         // Battlepass
         if (battlepass != null) ...[
           const _SectionHeader(title: 'BATTLE PASS'),

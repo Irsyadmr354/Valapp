@@ -2,27 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
+import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/account_xp.dart';
 
-final _accountXpProvider = FutureProvider.autoDispose<AccountXp?>((ref) async {
+final _accountXpProvider =
+    FutureProvider.autoDispose<CachedFetchResult<AccountXp>?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(accountRemoteSourceProvider.future);
-  return source.fetchAccountXp(creds.shard, creds.puuid);
+  final cache = ref.watch(accountLocalCacheProvider);
+  try {
+    final raw = await source.fetchAccountXpRaw(creds.shard, creds.puuid);
+    final xp = AccountXp.fromJson(raw);
+    await cache.saveAccountXp(raw);
+    return CachedFetchResult(xp);
+  } catch (_) {
+    final cached = await cache.loadAccountXp();
+    if (cached != null) return CachedFetchResult(cached, fromCache: true);
+    rethrow;
+  }
 });
 
-final _displayNameProvider = FutureProvider.autoDispose<String?>((ref) async {
+final _displayNameProvider =
+    FutureProvider.autoDispose<CachedFetchResult<String>?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(accountRemoteSourceProvider.future);
-  final name = await source.fetchDisplayName(creds.shard, creds.puuid);
-  if (name != null && name.isNotEmpty) return name;
-
-  // Fallback: show short PUUID if name-service fails
-  if (creds.puuid.length >= 8) {
-    return 'Player (${creds.puuid.substring(0, 6)}...)';
+  final cache = ref.watch(accountLocalCacheProvider);
+  try {
+    final name = await source.fetchDisplayName(creds.shard, creds.puuid);
+    if (name != null && name.isNotEmpty) {
+      await cache.saveDisplayName(creds.puuid, name);
+      return CachedFetchResult(name);
+    }
+    throw StateError('Display name unavailable');
+  } catch (_) {
+    final cached = await cache.loadDisplayName(creds.puuid);
+    if (cached != null && cached.isNotEmpty) {
+      return CachedFetchResult(cached, fromCache: true);
+    }
+    if (creds.puuid.length >= 8) {
+      return CachedFetchResult('Player (${creds.puuid.substring(0, 6)}...)');
+    }
+    return const CachedFetchResult('Valorant Player');
   }
-  return 'Valorant Player';
 });
 
 
@@ -33,6 +57,8 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final xpAsync = ref.watch(_accountXpProvider);
     final nameAsync = ref.watch(_displayNameProvider);
+    final showCacheBanner = (xpAsync.asData?.value?.fromCache ?? false) ||
+        (nameAsync.asData?.value?.fromCache ?? false);
 
     return Scaffold(
       backgroundColor: const Color(0xFF070A10),
@@ -63,9 +89,10 @@ class ProfileScreen extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
+            if (showCacheBanner) const CacheDataBanner(),
             // Profile header
             nameAsync.when(
-              data: (name) => _ProfileHeader(displayName: name),
+              data: (result) => _ProfileHeader(displayName: result?.data),
               loading: () => const _ProfileHeader(displayName: null),
               error: (_, __) => const _ProfileHeader(displayName: null),
             ),
@@ -73,9 +100,9 @@ class ProfileScreen extends ConsumerWidget {
 
             // Account XP
             xpAsync.when(
-              data: (xp) => xp == null
+              data: (result) => result == null
                   ? const SizedBox()
-                  : _XpCard(xp: xp),
+                  : _XpCard(xp: result.data),
               loading: () => const Center(
                 child: Padding(
                   padding: EdgeInsets.all(32),
@@ -89,9 +116,9 @@ class ProfileScreen extends ConsumerWidget {
 
             // XP history
             xpAsync.when(
-              data: (xp) => xp == null || xp.history.isEmpty
+              data: (result) => result == null || result.data.history.isEmpty
                   ? const SizedBox()
-                  : _XpHistorySection(history: xp.history),
+                  : _XpHistorySection(history: result.data.history),
               loading: () => const SizedBox(),
               error: (_, __) => const SizedBox(),
             ),
@@ -220,7 +247,10 @@ class _XpCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (xp.xp % 10000) / 10000.0;
+    // Progress.XP from Riot is XP earned within the current level (resets each level).
+    // Each level requires 5,000 AP — see https://wiki.playvalorant.com/en-us/Account_Level
+    final threshold = AccountXp.xpPerLevel;
+    final progress = (xp.xp / threshold).clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -275,7 +305,7 @@ class _XpCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${xp.xp % 10000} / 10,000',
+                      '${xp.xp} / ${AccountXp.xpPerLevel}',
                       style: const TextStyle(
                         color: Color(0xFF00F0FF),
                         fontSize: 12,

@@ -27,6 +27,24 @@ class MatchRemoteSource {
     int endIndex = 15,
     String? queue,
   }) async {
+    return MatchHistoryResult.fromJson(
+      await fetchHistoryRaw(
+        shard,
+        puuid,
+        startIndex: startIndex,
+        endIndex: endIndex,
+        queue: queue,
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchHistoryRaw(
+    String shard,
+    String puuid, {
+    int startIndex = 0,
+    int endIndex = 15,
+    String? queue,
+  }) async {
     final cleanShard = shard.toLowerCase();
     final params = <String, dynamic>{
       'startIndex': startIndex,
@@ -37,20 +55,26 @@ class MatchRemoteSource {
       'https://pd.$cleanShard.a.pvp.net/match-history/v1/history/$puuid',
       queryParameters: params,
     );
-    return MatchHistoryResult.fromJson(_toMap(response.data));
+    return _toMap(response.data);
   }
 
   Future<MatchDetails> fetchMatchDetails(
+      String shard, String matchId) async {
+    return MatchDetails.fromJson(await fetchMatchDetailsRaw(shard, matchId));
+  }
+
+  Future<Map<String, dynamic>> fetchMatchDetailsRaw(
       String shard, String matchId) async {
     final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
       'https://pd.$cleanShard.a.pvp.net/match-details/v1/matches/$matchId',
     );
-    final details = MatchDetails.fromJson(_toMap(response.data));
+    final raw = _toMap(response.data);
+    final details = MatchDetails.fromJson(raw);
     if (details.matchInfo.mapId.isNotEmpty) {
       CacheStorage.instance.saveMatchMap(matchId, details.matchInfo.mapId);
     }
-    return details;
+    return raw;
   }
 }
 

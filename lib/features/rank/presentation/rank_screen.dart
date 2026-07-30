@@ -1,22 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/rank_badge.dart';
 import '../domain/models/player_mmr.dart';
 
-final _mmrProvider = FutureProvider.autoDispose<PlayerMmr?>((ref) async {
+final _mmrProvider =
+    FutureProvider.autoDispose<CachedFetchResult<PlayerMmr>?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(mmrRemoteSourceProvider.future);
-  return source.fetchMmr(creds.shard, creds.puuid);
+  final cache = ref.watch(mmrLocalCacheProvider);
+  try {
+    final raw = await source.fetchMmrRaw(creds.shard, creds.puuid);
+    final mmr = PlayerMmr.fromJson(raw);
+    await cache.saveMmr(raw);
+    return CachedFetchResult(mmr);
+  } catch (_) {
+    final cached = await cache.loadMmr();
+    if (cached != null) return CachedFetchResult(cached, fromCache: true);
+    rethrow;
+  }
 });
 
-final _competitiveUpdatesProvider =
-    FutureProvider.autoDispose<List<CompetitiveUpdate>>((ref) async {
+final _competitiveUpdatesProvider = FutureProvider.autoDispose<
+    CachedFetchResult<List<CompetitiveUpdate>>>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return [];
+  if (creds == null) return const CachedFetchResult([]);
   final source = await ref.watch(mmrRemoteSourceProvider.future);
-  return source.fetchCompetitiveUpdates(creds.shard, creds.puuid);
+  final cache = ref.watch(mmrLocalCacheProvider);
+  try {
+    final raw =
+        await source.fetchCompetitiveUpdatesRaw(creds.shard, creds.puuid);
+    final list = source.parseCompetitiveUpdates(raw);
+    await cache.saveCompetitiveUpdates(raw);
+    return CachedFetchResult(list);
+  } catch (_) {
+    final cached = await cache.loadCompetitiveUpdates();
+    if (cached != null) return CachedFetchResult(cached, fromCache: true);
+    rethrow;
+  }
 });
 
 final _competitiveTiersMapProvider =
@@ -32,6 +56,8 @@ class RankScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final mmrAsync = ref.watch(_mmrProvider);
     final updatesAsync = ref.watch(_competitiveUpdatesProvider);
+    final showCacheBanner = (mmrAsync.asData?.value?.fromCache ?? false) ||
+        (updatesAsync.asData?.value.fromCache ?? false);
 
     return Scaffold(
       backgroundColor: const Color(0xFF070A10),
@@ -64,10 +90,12 @@ class RankScreen extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
+            if (showCacheBanner) const CacheDataBanner(),
             // Current rank card
             mmrAsync.when(
-              data: (mmr) =>
-                  mmr == null ? const SizedBox() : _RankCard(mmr: mmr),
+              data: (result) => result == null
+                  ? const SizedBox()
+                  : _RankCard(mmr: result.data),
               loading: () => const Center(
                 child: Padding(
                   padding: EdgeInsets.all(32),
@@ -80,7 +108,7 @@ class RankScreen extends ConsumerWidget {
 
             // RR Trend Summary Card
             updatesAsync.when(
-              data: (updates) => _RrTrendSummaryCard(updates: updates),
+              data: (result) => _RrTrendSummaryCard(updates: result.data),
               loading: () => const SizedBox(),
               error: (_, __) => const SizedBox(),
             ),
@@ -103,11 +131,11 @@ class RankScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
             updatesAsync.when(
-              data: (updates) => updates.isEmpty
+              data: (result) => result.data.isEmpty
                   ? const Text('No recent competitive matches found.',
                       style: TextStyle(color: Colors.white38, fontSize: 13))
                   : Column(
-                      children: updates
+                      children: result.data
                           .map((u) => _UpdateTile(update: u))
                           .toList(),
                     ),

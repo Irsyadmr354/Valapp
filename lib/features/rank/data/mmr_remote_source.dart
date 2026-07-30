@@ -20,14 +20,36 @@ class MmrRemoteSource {
   }
 
   Future<PlayerMmr> fetchMmr(String shard, String puuid) async {
+    return PlayerMmr.fromJson(await fetchMmrRaw(shard, puuid));
+  }
+
+  Future<Map<String, dynamic>> fetchMmrRaw(String shard, String puuid) async {
     final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(
       'https://pd.$cleanShard.a.pvp.net/mmr/v1/players/$puuid',
     );
-    return PlayerMmr.fromJson(_toMap(response.data));
+    return _toMap(response.data);
   }
 
   Future<List<CompetitiveUpdate>> fetchCompetitiveUpdates(
+    String shard,
+    String puuid, {
+    int startIndex = 0,
+    int endIndex = 20,
+  }) async {
+    final data = await fetchCompetitiveUpdatesRaw(
+      shard,
+      puuid,
+      startIndex: startIndex,
+      endIndex: endIndex,
+    );
+    return _parseCompetitiveUpdates(data);
+  }
+
+  List<CompetitiveUpdate> parseCompetitiveUpdates(Map<String, dynamic> data) =>
+      _parseCompetitiveUpdates(data);
+
+  Future<Map<String, dynamic>> fetchCompetitiveUpdatesRaw(
     String shard,
     String puuid, {
     int startIndex = 0,
@@ -41,7 +63,10 @@ class MmrRemoteSource {
         'endIndex': endIndex,
       },
     );
-    final data = _toMap(response.data);
+    return _toMap(response.data);
+  }
+
+  List<CompetitiveUpdate> _parseCompetitiveUpdates(Map<String, dynamic> data) {
     final matches = (data['Matches'] as List<dynamic>?) ?? [];
     final list = matches
         .whereType<Map>()

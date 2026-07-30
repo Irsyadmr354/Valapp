@@ -99,7 +99,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                                   color: tierColor.withAlpha(120), width: 0.8),
                             ),
                             child: Text(
-                              _tierLabel(widget.offer.contentTierUuid ?? '').toUpperCase(),
+                              TierColors.tierLabel(widget.offer.contentTierUuid)
+                                  .toUpperCase(),
                               style: TextStyle(
                                 color: tierColor,
                                 fontSize: 10,
@@ -555,24 +556,6 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final parts = item.split('::');
     final raw = parts.last;
     return raw.replaceAll(RegExp(r'([A-Z])'), ' \$1').trim();
-  }
-
-  String _tierLabel(String tierUuid) {
-    switch (tierUuid.toLowerCase()) {
-      case '12664872-466b-4c78-8b23-66a4c734fa5a':
-        return 'Select Edition';
-      case '0fe42732-4e20-704e-8e3b-92865d667230':
-        return 'Deluxe Edition';
-      case '60bca009-4182-7998-dee7-b8a2558dc369':
-        return 'Premium Edition';
-      case 'e046854e-406c-37f4-6607-11ae36026091':
-        return 'Ultra Edition';
-      case '12664872-466b-4c78-8b23-66a4c734fa5a_ex':
-      case '12664872-466b-4c78-8b23-66a4c734fa5b':
-        return 'Exclusive Edition';
-      default:
-        return 'Skin Offer';
-    }
   }
 }
 

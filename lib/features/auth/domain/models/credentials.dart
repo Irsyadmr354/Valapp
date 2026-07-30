@@ -1,3 +1,5 @@
+import '../../../../core/storage/secure_storage.dart';
+
 /// Holds all auth credentials for the logged-in account.
 class Credentials {
   final String accessToken;
@@ -7,6 +9,7 @@ class Credentials {
   final String region;
   final String shard;
   final DateTime expiresAt;
+  final DateTime entitlementExpiresAt;
 
   const Credentials({
     required this.accessToken,
@@ -16,10 +19,16 @@ class Credentials {
     required this.region,
     required this.shard,
     required this.expiresAt,
+    required this.entitlementExpiresAt,
   });
 
   bool get isExpired =>
-      DateTime.now().isAfter(expiresAt.subtract(const Duration(minutes: 5)));
+      DateTime.now().isAfter(
+          expiresAt.subtract(SecureStorage.proactiveRefreshWindow));
+
+  bool get isEntitlementExpired =>
+      DateTime.now().isAfter(
+          entitlementExpiresAt.subtract(SecureStorage.proactiveRefreshWindow));
 
   /// Returns the correct shard for a given region.
   static String shardForRegion(String region) {
@@ -47,6 +56,7 @@ class Credentials {
     String? region,
     String? shard,
     DateTime? expiresAt,
+    DateTime? entitlementExpiresAt,
   }) {
     return Credentials(
       accessToken: accessToken ?? this.accessToken,
@@ -56,6 +66,8 @@ class Credentials {
       region: region ?? this.region,
       shard: shard ?? this.shard,
       expiresAt: expiresAt ?? this.expiresAt,
+      entitlementExpiresAt:
+          entitlementExpiresAt ?? this.entitlementExpiresAt,
     );
   }
 }

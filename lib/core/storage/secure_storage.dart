@@ -23,6 +23,13 @@ class SecureStorage {
   static const keyRegion = 'region';
   static const keyShard = 'shard';
   static const keyExpiresAt = 'token_expires_at';
+  static const keyEntitlementExpiresAt = 'entitlement_expires_at';
+
+  /// Conservative estimate — Riot does not expose entitlement token TTL.
+  /// Tune here if stale-400 errors persist after proactive refresh.
+  static const entitlementTokenLifetime = Duration(minutes: 15);
+
+  static const proactiveRefreshWindow = Duration(minutes: 5);
 
   // ── Methods ─────────────────────────────────────────────────────────────────
 
@@ -52,9 +59,27 @@ class SecureStorage {
     try {
       final expiresAt = DateTime.parse(expiresAtStr);
       return DateTime.now()
-          .isBefore(expiresAt.subtract(const Duration(minutes: 5)));
+          .isBefore(expiresAt.subtract(proactiveRefreshWindow));
     } catch (_) {
       return false;
     }
   }
+
+  /// Returns whether the entitlement token is still within its estimated lifetime.
+  Future<bool> isEntitlementTokenValid() async {
+    final expiresAtStr = await _storage.read(key: keyEntitlementExpiresAt);
+    if (expiresAtStr == null) return false;
+    try {
+      final expiresAt = DateTime.parse(expiresAtStr);
+      return DateTime.now()
+          .isBefore(expiresAt.subtract(proactiveRefreshWindow));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> writeEntitlementExpiry(DateTime expiresAt) => write(
+        keyEntitlementExpiresAt,
+        expiresAt.toIso8601String(),
+      );
 }

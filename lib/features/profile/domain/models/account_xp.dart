@@ -1,5 +1,8 @@
 /// Account XP and level info.
 class AccountXp {
+  /// AP required to advance one account level (flat across all levels).
+  static const xpPerLevel = 5000;
+
   final String puuid;
   final int level;
   final int xp;

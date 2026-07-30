@@ -23,6 +23,21 @@ class TierColors {
     'e046854e-406c-37f4-6607-19a9ba8426fc': Color(0xFFF5955B), // Exclusive
   };
 
+  /// Display names keyed by content tier UUID (valorant-api.com/v1/contenttiers).
+  static const Map<String, String> tierDisplayNames = {
+    '12683d76-48d7-84a3-4e09-6985794f0445': 'Select Edition',
+    '0cebb8be-46d7-c12a-d306-e9907bfc5a25': 'Deluxe Edition',
+    '60bca009-4182-7998-dee7-b8a2558dc369': 'Premium Edition',
+    '411e4a55-4e59-7757-41f0-86a53f101bb5': 'Ultra Edition',
+    'e046854e-406c-37f4-6607-19a9ba8426fc': 'Exclusive Edition',
+  };
+
+  /// Resolves display label from content tier UUID.
+  static String tierLabel(String? tierUuid) {
+    if (tierUuid == null || tierUuid.isEmpty) return 'Skin Offer';
+    return tierDisplayNames[tierUuid.toLowerCase()] ?? 'Skin Offer';
+  }
+
   /// Resolves color from either UUID or name.
   static Color forName(String? identifier) {
     if (identifier == null) return Colors.grey;

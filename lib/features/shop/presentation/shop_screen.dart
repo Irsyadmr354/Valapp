@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/storage/cache_storage.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/skin_card.dart';
 import '../../../shared/widgets/countdown_timer.dart';
@@ -13,6 +12,7 @@ import '../domain/models/wallet.dart';
 import '../domain/models/skin_offer.dart';
 import '../../../core/services/notification_service.dart';
 import 'skin_detail_modal.dart';
+import 'wishlist_provider.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -41,8 +41,6 @@ final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {
   }
 });
 
-final _wishlistProvider = StateProvider<Set<String>>((ref) => {});
-
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class ShopScreen extends ConsumerStatefulWidget {
@@ -60,14 +58,6 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   @override
   void initState() {
     super.initState();
-    _loadWishlist();
-  }
-
-  Future<void> _loadWishlist() async {
-    final list = await CacheStorage.instance.getWishlist();
-    if (mounted) {
-      ref.read(_wishlistProvider.notifier).state = list.toSet();
-    }
     NotificationService.instance.requestPermissions();
   }
 
@@ -75,7 +65,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   Widget build(BuildContext context) {
     final storefrontAsync = ref.watch(_storefrontProvider);
     final walletAsync = ref.watch(_walletProvider);
-    final wishlist = ref.watch(_wishlistProvider);
+    final wishlist = ref.watch(wishlistProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F1923),
@@ -97,7 +87,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                         ),
                       ),
                     )
-                  : _buildContent(storefront, wishlist),
+                  : _buildContent(storefront, wishlist.toSet()),
               loading: () => SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverGrid(
@@ -295,15 +285,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   }
 
   void _toggleWishlist(SkinOffer offer) {
-    final notifier = ref.read(_wishlistProvider.notifier);
-    final current = ref.read(_wishlistProvider);
-    if (current.contains(offer.skinLevelUuid)) {
-      notifier.state = {...current}..remove(offer.skinLevelUuid);
-      CacheStorage.instance.removeFromWishlist(offer.skinLevelUuid);
-    } else {
-      notifier.state = {...current, offer.skinLevelUuid};
-      CacheStorage.instance.addToWishlist(offer.skinLevelUuid);
-    }
+    ref.read(wishlistProvider.notifier).toggle(offer.skinLevelUuid);
   }
 }
 

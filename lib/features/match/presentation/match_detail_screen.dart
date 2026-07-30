@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/match_details.dart';
 
 final _mapsMapProvider =
@@ -10,32 +12,44 @@ final _mapsMapProvider =
   return assets.getMapsMap();
 });
 
-final _matchDetailFamily =
-    FutureProvider.autoDispose.family<MatchDetails?, String>(
-        (ref, matchId) async {
+final _matchDetailFamily = FutureProvider.autoDispose
+    .family<CachedFetchResult<MatchDetails>?, String>((ref, matchId) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(matchRemoteSourceProvider.future);
-  final details = await source.fetchMatchDetails(creds.shard, matchId);
+  final cache = ref.watch(matchDetailLocalCacheProvider);
+  try {
+    final raw = await source.fetchMatchDetailsRaw(creds.shard, matchId);
+    var details = MatchDetails.fromJson(raw);
 
-  // If any player display name is missing, batch resolve them via name-service
-  final missingPuuids = details.players
-      .where((p) => p.displayName.isEmpty)
-      .map((p) => p.puuid)
-      .where((id) => id.isNotEmpty)
-      .toList();
+    final missingPuuids = details.players
+        .where((p) => p.displayName.isEmpty)
+        .map((p) => p.puuid)
+        .where((id) => id.isNotEmpty)
+        .toList();
 
-  if (missingPuuids.isNotEmpty) {
-    try {
-      final accountSource = await ref.watch(accountRemoteSourceProvider.future);
-      final namesMap = await accountSource.fetchDisplayNames(creds.shard, missingPuuids);
-      if (namesMap.isNotEmpty) {
-        return details.copyWithResolvedNames(namesMap);
-      }
-    } catch (_) {}
+    if (missingPuuids.isNotEmpty) {
+      try {
+        final accountSource =
+            await ref.watch(accountRemoteSourceProvider.future);
+        final namesMap = await accountSource.fetchDisplayNames(
+            creds.shard, missingPuuids);
+        if (namesMap.isNotEmpty) {
+          details = details.copyWithResolvedNames(namesMap);
+        }
+      } catch (_) {}
+    }
+
+    await cache.saveMatchDetail(matchId, raw);
+    return CachedFetchResult(details);
+  } catch (_) {
+    final cachedRaw = await cache.loadMatchDetailRaw(matchId);
+    if (cachedRaw != null) {
+      return CachedFetchResult(MatchDetails.fromJson(cachedRaw),
+          fromCache: true);
+    }
+    rethrow;
   }
-
-  return details;
 });
 
 class MatchDetailScreen extends ConsumerWidget {
@@ -58,11 +72,14 @@ class MatchDetailScreen extends ConsumerWidget {
                 fontSize: 16)),
       ),
       body: detailAsync.when(
-        data: (details) => details == null
+        data: (result) => result == null
             ? const Center(
                 child: Text('Match not found.',
                     style: TextStyle(color: Colors.white38)))
-            : _MatchDetailsContent(details: details),
+            : _MatchDetailsContent(
+                details: result.data,
+                showCacheBanner: result.fromCache,
+              ),
         loading: () => const Center(
           child: CircularProgressIndicator(color: Color(0xFFFF4655)),
         ),
@@ -76,8 +93,12 @@ class MatchDetailScreen extends ConsumerWidget {
 }
 
 class _MatchDetailsContent extends ConsumerWidget {
-  const _MatchDetailsContent({required this.details});
+  const _MatchDetailsContent({
+    required this.details,
+    this.showCacheBanner = false,
+  });
   final MatchDetails details;
+  final bool showCacheBanner;
 
   String _mapName(String rawMap) {
     if (rawMap.isEmpty) return 'Unknown Map';
@@ -160,6 +181,7 @@ class _MatchDetailsContent extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (showCacheBanner) const CacheDataBanner(),
         // Match info header with Map Splash Artwork Background
         Container(
           height: 130,

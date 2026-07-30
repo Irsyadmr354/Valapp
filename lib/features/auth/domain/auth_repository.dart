@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/storage/secure_storage.dart';
 import '../data/auth_remote_source.dart';
 import '../data/credentials_local_source.dart';
 import '../data/silent_webview_reauth.dart';
@@ -62,6 +63,9 @@ class AuthRepository {
       region: geoData['region']!,
       shard: geoData['shard']!,
       expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
+      entitlementExpiresAt: DateTime.now().add(
+        SecureStorage.entitlementTokenLifetime,
+      ),
     );
 
     await _local.save(credentials);
@@ -88,6 +92,9 @@ class AuthRepository {
       region: geoData['region']!,
       shard: geoData['shard']!,
       expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
+      entitlementExpiresAt: DateTime.now().add(
+        SecureStorage.entitlementTokenLifetime,
+      ),
     );
 
     await _local.save(credentials);
@@ -136,6 +143,9 @@ class AuthRepository {
       idToken: idToken,
       entitlementToken: entitlementToken,
       expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
+      entitlementExpiresAt: DateTime.now().add(
+        SecureStorage.entitlementTokenLifetime,
+      ),
     );
 
     await _local.save(updated);

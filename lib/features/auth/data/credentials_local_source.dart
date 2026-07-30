@@ -17,6 +17,8 @@ class CredentialsLocalSource {
     final region = await _storage.read(SecureStorage.keyRegion);
     final shard = await _storage.read(SecureStorage.keyShard);
     final expiresAtStr = await _storage.read(SecureStorage.keyExpiresAt);
+    final entitlementExpiresAtStr =
+        await _storage.read(SecureStorage.keyEntitlementExpiresAt);
 
     if (accessToken == null ||
         entitlementToken == null ||
@@ -29,6 +31,9 @@ class CredentialsLocalSource {
     final expiresAt = expiresAtStr != null
         ? DateTime.tryParse(expiresAtStr) ?? DateTime.now()
         : DateTime.now();
+    final entitlementExpiresAt = entitlementExpiresAtStr != null
+        ? DateTime.tryParse(entitlementExpiresAtStr) ?? DateTime.now()
+        : DateTime.now();
 
     return Credentials(
       accessToken: accessToken,
@@ -38,6 +43,7 @@ class CredentialsLocalSource {
       region: region,
       shard: shard,
       expiresAt: expiresAt,
+      entitlementExpiresAt: entitlementExpiresAt,
     );
   }
 
@@ -51,6 +57,7 @@ class CredentialsLocalSource {
       _storage.write(SecureStorage.keyShard, creds.shard),
       _storage.write(
           SecureStorage.keyExpiresAt, creds.expiresAt.toIso8601String()),
+      _storage.writeEntitlementExpiry(creds.entitlementExpiresAt),
     ]);
   }
 

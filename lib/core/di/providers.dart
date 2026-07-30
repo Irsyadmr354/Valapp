@@ -23,21 +23,23 @@ import '../../features/shop/data/store_remote_source.dart';
 import '../../features/shop/data/store_local_cache.dart';
 import '../../features/shop/domain/store_repository.dart';
 
-// ── Match ──────────────────────────────────────────────────────────────────────
-
 import '../../features/match/data/match_remote_source.dart';
+import '../../features/match/data/match_local_cache.dart';
 
 // ── Rank ───────────────────────────────────────────────────────────────────────
 
 import '../../features/rank/data/mmr_remote_source.dart';
+import '../../features/rank/data/mmr_local_cache.dart';
 
 // ── Contracts ─────────────────────────────────────────────────────────────────
 
 import '../../features/contracts/data/contracts_remote_source.dart';
+import '../../features/contracts/data/contracts_local_cache.dart';
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 import '../../features/profile/data/account_remote_source.dart';
+import '../../features/profile/data/account_local_cache.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Core singletons
@@ -135,11 +137,23 @@ final matchRemoteSourceProvider = FutureProvider<MatchRemoteSource>((ref) async 
   return MatchRemoteSource(dio);
 });
 
+final matchHistoryLocalCacheProvider = Provider<MatchHistoryLocalCache>((ref) {
+  return MatchHistoryLocalCache(ref.watch(cacheStorageProvider));
+});
+
+final matchDetailLocalCacheProvider = Provider<MatchDetailLocalCache>((ref) {
+  return MatchDetailLocalCache(ref.watch(cacheStorageProvider));
+});
+
 // ── Rank ───────────────────────────────────────────────────────────────────
 
 final mmrRemoteSourceProvider = FutureProvider<MmrRemoteSource>((ref) async {
   final dio = await ref.watch(apiDioProvider.future);
   return MmrRemoteSource(dio);
+});
+
+final mmrLocalCacheProvider = Provider<MmrLocalCache>((ref) {
+  return MmrLocalCache(ref.watch(cacheStorageProvider));
 });
 
 // ── Contracts ─────────────────────────────────────────────────────────────
@@ -150,12 +164,20 @@ final contractsRemoteSourceProvider =
   return ContractsRemoteSource(dio);
 });
 
+final contractsLocalCacheProvider = Provider<ContractsLocalCache>((ref) {
+  return ContractsLocalCache(ref.watch(cacheStorageProvider));
+});
+
 // ── Profile ───────────────────────────────────────────────────────────────
 
 final accountRemoteSourceProvider =
     FutureProvider<AccountRemoteSource>((ref) async {
   final dio = await ref.watch(apiDioProvider.future);
   return AccountRemoteSource(dio);
+});
+
+final accountLocalCacheProvider = Provider<AccountLocalCache>((ref) {
+  return AccountLocalCache(ref.watch(cacheStorageProvider));
 });
 
 // ── Current credentials (reactive) ────────────────────────────────────────

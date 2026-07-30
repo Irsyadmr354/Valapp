@@ -21,6 +21,22 @@ class CacheStorage {
   static const keyWishlist = 'wishlist_skin_ids';
   static const keyLastShopReset = 'last_shop_reset';
 
+  // Feature response caches (non-sensitive)
+  static const keyMmrCache = 'mmr_cache';
+  static const keyMmrCacheFetchedAt = 'mmr_cache_fetched_at';
+  static const keyCompetitiveUpdatesCache = 'competitive_updates_cache';
+  static const keyCompetitiveUpdatesCacheFetchedAt =
+      'competitive_updates_cache_fetched_at';
+  static const keyMatchHistoryCache = 'match_history_cache';
+  static const keyMatchHistoryCacheFetchedAt = 'match_history_cache_fetched_at';
+  static const keyMatchDetailCache = 'match_detail_cache';
+  static const keyAccountXpCache = 'account_xp_cache';
+  static const keyAccountXpCacheFetchedAt = 'account_xp_cache_fetched_at';
+  static const keyDisplayNameCache = 'display_name_cache';
+  static const keyDisplayNameCacheFetchedAt = 'display_name_cache_fetched_at';
+  static const keyContractsCache = 'contracts_cache';
+  static const keyContractsCacheFetchedAt = 'contracts_cache_fetched_at';
+
   // ── String ─────────────────────────────────────────────────────────────────
 
   Future<void> setString(String key, String value) async {

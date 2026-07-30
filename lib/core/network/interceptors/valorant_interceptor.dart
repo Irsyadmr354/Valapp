@@ -10,7 +10,7 @@ import '../../../shared/utils/version_service.dart';
 /// - X-Riot-ClientVersion (fetched & cached)
 /// - X-Riot-ClientPlatform (static base64 value)
 ///
-/// Also handles 401 by triggering a token refresh and retrying once.
+/// Handles 401 and auth-related 400 by triggering token refresh and retrying once.
 class ValorantInterceptor extends Interceptor {
   final SecureStorage _secureStorage;
   final VersionService _versionService;
@@ -36,21 +36,7 @@ class ValorantInterceptor extends Interceptor {
   void onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
     try {
-      // Proactive silent refresh: if token is near expiration (<5 mins remaining), refresh before sending
-      final expiresAtStr = await _secureStorage.read(SecureStorage.keyExpiresAt);
-      if (expiresAtStr != null) {
-        final expiresAt = DateTime.tryParse(expiresAtStr);
-        if (expiresAt != null &&
-            DateTime.now().isAfter(expiresAt.subtract(const Duration(minutes: 5)))) {
-          debugPrint('[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
-          try {
-            await onReauth();
-            debugPrint('[ValorantInterceptor] Proactive reauth completed');
-          } catch (e) {
-            debugPrint('[ValorantInterceptor] Proactive reauth failed: $e');
-          }
-        }
-      }
+      await _maybeProactiveReauth();
 
       final accessToken = await _secureStorage.read(SecureStorage.keyAccessToken);
       final entitlementToken =
@@ -65,7 +51,9 @@ class ValorantInterceptor extends Interceptor {
       }
       options.headers['X-Riot-ClientVersion'] = clientVersion;
       options.headers['X-Riot-ClientPlatform'] = _clientPlatform;
-      if (options.data != null || (options.method.toUpperCase() != 'GET' && options.method.toUpperCase() != 'HEAD')) {
+      if (options.data != null ||
+          (options.method.toUpperCase() != 'GET' &&
+              options.method.toUpperCase() != 'HEAD')) {
         options.headers['Content-Type'] = 'application/json';
       }
     } catch (e) {
@@ -75,55 +63,146 @@ class ValorantInterceptor extends Interceptor {
     handler.next(options);
   }
 
+  Future<void> _maybeProactiveReauth() async {
+    final expiresAtStr = await _secureStorage.read(SecureStorage.keyExpiresAt);
+    final entitlementExpiresAtStr =
+        await _secureStorage.read(SecureStorage.keyEntitlementExpiresAt);
+
+    var needsReauth = false;
+
+    if (expiresAtStr != null) {
+      final expiresAt = DateTime.tryParse(expiresAtStr);
+      if (expiresAt != null &&
+          DateTime.now().isAfter(
+              expiresAt.subtract(SecureStorage.proactiveRefreshWindow))) {
+        needsReauth = true;
+      }
+    }
+
+    if (entitlementExpiresAtStr != null) {
+      final entitlementExpiresAt =
+          DateTime.tryParse(entitlementExpiresAtStr);
+      if (entitlementExpiresAt != null &&
+          DateTime.now().isAfter(entitlementExpiresAt
+              .subtract(SecureStorage.proactiveRefreshWindow))) {
+        needsReauth = true;
+      }
+    } else {
+      // No entitlement expiry tracked — treat as potentially stale.
+      needsReauth = true;
+    }
+
+    if (!needsReauth) return;
+
+    debugPrint(
+        '[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
+    try {
+      await onReauth();
+      debugPrint('[ValorantInterceptor] Proactive reauth completed');
+    } catch (e) {
+      debugPrint('[ValorantInterceptor] Proactive reauth failed: $e');
+    }
+  }
+
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final status = err.response?.statusCode;
-    // ONLY 401 Unauthorized indicates an expired access_token needing reauth
+
     if (status == 401) {
-      final alreadyRetried =
-          err.requestOptions.extra['authRetried'] as bool? ?? false;
+      final handled = await _attemptReauthAndRetry(
+        err,
+        handler,
+        retryFlag: 'authRetried',
+      );
+      if (handled) return;
+    }
 
-      if (!alreadyRetried) {
-        debugPrint('[ValorantInterceptor] Got 401 — attempting reauth...');
-        try {
-          await onReauth();
-          err.requestOptions.extra['authRetried'] = true;
-
-          // Re-read fresh tokens from storage and update headers
-          final freshAccessToken =
-              await _secureStorage.read(SecureStorage.keyAccessToken);
-          final freshEntitlement =
-              await _secureStorage.read(SecureStorage.keyEntitlementToken);
-          if (freshAccessToken != null) {
-            err.requestOptions.headers['Authorization'] =
-                'Bearer $freshAccessToken';
-          }
-          if (freshEntitlement != null) {
-            err.requestOptions.headers['X-Riot-Entitlements-JWT'] =
-                freshEntitlement;
-          }
-
-          // Retry the request with a minimal Dio that includes JSON parsing
-          // (do NOT use the original Dio — it would re-trigger all interceptors)
-          final retryDio = Dio();
-          retryDio.interceptors.add(_JsonDecodeInterceptor());
-          final response = await retryDio.fetch(err.requestOptions);
-          debugPrint('[ValorantInterceptor] 401 retry succeeded');
-          handler.resolve(response);
-          return;
-        } catch (e) {
-          debugPrint('[ValorantInterceptor] 401 reauth failed — triggering onAuthFailed: $e');
-          await onAuthFailed();
-        }
-      }
+    // Riot often returns 400 (not 401) when entitlement token is stale.
+    if (status == 400 && _isLikelyAuthError(err)) {
+      final handled = await _attemptReauthAndRetry(
+        err,
+        handler,
+        retryFlag: 'entitlementRetried',
+      );
+      if (handled) return;
     }
 
     handler.next(err);
   }
+
+  /// Heuristic: only treat 400 as auth-related when the body hints at token/entitlement issues.
+  bool _isLikelyAuthError(DioException err) {
+    final data = err.response?.data;
+    if (data == null) {
+      // Empty 400 on pd.* endpoints is commonly a stale entitlement token.
+      return true;
+    }
+
+    final body = data is String
+        ? data.toLowerCase()
+        : jsonEncode(data).toLowerCase();
+
+    const authHints = [
+      'entitlement',
+      'unauthorized',
+      'bad_claims',
+      'bad claims',
+      'invalid_token',
+      'invalid token',
+      'token',
+      'forbidden',
+      'authentication',
+      'auth',
+    ];
+
+    return authHints.any(body.contains);
+  }
+
+  Future<bool> _attemptReauthAndRetry(
+    DioException err,
+    ErrorInterceptorHandler handler, {
+    required String retryFlag,
+  }) async {
+    final alreadyRetried = err.requestOptions.extra[retryFlag] as bool? ?? false;
+    if (alreadyRetried) return false;
+
+    debugPrint(
+        '[ValorantInterceptor] Got ${err.response?.statusCode} (auth) — attempting reauth...');
+    try {
+      await onReauth();
+      err.requestOptions.extra[retryFlag] = true;
+
+      final freshAccessToken =
+          await _secureStorage.read(SecureStorage.keyAccessToken);
+      final freshEntitlement =
+          await _secureStorage.read(SecureStorage.keyEntitlementToken);
+      if (freshAccessToken != null) {
+        err.requestOptions.headers['Authorization'] =
+            'Bearer $freshAccessToken';
+      }
+      if (freshEntitlement != null) {
+        err.requestOptions.headers['X-Riot-Entitlements-JWT'] =
+            freshEntitlement;
+      }
+
+      final retryDio = Dio();
+      retryDio.interceptors.add(_JsonDecodeInterceptor());
+      final response = await retryDio.fetch(err.requestOptions);
+      debugPrint(
+          '[ValorantInterceptor] ${err.response?.statusCode} retry succeeded');
+      handler.resolve(response);
+      return true;
+    } catch (e) {
+      debugPrint(
+          '[ValorantInterceptor] Reauth failed — triggering onAuthFailed: $e');
+      await onAuthFailed();
+      return false;
+    }
+  }
 }
 
 /// Minimal interceptor that decodes string JSON responses into Maps/Lists,
-/// needed for the retry Dio instance used after 401 reauth.
+/// needed for the retry Dio instance used after reauth.
 class _JsonDecodeInterceptor extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
@@ -139,7 +218,6 @@ class _JsonDecodeInterceptor extends Interceptor {
   }
 
   dynamic _jsonDecode(String str) {
-    // Import-free JSON decode using dart:convert
     return (const JsonDecoder()).convert(str);
   }
 }
