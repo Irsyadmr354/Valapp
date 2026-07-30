@@ -22,8 +22,7 @@ class SilentWebviewReauth {
   Future<String> refreshTokens() async {
     final completer = Completer<String>();
 
-    late final WebViewController controller;
-    controller = WebViewController()
+    WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(
         'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '

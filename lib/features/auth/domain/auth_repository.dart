@@ -109,7 +109,7 @@ class AuthRepository {
       }
     }
 
-    final tokens = AuthRemoteSource.parseTokensFromUri(uri!);
+    final tokens = AuthRemoteSource.parseTokensFromUri(uri);
     final accessToken = tokens['access_token']!;
     final idToken = tokens['id_token']!;
     final expiresIn = int.parse(tokens['expires_in']!);
