@@ -38,7 +38,7 @@ final _matchHistoryProvider =
   final result = await source.fetchHistory(creds.shard, creds.puuid, queue: queue);
 
   // Pre-fetch map details for first few matches to ensure map artwork thumbnails render
-  if (result != null && result.matches.isNotEmpty) {
+  if (result.matches.isNotEmpty) {
     final cachedMaps = await CacheStorage.instance.getMatchMaps();
     for (final m in result.matches.take(8)) {
       if (!cachedMaps.containsKey(m.matchId)) {
