@@ -78,6 +78,13 @@ class RankScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
 
+            // RR Trend Summary Card
+            updatesAsync.when(
+              data: (updates) => _RrTrendSummaryCard(updates: updates),
+              loading: () => const SizedBox(),
+              error: (_, __) => const SizedBox(),
+            ),
+
             // RR history header
             Row(
               children: [
@@ -349,6 +356,92 @@ class _ErrorCard extends StatelessWidget {
             child: Text(
               message,
               style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RrTrendSummaryCard extends StatelessWidget {
+  const _RrTrendSummaryCard({required this.updates});
+  final List<CompetitiveUpdate> updates;
+
+  @override
+  Widget build(BuildContext context) {
+    if (updates.isEmpty) return const SizedBox();
+
+    final netRr = updates.fold<int>(0, (sum, u) => sum + u.rankedRatingEarned);
+    final wins = updates.where((u) => u.isWin).length;
+    final losses = updates.where((u) => !u.isWin && u.rankedRatingEarned < 0).length;
+    final isNetPositive = netRr >= 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1622),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (isNetPositive ? const Color(0xFF10B981) : const Color(0xFFFF4655))
+              .withAlpha(90),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isNetPositive ? const Color(0xFF10B981) : const Color(0xFFFF4655))
+                  .withAlpha(25),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isNetPositive ? Icons.trending_up : Icons.trending_down,
+              color: isNetPositive ? const Color(0xFF10B981) : const Color(0xFFFF4655),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'RECENT 10-GAMES RR TREND',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${isNetPositive ? '+' : ''}$netRr RR',
+                  style: TextStyle(
+                    color: isNetPositive ? const Color(0xFF10B981) : const Color(0xFFFF4655),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141F2D),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$wins W  /  $losses L',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],

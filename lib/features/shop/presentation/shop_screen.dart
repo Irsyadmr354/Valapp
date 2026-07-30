@@ -230,6 +230,14 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         ],
 
         // 2. Daily Shop (Swipeable Carousel)
+        if (storefront.dailyOffers.any((o) => wishlist.contains(o.skinLevelUuid))) ...[
+          _WishlistMatchBanner(
+            matchedSkins: storefront.dailyOffers
+                .where((o) => wishlist.contains(o.skinLevelUuid))
+                .toList(),
+          ),
+        ],
+
         const _SectionHeader(title: 'Daily Shop'),
         _DailyShopCarousel(
           offers: storefront.dailyOffers,
@@ -883,6 +891,67 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
           }),
         ),
       ],
+    );
+  }
+}
+
+class _WishlistMatchBanner extends StatelessWidget {
+  const _WishlistMatchBanner({required this.matchedSkins});
+  final List<SkinOffer> matchedSkins;
+
+  @override
+  Widget build(BuildContext context) {
+    if (matchedSkins.isEmpty) return const SizedBox();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFFFFD700).withAlpha(30),
+          border: Border.all(color: const Color(0xFFFFD700), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFFD700).withAlpha(40),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.star, color: Color(0xFFFFD700), size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'WISHLIST MATCH IN YOUR SHOP TODAY!',
+                    style: TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    matchedSkins.map((s) => s.displayName ?? 'Skin').join(', '),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

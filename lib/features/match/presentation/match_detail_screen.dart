@@ -154,6 +154,9 @@ class _MatchDetailsContent extends ConsumerWidget {
     final mapInfo = mapsAsync.asData?.value[mapName.toLowerCase()];
     final splashUrl = mapInfo?['splash'] as String? ?? mapInfo?['listViewIcon'] as String?;
 
+    final matchMvpPuuid = details.players.fold<PlayerStats?>(
+        null, (prev, curr) => (prev == null || curr.score > prev.score) ? curr : prev)?.puuid ?? '';
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -252,9 +255,19 @@ class _MatchDetailsContent extends ConsumerWidget {
 
         // Team-based scoreboard
         if (redTeam.isNotEmpty && blueTeam.isNotEmpty) ...[
-          _TeamSection(title: 'ATTACK', players: redTeam, color: const Color(0xFFFF4655)),
+          _TeamSection(
+            title: 'ATTACK',
+            players: redTeam,
+            color: const Color(0xFFFF4655),
+            matchMvpPuuid: matchMvpPuuid,
+          ),
           const SizedBox(height: 12),
-          _TeamSection(title: 'DEFENSE', players: blueTeam, color: const Color(0xFF0BC4C4)),
+          _TeamSection(
+            title: 'DEFENSE',
+            players: blueTeam,
+            color: const Color(0xFF0BC4C4),
+            matchMvpPuuid: matchMvpPuuid,
+          ),
         ] else ...[
           const Text(
             'SCOREBOARD',
@@ -265,9 +278,15 @@ class _MatchDetailsContent extends ConsumerWidget {
                 letterSpacing: 1.5),
           ),
           const SizedBox(height: 10),
-          ...others.map((p) => _PlayerRow(player: p)),
+          ...others.map((p) => _PlayerRow(
+                player: p,
+                isMatchMvp: p.puuid == matchMvpPuuid,
+              )),
           if (others.isEmpty)
-            ...details.players.map((p) => _PlayerRow(player: p)),
+            ...details.players.map((p) => _PlayerRow(
+                  player: p,
+                  isMatchMvp: p.puuid == matchMvpPuuid,
+                )),
         ],
 
         const SizedBox(height: 80),
@@ -281,14 +300,18 @@ class _TeamSection extends StatelessWidget {
     required this.title,
     required this.players,
     required this.color,
+    required this.matchMvpPuuid,
   });
 
   final String title;
   final List<PlayerStats> players;
   final Color color;
+  final String matchMvpPuuid;
 
   @override
   Widget build(BuildContext context) {
+    final teamMvpPuuid = players.isNotEmpty ? players.first.puuid : '';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -333,16 +356,29 @@ class _TeamSection extends StatelessWidget {
             ],
           ),
         ),
-        ...players.map((p) => _PlayerRow(player: p, accentColor: color)),
+        ...players.map((p) => _PlayerRow(
+              player: p,
+              accentColor: color,
+              isMatchMvp: p.puuid == matchMvpPuuid,
+              isTeamMvp: p.puuid == teamMvpPuuid && p.puuid != matchMvpPuuid,
+            )),
       ],
     );
   }
 }
 
 class _PlayerRow extends StatelessWidget {
-  const _PlayerRow({required this.player, this.accentColor});
+  const _PlayerRow({
+    required this.player,
+    this.accentColor,
+    this.isMatchMvp = false,
+    this.isTeamMvp = false,
+  });
+
   final PlayerStats player;
   final Color? accentColor;
+  final bool isMatchMvp;
+  final bool isTeamMvp;
 
   String get _name {
     if (player.displayName.isNotEmpty && player.displayName != '#') {
@@ -375,14 +411,57 @@ class _PlayerRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              _name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    _name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isMatchMvp) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD700).withAlpha(40),
+                      border: Border.all(color: const Color(0xFFFFD700), width: 0.8),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'MATCH MVP',
+                      style: TextStyle(
+                        color: Color(0xFFFFD700),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ] else if (isTeamMvp) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00F0FF).withAlpha(30),
+                      border: Border.all(color: const Color(0xFF00F0FF), width: 0.8),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'TEAM MVP',
+                      style: TextStyle(
+                        color: Color(0xFF00F0FF),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Text(
