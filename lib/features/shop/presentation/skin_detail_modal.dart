@@ -462,9 +462,15 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: () {
+                          final selectedChromaVid = (chromas.isNotEmpty && _selectedChromaIndex < chromas.length)
+                              ? chromas[_selectedChromaIndex]['streamedVideo'] as String?
+                              : null;
+                          final activeVid = (selectedChromaVid != null && selectedChromaVid.isNotEmpty)
+                              ? selectedChromaVid
+                              : videoUrl;
                           SkinVideoDialog.show(
                             context,
-                            videoUrl: videoUrl,
+                            videoUrl: activeVid,
                             title: '$levelName - Video Preview',
                             tierColor: tierColor,
                           );

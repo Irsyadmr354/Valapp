@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-/// Modal dialog for playing level upgrade VFX & finisher videos cleanly without blocking UI.
+/// Modal dialog for playing level upgrade VFX & finisher videos natively via WebView HTML5 Video.
 class SkinVideoDialog extends StatefulWidget {
   const SkinVideoDialog({
     super.key,
@@ -35,36 +35,41 @@ class SkinVideoDialog extends StatefulWidget {
 }
 
 class _SkinVideoDialogState extends State<SkinVideoDialog> {
-  VideoPlayerController? _controller;
-  bool _hasError = false;
-  bool _isMuted = false;
+  late final WebViewController _controller;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initPlayer();
-  }
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.black)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+        ),
+      );
 
-  Future<void> _initPlayer() async {
-    try {
-      final uri = Uri.parse(widget.videoUrl);
-      final controller = VideoPlayerController.networkUrl(uri);
-      _controller = controller;
-      await controller.initialize();
-      controller.setLooping(true);
-      controller.setVolume(1.0);
-      controller.play();
-      if (mounted) setState(() {});
-    } catch (_) {
-      if (mounted) setState(() => _hasError = true);
-    }
-  }
+    final html = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    video { width: 100%; height: 100%; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <video src="${widget.videoUrl}" autoplay loop playsinline webkit-playsinline controls></video>
+</body>
+</html>
+''';
 
-  @override
-  void dispose() {
-    _controller?.pause();
-    _controller?.dispose();
-    super.dispose();
+    _controller.loadHtmlString(html);
   }
 
   @override
@@ -106,99 +111,50 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
 
           // Video Container
           Container(
-            height: 220,
+            height: 240,
             color: Colors.black,
-            child: _buildVideoContent(),
+            child: Stack(
+              children: [
+                WebViewWidget(controller: _controller),
+                if (_isLoading)
+                  const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: Color(0xFFFF4655)),
+                        SizedBox(height: 12),
+                        Text(
+                          'Loading Level VFX Video...',
+                          style: TextStyle(color: Colors.white54, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
 
-          // Dialog Footer Controls
-          if (_controller != null && _controller!.value.isInitialized)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _controller!.value.isPlaying
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_filled,
-                      color: const Color(0xFFFF4655),
-                      size: 28,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        if (_controller!.value.isPlaying) {
-                          _controller!.pause();
-                        } else {
-                          _controller!.play();
-                        }
-                      });
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      _isMuted ? Icons.volume_off : Icons.volume_up,
-                      color: Colors.white70,
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isMuted = !_isMuted;
-                        _controller!.setVolume(_isMuted ? 0.0 : 1.0);
-                      });
-                    },
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'CLOSE',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontWeight: FontWeight.w800,
-                      ),
+          // Dialog Footer
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'CLOSE',
+                    style: TextStyle(
+                      color: Color(0xFFFF4655),
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildVideoContent() {
-    if (_hasError) {
-      return const Center(
-        child: Text(
-          'Video preview unavailable',
-          style: TextStyle(color: Colors.white38, fontSize: 12),
-        ),
-      );
-    }
-
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Color(0xFFFF4655)),
-            SizedBox(height: 12),
-            Text(
-              'Loading Video Stream...',
-              style: TextStyle(color: Colors.white54, fontSize: 11),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return AspectRatio(
-      aspectRatio: controller.value.aspectRatio > 0
-          ? controller.value.aspectRatio
-          : 16 / 9,
-      child: VideoPlayer(controller),
     );
   }
 }
