@@ -161,7 +161,7 @@ final accountRemoteSourceProvider =
 // ── Current credentials (reactive) ────────────────────────────────────────
 
 final currentCredentialsProvider =
-    FutureProvider((ref) async {
+    FutureProvider.autoDispose((ref) async {
   final local = ref.watch(credentialsLocalSourceProvider);
   return local.load();
 });

@@ -130,4 +130,9 @@ class CacheStorage {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(key);
   }
+
+  Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
 }

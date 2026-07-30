@@ -35,7 +35,21 @@ final _matchHistoryProvider =
   if (creds == null) return null;
   final queue = ref.watch(_queueFilterProvider);
   final source = await ref.watch(matchRemoteSourceProvider.future);
-  return source.fetchHistory(creds.shard, creds.puuid, queue: queue);
+  final result = await source.fetchHistory(creds.shard, creds.puuid, queue: queue);
+
+  // Pre-fetch map details for first few matches to ensure map artwork thumbnails render
+  if (result != null && result.matches.isNotEmpty) {
+    final cachedMaps = await CacheStorage.instance.getMatchMaps();
+    for (final m in result.matches.take(8)) {
+      if (!cachedMaps.containsKey(m.matchId)) {
+        try {
+          await source.fetchMatchDetails(creds.shard, m.matchId);
+        } catch (_) {}
+      }
+    }
+  }
+
+  return result;
 });
 
 const _queues = [
@@ -86,6 +100,7 @@ class MatchHistoryScreen extends ConsumerWidget {
         color: const Color(0xFFFF4655),
         backgroundColor: const Color(0xFF141F2D),
         onRefresh: () async {
+          ref.invalidate(currentCredentialsProvider);
           ref.invalidate(_matchHistoryProvider);
           ref.invalidate(_matchMapCacheProvider);
         },

@@ -59,7 +59,8 @@ class ValorantInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final status = err.response?.statusCode;
-    if (status == 401 || status == 400 || status == 403) {
+    // ONLY 401 Unauthorized indicates an expired access_token needing reauth
+    if (status == 401) {
       final alreadyRetried =
           err.requestOptions.extra['authRetried'] as bool? ?? false;
 
@@ -87,9 +88,7 @@ class ValorantInterceptor extends Interceptor {
           handler.resolve(response);
           return;
         } catch (_) {
-          if (status == 401 || status == 403) {
-            await onAuthFailed();
-          }
+          await onAuthFailed();
         }
       }
     }

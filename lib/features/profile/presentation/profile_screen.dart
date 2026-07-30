@@ -126,6 +126,7 @@ class ProfileScreen extends ConsumerWidget {
               Navigator.of(ctx).pop();
               final repo = await ref.read(authRepositoryProvider.future);
               await repo.logout();
+              await CacheStorage.instance.clearAll();
               ref.invalidate(currentCredentialsProvider);
             },
             child: const Text('Logout'),
