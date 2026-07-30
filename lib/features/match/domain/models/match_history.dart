@@ -19,6 +19,24 @@ class MatchHistoryEntry {
   DateTime get gameStartTime =>
       DateTime.fromMillisecondsSinceEpoch(gameStartMillis);
 
+  String getMapDisplayName(Map<String, dynamic> mapsMap) {
+    if (mapId.isEmpty) return '';
+    final raw = mapId.toLowerCase();
+
+    final info = mapsMap[raw] as Map<String, dynamic>?;
+    if (info != null && info['displayName'] != null && (info['displayName'] as String).isNotEmpty) {
+      return info['displayName'] as String;
+    }
+
+    final lastSeg = raw.split('/').last.split('.').first;
+    final segInfo = mapsMap[lastSeg] as Map<String, dynamic>?;
+    if (segInfo != null && segInfo['displayName'] != null && (segInfo['displayName'] as String).isNotEmpty) {
+      return segInfo['displayName'] as String;
+    }
+
+    return mapDisplayName;
+  }
+
   String get mapDisplayName {
     if (mapId.isEmpty) return '';
     final raw = mapId.toLowerCase();

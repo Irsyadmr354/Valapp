@@ -214,11 +214,19 @@ class _MatchTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dateStr = DateFormat('MMM d, HH:mm').format(entry.gameStartTime);
-    final mapName = entry.mapDisplayName;
 
     final mapsAsync = ref.watch(_mapsMapProvider);
-    final mapInfo = mapsAsync.asData?.value[mapName.toLowerCase()];
-    final mapIconUrl = mapInfo?['listViewIcon'] as String? ?? mapInfo?['displayIcon'] as String?;
+    final mapsMap = mapsAsync.asData?.value ?? {};
+    final mapName = entry.getMapDisplayName(mapsMap);
+
+    final rawKey = entry.mapId.toLowerCase();
+    final lastSeg = rawKey.split('/').last.split('.').first;
+    final mapInfo = mapsMap[rawKey] as Map<String, dynamic>? ??
+        mapsMap[lastSeg] as Map<String, dynamic>? ??
+        mapsMap[mapName.toLowerCase()] as Map<String, dynamic>?;
+    final mapIconUrl = mapInfo?['listViewIcon'] as String? ??
+        mapInfo?['displayIcon'] as String? ??
+        mapInfo?['splash'] as String?;
 
     return InkWell(
       onTap: onTap,

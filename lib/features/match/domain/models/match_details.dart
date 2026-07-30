@@ -63,8 +63,10 @@ class PlayerStats {
     required this.competitiveTier,
   });
 
+  bool get isPerfectKda => deaths == 0 && roundsPlayed > 0;
+
   double get kda =>
-      roundsPlayed > 0 ? (kills + assists) / deaths.clamp(1, 999) : 0.0;
+      roundsPlayed > 0 ? (kills + assists) / (deaths > 0 ? deaths : 1) : 0.0;
 
   double get averageScore =>
       roundsPlayed > 0 ? score / roundsPlayed : 0.0;

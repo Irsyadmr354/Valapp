@@ -402,8 +402,13 @@ class _RrTrendSummaryCard extends StatelessWidget {
 
     final netRr = updates.fold<int>(0, (sum, u) => sum + u.rankedRatingEarned);
     final wins = updates.where((u) => u.isWin).length;
-    final losses = updates.where((u) => !u.isWin && u.rankedRatingEarned < 0).length;
+    final losses = updates.where((u) => u.isLoss).length;
+    final draws = updates.where((u) => u.isDraw).length;
     final isNetPositive = netRr >= 0;
+
+    final recordText = draws > 0
+        ? '$wins W / $losses L / $draws D'
+        : '$wins W / $losses L';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -464,7 +469,7 @@ class _RrTrendSummaryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              '$wins W  /  $losses L',
+              recordText,
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,

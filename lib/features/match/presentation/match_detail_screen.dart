@@ -170,10 +170,18 @@ class _MatchDetailsContent extends ConsumerWidget {
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    final mapName = _mapName(details.matchInfo.mapId);
     final mapsAsync = ref.watch(_mapsMapProvider);
-    final mapInfo = mapsAsync.asData?.value[mapName.toLowerCase()];
-    final splashUrl = mapInfo?['splash'] as String? ?? mapInfo?['listViewIcon'] as String?;
+    final mapsMap = mapsAsync.asData?.value ?? {};
+
+    final rawMap = details.matchInfo.mapId.toLowerCase();
+    final lastSeg = rawMap.split('/').last.split('.').first;
+    final mapInfo = mapsMap[rawMap] as Map<String, dynamic>? ??
+        mapsMap[lastSeg] as Map<String, dynamic>?;
+
+    final mapName = mapInfo?['displayName'] as String? ?? _mapName(details.matchInfo.mapId);
+    final splashUrl = mapInfo?['splash'] as String? ??
+        mapInfo?['listViewIcon'] as String? ??
+        mapInfo?['displayIcon'] as String?;
 
     final matchMvpPuuid = details.players.fold<PlayerStats?>(
         null, (prev, curr) => (prev == null || curr.score > prev.score) ? curr : prev)?.puuid ?? '';

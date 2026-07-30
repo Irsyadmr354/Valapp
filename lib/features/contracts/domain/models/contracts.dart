@@ -51,16 +51,17 @@ class Contract {
   final String contractId;
   final int progressionLevelReached;
   final int progressionTowardsNextLevel;
-  final bool isActive;
+  final bool isActiveBattlepass;
 
   const Contract({
     required this.contractId,
     required this.progressionLevelReached,
     required this.progressionTowardsNextLevel,
-    required this.isActive,
+    required this.isActiveBattlepass,
   });
 
-  factory Contract.fromJson(Map<String, dynamic> json, String? activePuuid) {
+  factory Contract.fromJson(
+      Map<String, dynamic> json, String? activeSpecialContractId) {
     return Contract(
       contractId: json['ContractDefinitionID'] as String? ?? '',
       progressionLevelReached:
@@ -73,7 +74,7 @@ class Contract {
                   as num?)
               ?.toInt() ??
               0,
-      isActive: json['ContractDefinitionID'] == activePuuid,
+      isActiveBattlepass: json['ContractDefinitionID'] == activeSpecialContractId,
     );
   }
 }
@@ -99,16 +100,16 @@ class PlayerContracts {
   }
 
   factory PlayerContracts.fromJson(Map<String, dynamic> json) {
-    final activePuuid = json['ActiveSpecialContract'] as String? ?? '';
+    final activeContractId = json['ActiveSpecialContract'] as String? ?? '';
     final contracts = (json['Contracts'] as List<dynamic>? ?? [])
         .map((e) => Contract.fromJson(
-            e as Map<String, dynamic>, activePuuid))
+            e as Map<String, dynamic>, activeContractId))
         .toList();
     final missions = (json['Missions'] as List<dynamic>? ?? [])
         .map((e) => Mission.fromJson(e as Map<String, dynamic>))
         .toList();
     return PlayerContracts(
-      activeSpecialContractId: activePuuid,
+      activeSpecialContractId: activeContractId,
       contracts: contracts,
       missions: missions,
     );

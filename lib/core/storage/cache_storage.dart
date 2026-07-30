@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -126,6 +127,7 @@ class CacheStorage {
   // ── Match Map Cache ────────────────────────────────────────────────────────
 
   static const keyMatchMapCache = 'match_map_cache';
+  Future<void>? _saveMatchMapLock;
 
   Future<Map<String, String>> getMatchMaps() async {
     final cached = await getJson(keyMatchMapCache);
@@ -135,9 +137,23 @@ class CacheStorage {
 
   Future<void> saveMatchMap(String matchId, String mapId) async {
     if (matchId.isEmpty || mapId.isEmpty) return;
-    final current = await getMatchMaps();
-    current[matchId] = mapId;
-    await setJson(keyMatchMapCache, current);
+
+    // Mutex lock to prevent concurrent read-modify-write race conditions
+    while (_saveMatchMapLock != null) {
+      await _saveMatchMapLock;
+    }
+
+    final completer = Completer<void>();
+    _saveMatchMapLock = completer.future;
+
+    try {
+      final current = await getMatchMaps();
+      current[matchId] = mapId;
+      await setJson(keyMatchMapCache, current);
+    } finally {
+      completer.complete();
+      _saveMatchMapLock = null;
+    }
   }
 
   // ── Remove ─────────────────────────────────────────────────────────────────
