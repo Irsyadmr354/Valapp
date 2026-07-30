@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 /// Modal dialog for playing level upgrade VFX & finisher videos natively via WebView HTML5 Video.
 class SkinVideoDialog extends StatefulWidget {
@@ -41,7 +42,17 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
+
+    late final PlatformWebViewControllerCreationParams params;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+      );
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
+
+    _controller = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
       ..setNavigationDelegate(
@@ -64,7 +75,19 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
   </style>
 </head>
 <body>
-  <video src="${widget.videoUrl}" autoplay loop playsinline webkit-playsinline controls></video>
+  <video id="vid" src="${widget.videoUrl}" autoplay loop muted playsinline webkit-playsinline></video>
+  <script>
+    var v = document.getElementById('vid');
+    v.play();
+    document.body.addEventListener('click', function() {
+      if (v.muted) {
+        v.muted = false;
+      } else {
+        v.muted = true;
+      }
+      v.play();
+    });
+  </script>
 </body>
 </html>
 ''';
