@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../domain/models/skin_offer.dart';
+import 'skin_video_player.dart';
 import 'wishlist_provider.dart';
 
 /// Interactive modal showing skin details, level progression (VFX, Finisher),
@@ -192,58 +193,78 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final chromas = (detail['chromas'] as List<dynamic>? ?? []);
     final levels = (detail['levels'] as List<dynamic>? ?? []);
 
-    // Get image for currently selected chroma
+    // Determine video URL or image preview for selected level / chroma
+    String? currentVideo;
     String? currentImage;
+
+    if (levels.isNotEmpty && _selectedLevelIndex < levels.length) {
+      final level = levels[_selectedLevelIndex] as Map<String, dynamic>;
+      final vid = level['streamedVideo'] as String?;
+      if (vid != null && vid.isNotEmpty) {
+        currentVideo = vid;
+      }
+    }
+
     if (chromas.isNotEmpty && _selectedChromaIndex < chromas.length) {
       final chroma = chromas[_selectedChromaIndex] as Map<String, dynamic>;
+      final vid = chroma['streamedVideo'] as String?;
+      if (currentVideo == null && vid != null && vid.isNotEmpty) {
+        currentVideo = vid;
+      }
       currentImage = chroma['fullRender'] as String? ??
           chroma['displayIcon'] as String? ??
           widget.offer.displayIcon;
-    } else {
-      currentImage = widget.offer.displayIcon;
     }
+    currentImage ??= widget.offer.displayIcon;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
-        // Main Image Preview Box
-        Container(
-          height: 180,
-          decoration: BoxDecoration(
-            color: const Color(0xFF070A10),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: tierColor.withAlpha(60)),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                tierColor.withAlpha(40),
-                const Color(0xFF070A10),
-              ],
+        // Main Video Preview or Image Preview Box
+        if (currentVideo != null && currentVideo.isNotEmpty)
+          SkinVideoPlayer(
+            key: ValueKey(currentVideo),
+            videoUrl: currentVideo,
+            tierColor: tierColor,
+          )
+        else
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              color: const Color(0xFF070A10),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: tierColor.withAlpha(60)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  tierColor.withAlpha(40),
+                  const Color(0xFF070A10),
+                ],
+              ),
+            ),
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: currentImage != null
+                    ? CachedNetworkImage(
+                        key: ValueKey(currentImage),
+                        imageUrl: currentImage,
+                        height: 140,
+                        fit: BoxFit.contain,
+                        placeholder: (_, __) =>
+                            const CircularProgressIndicator(color: Color(0xFFFF4655)),
+                        errorWidget: (_, __, ___) => const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: Colors.white24,
+                          size: 48,
+                        ),
+                      )
+                    : const Icon(Icons.image_not_supported_outlined,
+                        color: Colors.white24, size: 48),
+              ),
             ),
           ),
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: currentImage != null
-                  ? CachedNetworkImage(
-                      key: ValueKey(currentImage),
-                      imageUrl: currentImage,
-                      height: 140,
-                      fit: BoxFit.contain,
-                      placeholder: (_, __) =>
-                          const CircularProgressIndicator(color: Color(0xFFFF4655)),
-                      errorWidget: (_, __, ___) => const Icon(
-                        Icons.image_not_supported_outlined,
-                        color: Colors.white24,
-                        size: 48,
-                      ),
-                    )
-                  : const Icon(Icons.image_not_supported_outlined,
-                      color: Colors.white24, size: 48),
-            ),
-          ),
-        ),
         const SizedBox(height: 20),
 
         // Color Chromas Swatches

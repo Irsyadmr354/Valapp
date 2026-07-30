@@ -11,6 +11,7 @@ import '../../../shared/widgets/loading_shimmer.dart';
 import '../domain/models/storefront.dart';
 import '../domain/models/wallet.dart';
 import '../domain/models/skin_offer.dart';
+import '../../../core/services/notification_service.dart';
 import 'skin_detail_modal.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
     if (mounted) {
       ref.read(_wishlistProvider.notifier).state = list.toSet();
     }
+    NotificationService.instance.requestPermissions();
   }
 
   @override
@@ -238,11 +240,18 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
 
         // 2. Daily Shop (Swipeable Carousel)
         if (storefront.dailyOffers.any((o) => wishlist.contains(o.skinLevelUuid))) ...[
-          _WishlistMatchBanner(
-            matchedSkins: storefront.dailyOffers
+          Builder(builder: (context) {
+            final matches = storefront.dailyOffers
                 .where((o) => wishlist.contains(o.skinLevelUuid))
-                .toList(),
-          ),
+                .toList();
+            for (final m in matches) {
+              NotificationService.instance.showWishlistAlert(
+                skinName: m.displayName ?? 'Wishlist Skin',
+                price: m.price,
+              );
+            }
+            return _WishlistMatchBanner(matchedSkins: matches);
+          }),
         ],
 
         const _SectionHeader(title: 'Daily Shop'),
