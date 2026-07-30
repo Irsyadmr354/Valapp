@@ -193,78 +193,105 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final chromas = (detail['chromas'] as List<dynamic>? ?? []);
     final levels = (detail['levels'] as List<dynamic>? ?? []);
 
-    // Determine video URL or image preview for selected level / chroma
-    String? currentVideo;
+    // Determine image preview for selected chroma
     String? currentImage;
-
-    if (levels.isNotEmpty && _selectedLevelIndex < levels.length) {
-      final level = levels[_selectedLevelIndex] as Map<String, dynamic>;
-      final vid = level['streamedVideo'] as String?;
-      if (vid != null && vid.isNotEmpty) {
-        currentVideo = vid;
-      }
-    }
+    String? currentChromaVideo;
 
     if (chromas.isNotEmpty && _selectedChromaIndex < chromas.length) {
       final chroma = chromas[_selectedChromaIndex] as Map<String, dynamic>;
-      final vid = chroma['streamedVideo'] as String?;
-      if (currentVideo == null && vid != null && vid.isNotEmpty) {
-        currentVideo = vid;
-      }
       currentImage = chroma['fullRender'] as String? ??
           chroma['displayIcon'] as String? ??
           widget.offer.displayIcon;
+      final vid = chroma['streamedVideo'] as String?;
+      if (vid != null && vid.isNotEmpty) {
+        currentChromaVideo = vid;
+      }
     }
     currentImage ??= widget.offer.displayIcon;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
-        // Main Video Preview or Image Preview Box
-        if (currentVideo != null && currentVideo.isNotEmpty)
-          SkinVideoPlayer(
-            key: ValueKey(currentVideo),
-            videoUrl: currentVideo,
-            tierColor: tierColor,
-          )
-        else
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: const Color(0xFF070A10),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: tierColor.withAlpha(60)),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  tierColor.withAlpha(40),
-                  const Color(0xFF070A10),
-                ],
+        // Main Image Preview Box (Always responsive to selected chroma)
+        Stack(
+          children: [
+            Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFF070A10),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: tierColor.withAlpha(60)),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    tierColor.withAlpha(40),
+                    const Color(0xFF070A10),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: currentImage != null
+                      ? CachedNetworkImage(
+                          key: ValueKey(currentImage),
+                          imageUrl: currentImage,
+                          height: 140,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) =>
+                              const CircularProgressIndicator(color: Color(0xFFFF4655)),
+                          errorWidget: (_, __, ___) => const Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.white24,
+                            size: 48,
+                          ),
+                        )
+                      : const Icon(Icons.image_not_supported_outlined,
+                          color: Colors.white24, size: 48),
+                ),
               ),
             ),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: currentImage != null
-                    ? CachedNetworkImage(
-                        key: ValueKey(currentImage),
-                        imageUrl: currentImage,
-                        height: 140,
-                        fit: BoxFit.contain,
-                        placeholder: (_, __) =>
-                            const CircularProgressIndicator(color: Color(0xFFFF4655)),
-                        errorWidget: (_, __, ___) => const Icon(
-                          Icons.image_not_supported_outlined,
-                          color: Colors.white24,
-                          size: 48,
+            if (currentChromaVideo != null)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: GestureDetector(
+                  onTap: () {
+                    SkinVideoDialog.show(
+                      context,
+                      videoUrl: currentChromaVideo!,
+                      title: '${widget.offer.displayName} - Chroma Video',
+                      tierColor: tierColor,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF4655),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow, color: Colors.white, size: 14),
+                        SizedBox(width: 2),
+                        Text(
+                          'VIDEO',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
-                      )
-                    : const Icon(Icons.image_not_supported_outlined,
-                        color: Colors.white24, size: 48),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
+          ],
+        ),
         const SizedBox(height: 20),
 
         // Color Chromas Swatches
@@ -380,6 +407,7 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
             final isSelected = idx == _selectedLevelIndex;
             final levelName = level['displayName']?.toString() ?? 'Level ${idx + 1}';
             final levelItem = level['levelItem']?.toString() ?? '';
+            final videoUrl = level['streamedVideo'] as String?;
 
             return GestureDetector(
               onTap: () => setState(() => _selectedLevelIndex = idx),
@@ -430,7 +458,45 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                         ],
                       ),
                     ),
-                    if (idx > 0)
+                    if (videoUrl != null && videoUrl.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () {
+                          SkinVideoDialog.show(
+                            context,
+                            videoUrl: videoUrl,
+                            title: '$levelName - Video Preview',
+                            tierColor: tierColor,
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF4655),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_arrow,
+                                  color: Colors.white, size: 14),
+                              SizedBox(width: 2),
+                              Text(
+                                'VIDEO',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (idx > 0) ...[
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
@@ -447,6 +513,7 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
