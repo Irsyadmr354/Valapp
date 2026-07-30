@@ -82,11 +82,11 @@ class _WishlistCatalogScreenState
 
   final List<Map<String, dynamic>> _tierOptions = [
     {'name': 'All', 'label': 'ALL EDITIONS', 'color': Colors.white70},
-    {'name': 'Select', 'label': 'SELECT EDITION (BLUE)', 'color': const Color(0xFF5A9FE2)},
-    {'name': 'Deluxe', 'label': 'DELUXE EDITION (GREEN)', 'color': const Color(0xFF009587)},
-    {'name': 'Premium', 'label': 'PREMIUM EDITION (PINK)', 'color': const Color(0xFFD1548D)},
-    {'name': 'Exclusive', 'label': 'EXCLUSIVE EDITION (ORANGE)', 'color': const Color(0xFFF5955B)},
     {'name': 'Ultra', 'label': 'ULTRA EDITION (GOLD)', 'color': const Color(0xFFFAD663)},
+    {'name': 'Exclusive', 'label': 'EXCLUSIVE EDITION (ORANGE)', 'color': const Color(0xFFF5955B)},
+    {'name': 'Premium', 'label': 'PREMIUM EDITION (PINK)', 'color': const Color(0xFFD1548D)},
+    {'name': 'Deluxe', 'label': 'DELUXE EDITION (GREEN)', 'color': const Color(0xFF009587)},
+    {'name': 'Select', 'label': 'SELECT EDITION (BLUE)', 'color': const Color(0xFF5A9FE2)},
   ];
 
   @override
