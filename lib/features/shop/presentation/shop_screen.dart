@@ -276,12 +276,8 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
 
-    final creds = await ref.read(currentCredentialsProvider.future);
-    if (creds == null) return;
-
-    final repo = await ref.read(storeRepositoryProvider.future);
-    await repo.fetchStorefront(creds.shard, creds.puuid);
-    await repo.fetchWallet(creds.shard, creds.puuid);
+    await ref.read(_storefrontProvider.future);
+    await ref.read(_walletProvider.future);
   }
 
   void _toggleWishlist(SkinOffer offer) {

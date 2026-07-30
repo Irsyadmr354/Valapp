@@ -190,7 +190,9 @@ class _ProfileHeader extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                displayName?.substring(0, 1).toUpperCase() ?? 'V',
+                (displayName != null && displayName!.isNotEmpty)
+                    ? displayName![0].toUpperCase()
+                    : 'V',
                 style: const TextStyle(
                   color: Color(0xFFFF4655),
                   fontSize: 24,
@@ -249,7 +251,7 @@ class _XpCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Progress.XP from Riot is XP earned within the current level (resets each level).
     // Each level requires 5,000 AP — see https://wiki.playvalorant.com/en-us/Account_Level
-    final threshold = AccountXp.xpPerLevel;
+    const threshold = AccountXp.xpPerLevel;
     final progress = (xp.xp / threshold).clamp(0.0, 1.0);
 
     return Container(
