@@ -14,6 +14,7 @@ import '../../../core/services/notification_service.dart';
 import 'skin_detail_modal.dart';
 import 'bundle_detail_modal.dart';
 import 'wishlist_provider.dart';
+import '../../auth/presentation/account_switcher_modal.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -152,6 +153,11 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         ),
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.manage_accounts, color: Color(0xFF00F0FF)),
+          tooltip: 'Switch Account (Multi-Account)',
+          onPressed: () => AccountSwitcherModal.show(context),
+        ),
         IconButton(
           icon: const Icon(Icons.bookmark_outline, color: Color(0xFFFF4655)),
           tooltip: 'Skin Catalog & Wishlist',

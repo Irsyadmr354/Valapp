@@ -5,6 +5,7 @@ import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/contracts.dart';
+import 'battlepass_carousel_modal.dart';
 
 final _contractsProvider =
     FutureProvider.autoDispose<CachedFetchResult<PlayerContracts>?>((ref) async {
@@ -240,6 +241,32 @@ class _BattlepassCard extends StatelessWidget {
               backgroundColor: const Color(0xFF070A10),
               valueColor: const AlwaysStoppedAnimation(Color(0xFFFF4655)),
               minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFFF4655)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                BattlepassCarouselModal.show(context, contract);
+              },
+              icon: const Icon(Icons.view_carousel, color: Color(0xFFFF4655), size: 18),
+              label: const Text(
+                'VIEW BATTLE PASS ITEMS & CAROUSEL',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
+              ),
             ),
           ),
         ],

@@ -273,6 +273,18 @@ class ValorantAssets {
       return cached ?? {};
     }
   }
+
+  // ── Contracts / Battle Pass ───────────────────────────────────────────────
+
+  /// Returns contract metadata including chapters, levels, and reward items.
+  Future<Map<String, dynamic>?> getContract(String contractUuid) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('$_base/contracts/$contractUuid');
+      return response.data?['data'] as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 

@@ -5,6 +5,7 @@ import '../../../core/storage/cache_storage.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/account_xp.dart';
+import '../../auth/presentation/account_switcher_modal.dart';
 
 final _accountXpProvider =
     FutureProvider.autoDispose<CachedFetchResult<AccountXp>?>((ref) async {
@@ -49,7 +50,6 @@ final _displayNameProvider =
   }
 });
 
-
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -71,6 +71,11 @@ class ProfileScreen extends ConsumerWidget {
                 letterSpacing: 1.5,
                 fontSize: 16)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.manage_accounts, color: Color(0xFF00F0FF)),
+            onPressed: () => AccountSwitcherModal.show(context),
+            tooltip: 'Switch Account (Multi-Account)',
+          ),
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFFFF4655)),
             onPressed: () => _confirmLogout(context, ref),

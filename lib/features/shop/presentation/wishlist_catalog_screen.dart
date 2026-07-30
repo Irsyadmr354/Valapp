@@ -43,6 +43,7 @@ final _allSkinsListProvider =
 });
 
 const _categories = [
+  '★ WISHLIST',
   'All',
   'Vandal',
   'Phantom',
@@ -103,28 +104,31 @@ class _WishlistCatalogScreenState
           ),
         ),
         actions: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            margin: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF4655).withAlpha(30),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFF4655), width: 1),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.bookmark, color: Color(0xFFFF4655), size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  '${wishlist.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
+          GestureDetector(
+            onTap: () => setState(() => _selectedCategory = '★ WISHLIST'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF4655).withAlpha(30),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFF4655), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.bookmark, color: Color(0xFFFF4655), size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${wishlist.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -224,7 +228,9 @@ class _WishlistCatalogScreenState
                       name.contains(_searchQuery.toLowerCase());
 
                   bool matchesCategory = true;
-                  if (_selectedCategory != 'All') {
+                  if (_selectedCategory == '★ WISHLIST') {
+                    matchesCategory = wishlist.contains(s['skinLevelUuid']);
+                  } else if (_selectedCategory != 'All') {
                     final catLower = _selectedCategory.toLowerCase();
                     if (catLower == 'melee') {
                       matchesCategory = name.contains('knife') ||
