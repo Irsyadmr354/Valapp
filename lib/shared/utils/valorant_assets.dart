@@ -60,7 +60,17 @@ class ValorantAssets {
   /// Returns metadata for a single skin level UUID.
   Future<Map<String, dynamic>?> getSkinLevel(String uuid) async {
     final map = await getSkinLevelsMap();
-    return map[uuid] as Map<String, dynamic>?;
+    final item = map[uuid] as Map<String, dynamic>?;
+    if (item != null && item['chromas'] != null) {
+      return item;
+    }
+
+    // Failsafe fallback: clear stale cache and re-fetch if chromas key was missing
+    final cache = CacheStorage.instance;
+    await cache.remove(CacheStorage.keySkinMetadata);
+    await cache.remove(CacheStorage.keySkinMetadataFetchedAt);
+    final freshMap = await getSkinLevelsMap();
+    return freshMap[uuid] as Map<String, dynamic>?;
   }
 
   // ── Content Tiers ──────────────────────────────────────────────────────────

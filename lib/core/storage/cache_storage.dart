@@ -12,8 +12,8 @@ class CacheStorage {
   static const keyClientVersionFetchedAt = 'client_version_fetched_at';
   static const keyDailyShop = 'daily_shop';
   static const keyDailyShopFetchedAt = 'daily_shop_fetched_at';
-  static const keySkinMetadata = 'skin_metadata';
-  static const keySkinMetadataFetchedAt = 'skin_metadata_fetched_at';
+  static const keySkinMetadata = 'skin_metadata_v2';
+  static const keySkinMetadataFetchedAt = 'skin_metadata_v2_fetched_at';
   static const keyContentTiers = 'content_tiers';
   static const keyContentTiersFetchedAt = 'content_tiers_fetched_at';
   static const keyCompetitiveTiers = 'competitive_tiers';
