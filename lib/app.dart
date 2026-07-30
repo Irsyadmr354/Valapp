@@ -84,7 +84,7 @@ class ValorantShopApp extends ConsumerWidget {
     final router = ref.watch(_routerProvider);
 
     return MaterialApp.router(
-      title: 'Valorant Shop Monitor',
+      title: 'ValAPP',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
       routerConfig: router,
@@ -110,17 +110,17 @@ class ValorantShopApp extends ConsumerWidget {
         titleTextStyle: TextStyle(
           color: Colors.white,
           fontSize: 18,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
           letterSpacing: 1.2,
         ),
         iconTheme: IconThemeData(color: Colors.white),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF0B101A),
+        backgroundColor: Color(0xFF070A10),
         selectedItemColor: Color(0xFFFF4655),
         unselectedItemColor: Colors.white38,
         type: BottomNavigationBarType.fixed,
-        elevation: 12,
+        elevation: 16,
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: Color(0xFFFF4655),
@@ -136,7 +136,7 @@ class ValorantShopApp extends ConsumerWidget {
   }
 }
 
-// ── Shell with bottom nav ─────────────────────────────────────────────────────
+// ── Shell with futuristic Valorant bottom nav ─────────────────────────────────
 
 class _ScaffoldWithNav extends StatelessWidget {
   const _ScaffoldWithNav({required this.child});
@@ -161,10 +161,18 @@ class _ScaffoldWithNav extends StatelessWidget {
       body: child,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: Color(0xFF0B101A),
+          color: Color(0xFF0A0F18),
           border: Border(
-            top: BorderSide(color: Color(0xFF1B2738), width: 1),
+            top: BorderSide(color: Color(0xFFFF4655), width: 1.2),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0xFFFF4655),
+              blurRadius: 10,
+              spreadRadius: -4,
+              offset: Offset(0, -2),
+            ),
+          ],
         ),
         child: BottomNavigationBar(
           currentIndex: currentIndex,
@@ -174,12 +182,12 @@ class _ScaffoldWithNav extends StatelessWidget {
           unselectedItemColor: Colors.white38,
           selectedLabelStyle: const TextStyle(
             fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
           ),
           unselectedLabelStyle: const TextStyle(
             fontSize: 11,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
           onTap: (i) => context.go(_tabs[i].$1),
           items: _tabs.map((t) {
@@ -191,10 +199,11 @@ class _ScaffoldWithNav extends StatelessWidget {
               activeIcon: Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF4655).withAlpha(30),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFFF4655).withAlpha(35),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFF4655).withAlpha(120), width: 1),
                   ),
                   child: Icon(t.$3, size: 22, color: const Color(0xFFFF4655)),
                 ),
@@ -207,4 +216,3 @@ class _ScaffoldWithNav extends StatelessWidget {
     );
   }
 }
-

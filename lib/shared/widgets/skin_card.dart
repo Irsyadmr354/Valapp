@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/shop/domain/models/skin_offer.dart';
 import '../utils/tier_colors.dart';
 
-/// Card displaying a single skin with its name, tier color, price, and wishlist toggle.
+/// Card displaying a single skin with its name, tier color badge, price, and wishlist toggle.
 class SkinCard extends StatelessWidget {
   const SkinCard({
     super.key,
@@ -19,59 +19,84 @@ class SkinCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tierColor = TierColors.forName(offer.contentTierUuid);
+    final tierLabel = TierColors.tierLabel(offer.contentTierUuid);
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isHighlighted
               ? const Color(0xFFFF4655)
-              : tierColor.withAlpha(180),
-          width: isHighlighted ? 2 : 1.4,
+              : tierColor.withAlpha(160),
+          width: isHighlighted ? 2 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
             color: (isHighlighted ? const Color(0xFFFF4655) : tierColor)
-                .withAlpha(45),
-            blurRadius: 12,
+                .withAlpha(50),
+            blurRadius: 16,
             spreadRadius: 1,
+            offset: const Offset(0, 4),
           ),
         ],
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            tierColor.withAlpha(75),
-            tierColor.withAlpha(25),
-            const Color(0xFF0C131D),
+            tierColor.withAlpha(70),
+            tierColor.withAlpha(20),
+            const Color(0xFF070A10),
           ],
-          stops: const [0.0, 0.45, 1.0],
+          stops: const [0.0, 0.4, 1.0],
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(15),
         child: Stack(
           children: [
-            // Top Accent Bar
+            // Top Edition Tier Accent Line
             Positioned(
               top: 0,
               left: 0,
               right: 0,
               child: Container(
-                height: 3.5,
+                height: 3,
                 color: tierColor,
               ),
             ),
 
-            // Card Body
+            // Top-right Edition Tier Chip Badge
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: tierColor.withAlpha(30),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: tierColor.withAlpha(100), width: 0.6),
+                ),
+                child: Text(
+                  tierLabel.replaceAll(' Edition', '').toUpperCase(),
+                  style: TextStyle(
+                    color: tierColor,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+
+            // Card Body Content
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 // Skin Image
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: offer.displayIcon != null
                         ? CachedNetworkImage(
                             imageUrl: offer.displayIcon!,
@@ -85,9 +110,9 @@ class SkinCard extends StatelessWidget {
 
                 // Info Footer
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF080D14).withAlpha(220),
+                    color: const Color(0xFF090E16).withAlpha(230),
                     border: const Border(
                       top: BorderSide(color: Color(0xFF1B2738), width: 0.8),
                     ),
@@ -100,8 +125,8 @@ class SkinCard extends StatelessWidget {
                         offer.displayName ?? 'Unknown Skin',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 0.3,
                         ),
                         maxLines: 1,
@@ -115,12 +140,12 @@ class SkinCard extends StatelessWidget {
                           // VP Badge Chip
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
+                                horizontal: 7, vertical: 3.5),
                             decoration: BoxDecoration(
                               color: const Color(0xFF00F0FF).withAlpha(25),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: const Color(0xFF00F0FF).withAlpha(90),
+                                color: const Color(0xFF00F0FF).withAlpha(100),
                                 width: 0.8,
                               ),
                             ),
@@ -134,7 +159,7 @@ class SkinCard extends StatelessWidget {
                                   style: const TextStyle(
                                     color: Color(0xFF00F0FF),
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
                               ],
@@ -147,7 +172,7 @@ class SkinCard extends StatelessWidget {
                             GestureDetector(
                               onTap: onWishlistToggle,
                               child: Container(
-                                padding: const EdgeInsets.all(4),
+                                padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(
                                   color: offer.isInWishlist
                                       ? const Color(0xFFFF4655).withAlpha(40)
@@ -229,4 +254,3 @@ class _PlaceholderIcon extends StatelessWidget {
     );
   }
 }
-

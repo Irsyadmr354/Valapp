@@ -106,19 +106,29 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
       // Invalidate credentials provider so router picks up the new session
       ref.invalidate(currentCredentialsProvider);
 
-      if (mounted) context.go('/shop');
+      if (mounted) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          context.go('/shop');
+        }
+      }
     } on AuthException catch (e) {
-      setState(() {
-        _isLoading = false;
-        _isProcessing = false;
-        _errorMessage = e.message;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isProcessing = false;
+          _errorMessage = e.message;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _isProcessing = false;
-        _errorMessage = 'Failed to complete login: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isProcessing = false;
+          _errorMessage = 'Failed to complete login: $e';
+        });
+      }
     }
   }
 
