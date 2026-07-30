@@ -113,6 +113,17 @@ class NightMarketOffer {
     );
   }
 
+  SkinOffer toSkinOffer() {
+    return SkinOffer(
+      offerId: offerId,
+      skinLevelUuid: skinLevelUuid,
+      price: discountedPrice,
+      displayName: skinName,
+      displayIcon: skinIcon,
+      contentTierUuid: contentTierUuid,
+    );
+  }
+
   factory NightMarketOffer.fromJson(Map<String, dynamic> json) {
     final offer = json['Offer'] as Map<String, dynamic>? ?? {};
     final rewards = (offer['Rewards'] as List<dynamic>?) ?? [];

@@ -10,6 +10,7 @@ import '../../../shared/widgets/loading_shimmer.dart';
 import '../domain/models/storefront.dart';
 import '../domain/models/wallet.dart';
 import '../domain/models/skin_offer.dart';
+import 'skin_detail_modal.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -657,10 +658,13 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 margin: const EdgeInsets.symmetric(horizontal: 6),
-                child: SkinCard(
-                  offer: offer.copyWith(isInWishlist: inWishlist),
-                  isHighlighted: inWishlist,
-                  onWishlistToggle: () => widget.onWishlistToggle(offer),
+                child: GestureDetector(
+                  onTap: () => SkinDetailModal.show(context, offer),
+                  child: SkinCard(
+                    offer: offer.copyWith(isInWishlist: inWishlist),
+                    isHighlighted: inWishlist,
+                    onWishlistToggle: () => widget.onWishlistToggle(offer),
+                  ),
                 ),
               );
             },
@@ -733,8 +737,10 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                       : offer.discountPercent * 100)
                   .round();
 
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
+              return GestureDetector(
+                onTap: () => SkinDetailModal.show(context, offer.toSkinOffer()),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
@@ -868,8 +874,9 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                     ],
                   ),
                 ),
-              );
-            },
+              ),
+            );
+          },
           ),
         ),
         const SizedBox(height: 10),

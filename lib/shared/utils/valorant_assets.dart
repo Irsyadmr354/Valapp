@@ -41,8 +41,12 @@ class ValorantAssets {
             'displayName': level['displayName'],
             'displayIcon': level['displayIcon'],
             'skinName': skin['displayName'],
+            'skinUuid': skin['uuid'],
             'themeUuid': skin['themeUuid'],
             'contentTierUuid': skin['contentTierUuid'],
+            'wallpaper': skin['wallpaper'],
+            'chromas': skin['chromas'],
+            'levels': skin['levels'],
           };
         }
       }
