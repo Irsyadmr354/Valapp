@@ -33,6 +33,7 @@ dependencies:
   webview_flutter: ^4.8.0
   webview_flutter_wkwebview: ^3.13.0
   flutter_local_notifications: ^17.1.2
+  workmanager: ^0.5.2
 
   # Icons
   cupertino_icons: ^1.0.8

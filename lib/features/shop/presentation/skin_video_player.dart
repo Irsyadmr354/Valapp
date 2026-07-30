@@ -76,74 +76,117 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
     #overlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.55); z-index: 10;
-      transition: opacity 0.3s ease;
+      background: rgba(0,0,0,0.65); z-index: 10;
+      transition: opacity 0.25s ease;
     }
     #overlay.hidden { opacity: 0; pointer-events: none; }
     .spinner {
       width: 36px; height: 36px;
-      border: 3px solid rgba(255,255,255,0.15);
+      border: 3px solid rgba(255,255,255,0.2);
       border-top-color: #FF4655;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     #overlay p {
-      margin-top: 10px; color: rgba(255,255,255,0.6);
+      margin-top: 12px; color: rgba(255,255,255,0.7);
       font: 12px -apple-system, BlinkMacSystemFont, sans-serif;
+      letter-spacing: 0.5px;
+    }
+    #play-btn {
+      display: none;
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: #FF4655;
+      color: #fff;
+      border-radius: 20px;
+      font: bold 12px -apple-system, sans-serif;
+      cursor: pointer;
     }
     #tap-hint {
       position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center;
-      color: rgba(255,255,255,0.35); font: 10px -apple-system, sans-serif; z-index: 11;
+      color: rgba(255,255,255,0.45); font: 10px -apple-system, sans-serif; z-index: 11;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
   <div id="overlay">
-    <div class="spinner"></div>
-    <p>Buffering video...</p>
+    <div class="spinner" id="spin"></div>
+    <p id="status-txt">Loading video...</p>
+    <div id="play-btn" onclick="forcePlay()">▶ TAP TO PLAY</div>
   </div>
-  <video id="vid" preload="auto" autoplay loop muted playsinline webkit-playsinline></video>
+  <video id="vid" crossorigin="anonymous" preload="auto" autoplay loop muted playsinline webkit-playsinline></video>
   <div id="tap-hint">Tap video to unmute</div>
   <script>
     var v = document.getElementById('vid');
     var ov = document.getElementById('overlay');
+    var spin = document.getElementById('spin');
+    var statusTxt = document.getElementById('status-txt');
+    var playBtn = document.getElementById('play-btn');
 
     v.src = "$videoUrl";
 
-    v.addEventListener('playing', function() { ov.classList.add('hidden'); });
-    v.addEventListener('waiting', function() { ov.classList.remove('hidden'); });
-    v.addEventListener('stalled', function() { ov.classList.remove('hidden'); });
-    v.addEventListener('canplay', function() {
-      v.play().catch(function(){});
+    function hideOverlay() {
+      ov.classList.add('hidden');
+    }
+
+    function showOverlay(txt) {
+      ov.classList.remove('hidden');
+      if (txt) statusTxt.innerText = txt;
+    }
+
+    function forcePlay() {
+      v.muted = true;
+      v.play().then(function() {
+        hideOverlay();
+      }).catch(function(err) {
+        showOverlay("Tap anywhere on video");
+      });
+    }
+
+    // Hide buffering overlay as soon as video advances frames
+    v.addEventListener('timeupdate', function() {
+      if (v.currentTime > 0) hideOverlay();
     });
 
-    // Retry play every 1.5s until video is truly playing
-    var retryId = setInterval(function() {
-      if (!v.paused && v.currentTime > 0) {
-        clearInterval(retryId);
-        return;
-      }
-      v.play().catch(function(){});
-    }, 1500);
+    v.addEventListener('playing', hideOverlay);
+    v.addEventListener('canplay', function() {
+      v.play().then(hideOverlay).catch(function(){});
+    });
 
-    // Stop retrying after 30s to avoid infinite loop
-    setTimeout(function() { clearInterval(retryId); }, 30000);
+    v.addEventListener('waiting', function() {
+      if (v.currentTime === 0) showOverlay("Buffering video...");
+    });
+
+    // Fallback: If not playing within 3s, show manual play button
+    setTimeout(function() {
+      if (v.paused || v.currentTime === 0) {
+        spin.style.display = 'none';
+        statusTxt.innerText = "Video ready";
+        playBtn.style.display = 'inline-block';
+        v.play().then(hideOverlay).catch(function(){});
+      }
+    }, 3000);
 
     // Initial play attempt
-    v.play().catch(function(){});
+    v.play().then(hideOverlay).catch(function(){});
 
-    // Tap to toggle mute
-    document.body.addEventListener('click', function() {
-      v.muted = !v.muted;
-      v.play().catch(function(){});
+    // Tap video body to toggle mute / play
+    document.body.addEventListener('click', function(e) {
+      if (e.target.id === 'play-btn') return;
+      if (v.paused) {
+        v.play().then(hideOverlay).catch(function(){});
+      } else {
+        v.muted = !v.muted;
+      }
     });
   </script>
 </body>
 </html>
 ''';
 
-    _controller.loadHtmlString(html);
+    _controller.loadHtmlString(html, baseUrl: 'https://valorant-api.com');
   }
 
   @override
