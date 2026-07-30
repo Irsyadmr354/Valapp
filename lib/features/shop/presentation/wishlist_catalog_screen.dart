@@ -76,13 +76,113 @@ class WishlistCatalogScreen extends ConsumerStatefulWidget {
 class _WishlistCatalogScreenState
     extends ConsumerState<WishlistCatalogScreen> {
   String _selectedCategory = 'All';
+  String _selectedTierFilter = 'All';
   String _searchQuery = '';
   final _searchController = TextEditingController();
+
+  final List<Map<String, dynamic>> _tierOptions = [
+    {'name': 'All', 'label': 'ALL EDITIONS', 'color': Colors.white70},
+    {'name': 'Select', 'label': 'SELECT EDITION (BLUE)', 'color': const Color(0xFF5A9FE2)},
+    {'name': 'Deluxe', 'label': 'DELUXE EDITION (GREEN)', 'color': const Color(0xFF009587)},
+    {'name': 'Premium', 'label': 'PREMIUM EDITION (PINK)', 'color': const Color(0xFFD1548D)},
+    {'name': 'Exclusive', 'label': 'EXCLUSIVE EDITION (ORANGE)', 'color': const Color(0xFFF5955B)},
+    {'name': 'Ultra', 'label': 'ULTRA EDITION (GOLD)', 'color': const Color(0xFFFAD663)},
+  ];
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _showTierFilterModal() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0E1622),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.fromBorderSide(
+            BorderSide(color: Color(0xFFFF4655), width: 1.5),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'FILTER EDITION TIER',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ..._tierOptions.map((opt) {
+              final isSelected = opt['name'] == _selectedTierFilter;
+              final Color color = opt['color'] as Color;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedTierFilter = opt['name'] as String);
+                  Navigator.of(context).pop();
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? color.withAlpha(40) : const Color(0xFF141F2D),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? color : Colors.white10,
+                      width: isSelected ? 1.8 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        opt['label'] as String,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (isSelected)
+                        Icon(Icons.check_circle, color: color, size: 18),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -185,7 +285,13 @@ class _WishlistCatalogScreenState
                 final cat = _categories[i];
                 final isSelected = cat == _selectedCategory;
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedCategory = cat),
+                  onTap: () {
+                    setState(() => _selectedCategory = cat);
+                    // Prompt tier filter modal when selecting a specific weapon category
+                    if (cat != '★ WISHLIST' && cat != 'All') {
+                      _showTierFilterModal();
+                    }
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -214,6 +320,39 @@ class _WishlistCatalogScreenState
                   ),
                 );
               },
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Edition Tier Filter Bar Selector
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: _showTierFilterModal,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141F2D),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFF4655).withAlpha(100)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.tune, color: Color(0xFFFF4655), size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'EDITION TIER: ${_tierOptions.firstWhere((e) => e['name'] == _selectedTierFilter)['label']}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -250,13 +389,19 @@ class _WishlistCatalogScreenState
                     }
                   }
 
-                  return matchesSearch && matchesCategory;
+                  bool matchesTier = true;
+                  if (_selectedTierFilter != 'All') {
+                    final tierName = TierColors.tierLabel(s['contentTierUuid'] as String?);
+                    matchesTier = tierName.toLowerCase().contains(_selectedTierFilter.toLowerCase());
+                  }
+
+                  return matchesSearch && matchesCategory && matchesTier;
                 }).toList();
 
                 if (filtered.isEmpty) {
                   return const Center(
                     child: Text(
-                      'No matching skins found.',
+                      'No matching skins found for this filter.',
                       style: TextStyle(color: Colors.white38, fontSize: 13),
                     ),
                   );
