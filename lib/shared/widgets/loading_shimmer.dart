@@ -78,11 +78,11 @@ class SkinCardShimmer extends StatelessWidget {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
+          const Padding(
+            padding: EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 LoadingShimmer(height: 14),
                 SizedBox(height: 8),
                 LoadingShimmer(width: 60, height: 12),

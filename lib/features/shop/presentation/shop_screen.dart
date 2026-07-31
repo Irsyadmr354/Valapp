@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/skin_card.dart';
@@ -15,6 +16,9 @@ import 'skin_detail_modal.dart';
 import 'bundle_detail_modal.dart';
 import 'wishlist_provider.dart';
 import '../../auth/presentation/account_switcher_modal.dart';
+import '../../match/domain/models/match_history.dart';
+import '../../profile/domain/models/account_xp.dart';
+import '../../rank/domain/models/player_mmr.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -24,7 +28,6 @@ final _storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async 
 
   final repo = await ref.watch(storeRepositoryProvider.future);
 
-  // Fetch fresh data first — fallback to cache on error
   try {
     return await repo.fetchStorefront(creds.shard, creds.puuid);
   } catch (_) {
@@ -40,6 +43,70 @@ final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {
     return await repo.fetchWallet(creds.shard, creds.puuid);
   } catch (_) {
     return repo.loadCachedWallet();
+  }
+});
+
+final _homeAccountXpProvider = FutureProvider.autoDispose<AccountXp?>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
+  final source = await ref.watch(accountRemoteSourceProvider.future);
+  final cache = ref.watch(accountLocalCacheProvider);
+  try {
+    final raw = await source.fetchAccountXpRaw(creds.shard, creds.puuid);
+    final xp = AccountXp.fromJson(raw);
+    await cache.saveAccountXp(raw);
+    return xp;
+  } catch (_) {
+    return cache.loadAccountXp();
+  }
+});
+
+final _homeDisplayNameProvider = FutureProvider.autoDispose<String?>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
+  final source = await ref.watch(accountRemoteSourceProvider.future);
+  final cache = ref.watch(accountLocalCacheProvider);
+  try {
+    final name = await source.fetchDisplayName(creds.shard, creds.puuid);
+    if (name != null && name.isNotEmpty) {
+      await cache.saveDisplayName(creds.puuid, name);
+      return name;
+    }
+    throw StateError('Unavailable');
+  } catch (_) {
+    final cached = await cache.loadDisplayName(creds.puuid);
+    if (cached != null && cached.isNotEmpty) return cached;
+    return 'Valorant ID';
+  }
+});
+
+final _homeMmrProvider = FutureProvider.autoDispose<PlayerMmr?>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
+  final source = await ref.watch(mmrRemoteSourceProvider.future);
+  final cache = ref.watch(mmrLocalCacheProvider);
+  try {
+    final raw = await source.fetchMmrRaw(creds.shard, creds.puuid);
+    final mmr = PlayerMmr.fromJson(raw);
+    await cache.saveMmr(raw);
+    return mmr;
+  } catch (_) {
+    return cache.loadMmr();
+  }
+});
+
+final _homeMatchesProvider = FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
+  final source = await ref.watch(matchRemoteSourceProvider.future);
+  final cache = ref.watch(matchHistoryLocalCacheProvider);
+  try {
+    final raw = await source.fetchHistoryRaw(creds.shard, creds.puuid);
+    final history = MatchHistoryResult.fromJson(raw);
+    await cache.saveHistory(history);
+    return history;
+  } catch (_) {
+    return cache.loadHistory();
   }
 });
 
@@ -143,28 +210,101 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
       pinned: true,
       floating: false,
       centerTitle: false,
-      title: const Text(
-        'ValAPP',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.5,
-        ),
+      toolbarHeight: 64,
+      title: Consumer(
+        builder: (context, ref, _) {
+          final nameAsync = ref.watch(_homeDisplayNameProvider);
+          final xpAsync = ref.watch(_homeAccountXpProvider);
+
+          final displayName = nameAsync.asData?.value ?? 'Valorant ID';
+          final rawXp = xpAsync.asData?.value;
+          final levelStr = rawXp != null ? 'Level ${rawXp.level}' : 'Level --';
+          final xpProgress = rawXp != null ? (rawXp.xp / 10000.0).clamp(0.0, 1.0) : 0.0;
+
+          return Row(
+            children: [
+              GestureDetector(
+                onTap: () => AccountSwitcherModal.show(context),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF00E8F0), Color(0xFF005841)],
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      displayName.isNotEmpty ? displayName[0].toUpperCase() : 'V',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        levelStr,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 36,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: xpProgress,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00E8F0),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.manage_accounts, color: Color(0xFF00F0FF)),
-          tooltip: 'Switch Account (Multi-Account)',
-          onPressed: () => AccountSwitcherModal.show(context),
-        ),
-        IconButton(
-          icon: const Icon(Icons.bookmark_outline, color: Color(0xFFFF4655)),
+          icon: const Icon(Icons.bookmark_outline, color: Color(0xFFFF4655), size: 20),
           tooltip: 'Skin Catalog & Wishlist',
           onPressed: () => context.push('/wishlist'),
         ),
         Padding(
-          padding: const EdgeInsets.only(right: 16),
+          padding: const EdgeInsets.only(right: 12),
           child: walletAsync.when(
             data: (wallet) => wallet != null ? _WalletBar(wallet: wallet) : const SizedBox(),
             loading: () => const SizedBox(),
@@ -271,8 +411,11 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         if (storefront.hasNightMarket) ...[
           const _SectionHeader(title: 'Night Market'),
           _NightMarketCarousel(offers: storefront.nightMarket),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
         ],
+
+        // 4. 3 Quick Cards Row (COMPETITIVE RANK, MATCH HISTORY, RECENT TREND)
+        const _HomeQuickCardsRow(),
 
         const SizedBox(height: 80), // bottom nav breathing room
       ]),
@@ -365,7 +508,7 @@ class _CurrencyChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -1004,5 +1147,371 @@ class _WishlistMatchBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── 3 Quick Cards Row (Competitive Rank, Match History, Recent Trend) ─────────
+
+class _HomeQuickCardsRow extends ConsumerWidget {
+  const _HomeQuickCardsRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mmrAsync = ref.watch(_homeMmrProvider);
+    final historyAsync = ref.watch(_homeMatchesProvider);
+
+    final mmr = mmrAsync.asData?.value;
+    final matches = historyAsync.asData?.value?.matches ?? [];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. COMPETITIVE RANK Card (Clickable -> /rank)
+          Expanded(
+            child: _QuickCardWrapper(
+              onTap: () => context.go('/rank'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _QuickCardHeader(
+                    icon: Icons.military_tech_outlined,
+                    iconColor: Color(0xFF00E8F0),
+                    title: 'RANK',
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF00E8F0).withAlpha(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00E8F0).withAlpha(25),
+                            blurRadius: 10,
+                          )
+                        ],
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.shield_outlined, color: Color(0xFF00E8F0), size: 26),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      mmr != null && mmr.currentTier > 0
+                          ? _tierName(mmr.currentTier).toUpperCase()
+                          : 'UNRANKED',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Center(
+                    child: Text(
+                      '${mmr?.currentRankedRating ?? 0} / 100 RR',
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 3,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: ((mmr?.currentRankedRating ?? 0) / 100.0).clamp(0.0, 1.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E8F0),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // 2. MATCH HISTORY Card (CLICKABLE -> /matches)
+          Expanded(
+            child: _QuickCardWrapper(
+              onTap: () => context.go('/matches'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _QuickCardHeader(
+                    icon: Icons.sports_esports_outlined,
+                    iconColor: Color(0xFFA855F7),
+                    title: 'MATCHES',
+                  ),
+                  const SizedBox(height: 8),
+                  if (matches.isEmpty) ...[
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'No recent matches',
+                          style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    for (int i = 0; i < matches.take(3).length; i++) ...[
+                      if (i > 0) const SizedBox(height: 4),
+                      _MatchMiniTile(
+                        queue: matches[i].queueDisplayName.toUpperCase(),
+                        date: _formatShortDate(matches[i].gameStartMillis),
+                        color: i == 0
+                            ? const Color(0xFFFF4655)
+                            : (i == 1 ? const Color(0xFF00E8F0) : const Color(0xFF3B82F6)),
+                      ),
+                    ]
+                  ]
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // 3. RECENT TREND Card
+          Expanded(
+            child: _QuickCardWrapper(
+              onTap: () => context.go('/rank'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _QuickCardHeader(
+                    icon: Icons.trending_up,
+                    iconColor: Color(0xFF00E8F0),
+                    title: 'RECENT TREND',
+                  ),
+                  const SizedBox(height: 10),
+                  Builder(
+                    builder: (context) {
+                      final latestRr = mmr?.latestUpdate?.rankedRatingEarned ?? 0;
+                      final isPos = latestRr >= 0;
+                      return Center(
+                        child: Text(
+                          mmr?.latestUpdate != null
+                              ? '${isPos ? '+' : ''}$latestRr RR'
+                              : '0 RR',
+                          style: TextStyle(
+                            color: mmr?.latestUpdate == null
+                                ? Colors.white54
+                                : (isPos ? const Color(0xFF00E8F0) : const Color(0xFFFF4655)),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 2),
+                  const Center(
+                    child: Text(
+                      'LAST MATCH',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 20,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: List.generate(8, (idx) {
+                        final latestRr = mmr?.latestUpdate?.rankedRatingEarned ?? 0;
+                        final isPositive = latestRr >= 0;
+                        final barHeight = ((idx + 1) * 2.2).clamp(4.0, 20.0);
+                        return Container(
+                          width: 3,
+                          height: barHeight,
+                          decoration: BoxDecoration(
+                            color: isPositive ? const Color(0xFF00E8F0) : const Color(0xFFFF4655),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickCardWrapper extends StatelessWidget {
+  const _QuickCardWrapper({required this.child, required this.onTap});
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        height: 146,
+        decoration: BoxDecoration(
+          color: const Color(0xFF131B2E),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF1A2540), width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(50),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _QuickCardHeader extends StatelessWidget {
+  const _QuickCardHeader({required this.icon, required this.iconColor, required this.title});
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: iconColor, size: 12),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MatchMiniTile extends StatelessWidget {
+  const _MatchMiniTile({required this.queue, required this.date, required this.color});
+  final String queue;
+  final String date;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1420),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withAlpha(40), width: 0.6),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  queue,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  date,
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: Colors.white38, size: 12),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatShortDate(int timestampMs) {
+  if (timestampMs == 0) return 'Just now';
+  final dt = DateTime.fromMillisecondsSinceEpoch(timestampMs);
+  return DateFormat('MMM dd, HH:mm').format(dt);
+}
+
+String _tierName(int tier) {
+  const names = [
+    'Unranked', 'Unused 1', 'Unused 2',
+    'Iron 1', 'Iron 2', 'Iron 3',
+    'Bronze 1', 'Bronze 2', 'Bronze 3',
+    'Silver 1', 'Silver 2', 'Silver 3',
+    'Gold 1', 'Gold 2', 'Gold 3',
+    'Platinum 1', 'Platinum 2', 'Platinum 3',
+    'Diamond 1', 'Diamond 2', 'Diamond 3',
+    'Ascendant 1', 'Ascendant 2', 'Ascendant 3',
+    'Immortal 1', 'Immortal 2', 'Immortal 3',
+    'Radiant'
+  ];
+  if (tier >= 0 && tier < names.length) return names[tier];
+  return 'Ranked';
 }
 

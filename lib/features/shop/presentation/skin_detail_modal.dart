@@ -7,8 +7,32 @@ import '../domain/models/skin_offer.dart';
 import 'skin_video_player.dart';
 import 'wishlist_provider.dart';
 
+// ── Absolute Tier Colors & Labels ─────────────────────────────────────────────
+
+String _getTierLabel(String? tierUuid) {
+  if (tierUuid == null || tierUuid.isEmpty) return 'Standard Edition';
+  final uuid = tierUuid.toLowerCase();
+  if (uuid.contains('12683d76')) return 'Select Edition';
+  if (uuid.contains('0cebb8be')) return 'Deluxe Edition';
+  if (uuid.contains('60bca009')) return 'Premium Edition';
+  if (uuid.contains('411e4a55')) return 'Ultra Edition';
+  if (uuid.contains('e046854e')) return 'Exclusive Edition';
+  return TierColors.tierLabel(tierUuid);
+}
+
+Color _getTierColor(String? tierUuid) {
+  if (tierUuid == null || tierUuid.isEmpty) return const Color(0xFF5A9FE2);
+  final uuid = tierUuid.toLowerCase();
+  if (uuid.contains('12683d76')) return const Color(0xFF5A9FE2); // Select (Light Blue)
+  if (uuid.contains('0cebb8be')) return const Color(0xFF009587); // Deluxe (Teal Green)
+  if (uuid.contains('60bca009')) return const Color(0xFFD1548D); // Premium (Pink)
+  if (uuid.contains('411e4a55')) return const Color(0xFFFAD663); // Ultra (Gold)
+  if (uuid.contains('e046854e')) return const Color(0xFFF5955B); // Exclusive (Orange)
+  return TierColors.forName(tierUuid);
+}
+
 /// Interactive modal showing skin details, level progression (VFX, Finisher),
-/// and chroma color swatches.
+/// and chroma color swatches matching user mockup screenshot.
 class SkinDetailModal extends ConsumerStatefulWidget {
   const SkinDetailModal({super.key, required this.offer});
   final SkinOffer offer;
@@ -35,31 +59,31 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final assetsAsync = ref.watch(_skinFullDetailProvider(widget.offer.skinLevelUuid));
     final wishlist = ref.watch(wishlistProvider);
     final isWishlisted = wishlist.contains(widget.offer.skinLevelUuid);
-    final tierColor = TierColors.forName(widget.offer.contentTierUuid);
+    final tierColor = _getTierColor(widget.offer.contentTierUuid);
+    final tierLabel = _getTierLabel(widget.offer.contentTierUuid);
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: tierColor.withAlpha(120), width: 1.5),
+        color: const Color(0xFF070A10),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border.all(color: tierColor.withAlpha(100), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: tierColor.withAlpha(60),
-            blurRadius: 24,
+            color: tierColor.withAlpha(50),
+            blurRadius: 28,
             spreadRadius: 2,
           ),
         ],
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
+          // Drag handle indicator
           const SizedBox(height: 12),
           Container(
-            width: 36,
+            width: 38,
             height: 4,
             decoration: BoxDecoration(
               color: Colors.white24,
@@ -68,116 +92,149 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
           ),
           const SizedBox(height: 12),
 
-          // Header with skin name & tier chip
+          // Top Header Action Bar (Back, Wishlist Bookmark, Close)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.offer.displayName ?? 'Weapon Skin',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: tierColor.withAlpha(40),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                  color: tierColor.withAlpha(120), width: 0.8),
-                            ),
-                            child: Text(
-                              TierColors.tierLabel(widget.offer.contentTierUuid)
-                                  .toUpperCase(),
-                              style: TextStyle(
-                                color: tierColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${widget.offer.price} VP',
-                            style: const TextStyle(
-                              color: Color(0xFF00F0FF),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54),
                   onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                  visualDensity: VisualDensity.compact,
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        ref.read(wishlistProvider.notifier).toggle(widget.offer.skinLevelUuid);
+                      },
+                      icon: Icon(
+                        isWishlisted ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                        color: isWishlisted ? const Color(0xFFD1548D) : Colors.white70,
+                        size: 22,
+                      ),
+                      tooltip: isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist',
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
 
-          // Modal Body
+          // Scrollable Body
           Expanded(
             child: assetsAsync.when(
               data: (detail) => detail == null
-                  ? _buildFallbackBody(tierColor)
-                  : _buildInteractiveBody(detail, tierColor),
+                  ? _buildFallbackBody(tierColor, tierLabel, isWishlisted)
+                  : _buildInteractiveBody(detail, tierColor, tierLabel, isWishlisted),
               loading: () => const Center(
-                child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+                child: CircularProgressIndicator(color: Color(0xFF00E8F0)),
               ),
-              error: (_, __) => _buildFallbackBody(tierColor),
+              error: (_, __) => _buildFallbackBody(tierColor, tierLabel, isWishlisted),
             ),
           ),
 
-          // Wishlist Action Footer
+          // Bottom Action Footer Bar (Gift to Friend + Add to Wishlist)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(
-              color: Color(0xFF070A10),
-              border: Border(
-                top: BorderSide(color: Color(0xFF1B2738), width: 1),
-              ),
+              color: Color(0xFF0A0F18),
+              border: Border(top: BorderSide(color: Colors.white10, width: 1)),
             ),
             child: Row(
               children: [
+                // Gift to Friend Button
                 Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: isWishlisted
-                          ? const Color(0xFF1B2738)
-                          : const Color(0xFFFF4655),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF131B2E),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white12, width: 1),
                     ),
-                    onPressed: () {
-                      ref
-                          .read(wishlistProvider.notifier)
-                          .toggle(widget.offer.skinLevelUuid);
-                    },
-                    icon: Icon(
-                      isWishlisted ? Icons.bookmark : Icons.bookmark_border,
-                      color: isWishlisted ? const Color(0xFFFF4655) : Colors.white,
+                    child: InkWell(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Gift feature available in upcoming Riot update!'),
+                            backgroundColor: Color(0xFF131B2E),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.card_giftcard_rounded, color: Color(0xFFA855F7), size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'GIFT TO FRIEND',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    label: Text(
-                      isWishlisted ? 'IN WISHLIST' : 'ADD TO WISHLIST',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0,
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                // Add to Wishlist Button (Glowing Gradient Filled Button)
+                Expanded(
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: LinearGradient(
+                        colors: isWishlisted
+                            ? [const Color(0xFF131B2E), const Color(0xFF1B2738)]
+                            : [const Color(0xFFA855F7), const Color(0xFFD1548D)],
+                      ),
+                      boxShadow: isWishlisted
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: const Color(0xFFD1548D).withAlpha(80),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              )
+                            ],
+                    ),
+                    child: InkWell(
+                      onTap: () {
+                        ref.read(wishlistProvider.notifier).toggle(widget.offer.skinLevelUuid);
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isWishlisted ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isWishlisted ? 'IN WISHLIST' : 'ADD TO WISHLIST',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -190,11 +247,16 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     );
   }
 
-  Widget _buildInteractiveBody(Map<String, dynamic> detail, Color tierColor) {
+  Widget _buildInteractiveBody(
+    Map<String, dynamic> detail,
+    Color tierColor,
+    String tierLabel,
+    bool isWishlisted,
+  ) {
     final chromas = (detail['chromas'] as List<dynamic>? ?? []);
     final levels = (detail['levels'] as List<dynamic>? ?? []);
 
-    // Determine image preview for selected chroma
+    // Determine current image and video
     String? currentImage;
     String? currentChromaVideo;
 
@@ -210,25 +272,127 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     }
     currentImage ??= widget.offer.displayIcon;
 
+    // Split skin name into 2 title lines (Collection & Weapon Type)
+    final nameParts = (widget.offer.displayName ?? 'Weapon Skin').split(' ');
+    final collectionName = nameParts.isNotEmpty ? nameParts.first.toUpperCase() : 'WEAPON';
+    final weaponTypeName = nameParts.length > 1 ? nameParts.sublist(1).join(' ').toUpperCase() : 'SKIN';
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
-        // Main Image Preview Box (Always responsive to selected chroma)
+        // 1. Skin Title & Price Header Row
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              collectionName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+                height: 1.0,
+              ),
+            ),
+            Text(
+              weaponTypeName,
+              style: const TextStyle(
+                color: Color(0xFFA855F7),
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Tier Tag & VP Price Row
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: tierColor.withAlpha(35),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: tierColor.withAlpha(120), width: 1),
+                  ),
+                  child: Text(
+                    tierLabel.toUpperCase(),
+                    style: TextStyle(
+                      color: tierColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${widget.offer.price} VP',
+                  style: const TextStyle(
+                    color: Color(0xFF00E8F0),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+            Text(
+              'An ancient relic from the ${collectionName[0] + collectionName.substring(1).toLowerCase()} Collection. Its dark allure whispers secrets of the night.',
+              style: const TextStyle(
+                color: Colors.white60,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 2. 3 Quick Info Chips Row
+        Row(
+          children: [
+            _QuickInfoChip(
+              icon: Icons.auto_awesome_outlined,
+              label: tierLabel,
+              color: tierColor,
+            ),
+            const SizedBox(width: 8),
+            _QuickInfoChip(
+              icon: Icons.diamond_outlined,
+              label: '${widget.offer.price} VP',
+              color: const Color(0xFF00E8F0),
+            ),
+            const SizedBox(width: 8),
+            const _QuickInfoChip(
+              icon: Icons.shield_outlined,
+              label: 'Finisher Included',
+              color: Color(0xFFA855F7),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        // 3. Main Weapon Image Showcase Container with Energy Glow
         Stack(
           children: [
             Container(
-              height: 180,
+              height: 200,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFF070A10),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: tierColor.withAlpha(60)),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+                color: const Color(0xFF0A0F18),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: tierColor.withAlpha(70), width: 1),
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 0.85,
                   colors: [
-                    tierColor.withAlpha(40),
-                    const Color(0xFF070A10),
+                    tierColor.withAlpha(50),
+                    const Color(0xFF0A0F18),
                   ],
                 ),
               ),
@@ -239,25 +403,26 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       ? CachedNetworkImage(
                           key: ValueKey(currentImage),
                           imageUrl: currentImage,
-                          height: 140,
+                          height: 150,
                           fit: BoxFit.contain,
                           placeholder: (_, __) =>
-                              const CircularProgressIndicator(color: Color(0xFFFF4655)),
+                              const CircularProgressIndicator(color: Color(0xFF00E8F0)),
                           errorWidget: (_, __, ___) => const Icon(
-                            Icons.image_not_supported_outlined,
+                            Icons.broken_image,
                             color: Colors.white24,
                             size: 48,
                           ),
                         )
-                      : const Icon(Icons.image_not_supported_outlined,
-                          color: Colors.white24, size: 48),
+                      : const Icon(Icons.broken_image, color: Colors.white24, size: 48),
                 ),
               ),
             ),
+
+            // Floating Video Preview Button on Top Right
             if (currentChromaVideo != null)
               Positioned(
-                top: 10,
-                right: 10,
+                top: 12,
+                right: 12,
                 child: GestureDetector(
                   onTap: () {
                     SkinVideoDialog.show(
@@ -268,16 +433,22 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF4655),
                       borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFF4655).withAlpha(80),
+                          blurRadius: 8,
+                        )
+                      ],
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.play_arrow, color: Colors.white, size: 14),
-                        SizedBox(width: 2),
+                        Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
                         Text(
                           'VIDEO',
                           style: TextStyle(
@@ -293,28 +464,29 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
               ),
           ],
         ),
-        const SizedBox(height: 20),
 
-        // Color Chromas Swatches
+        const SizedBox(height: 24),
+
+        // 4. COLOR VARIANTS (CHROMAS) Section
         if (chromas.length > 1) ...[
           Row(
             children: [
-              Container(width: 3, height: 12, color: tierColor),
+              Container(width: 3, height: 14, color: const Color(0xFFA855F7)),
               const SizedBox(width: 8),
               const Text(
                 'COLOR VARIANTS (CHROMAS)',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   letterSpacing: 1.2,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 54,
+            height: 64,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: chromas.length,
@@ -329,14 +501,14 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? tierColor.withAlpha(40)
-                          : const Color(0xFF141F2D),
-                      borderRadius: BorderRadius.circular(10),
+                          ? const Color(0xFFA855F7).withAlpha(40)
+                          : const Color(0xFF131B2E),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: isSelected ? tierColor : Colors.white10,
+                        color: isSelected ? const Color(0xFFA855F7) : Colors.white10,
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -344,56 +516,58 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       children: [
                         if (swatchUrl != null && swatchUrl.isNotEmpty)
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(8),
                             child: CachedNetworkImage(
                               imageUrl: swatchUrl,
-                              width: 32,
-                              height: 32,
+                              width: 38,
+                              height: 38,
                               fit: BoxFit.cover,
                             ),
                           )
                         else
                           Container(
-                            width: 32,
-                            height: 32,
+                            width: 38,
+                            height: 38,
                             decoration: BoxDecoration(
                               color: tierColor,
                               shape: BoxShape.circle,
                             ),
                           ),
-                        const SizedBox(width: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: Text(
-                            chromaName.split('\n').last,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.white60,
-                              fontSize: 11,
-                              fontWeight: isSelected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  chromaName.split('\n').last,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.white70,
+                                    fontSize: 11,
+                                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                                  ),
+                                ),
+                                if (isSelected) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.check_rounded, color: Color(0xFFA855F7), size: 14),
+                                ]
+                              ],
                             ),
-                          ),
-                        ),
-                        if (idx > 0) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 5, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF9900).withAlpha(30),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              '15 RP',
-                              style: TextStyle(
-                                color: Color(0xFFFF9900),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
+                            if (idx > 0) ...[
+                              const SizedBox(height: 2),
+                              const Text(
+                                '15 RP',
+                                style: TextStyle(
+                                  color: Color(0xFFFF9900),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
+                            ]
+                          ],
+                        ),
+                        const SizedBox(width: 8),
                       ],
                     ),
                   ),
@@ -404,24 +578,24 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
           const SizedBox(height: 24),
         ],
 
-        // Level Progression
+        // 5. LEVEL UPGRADES & VFX Section
         if (levels.isNotEmpty) ...[
           Row(
             children: [
-              Container(width: 3, height: 12, color: const Color(0xFFFF9900)),
+              Container(width: 3, height: 14, color: const Color(0xFFA855F7)),
               const SizedBox(width: 8),
               const Text(
                 'LEVEL UPGRADES & VFX',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   letterSpacing: 1.2,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           ...List.generate(levels.length, (idx) {
             final level = levels[idx] as Map<String, dynamic>;
             final isSelected = idx == _selectedLevelIndex;
@@ -434,29 +608,42 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFFFF9900).withAlpha(30)
-                      : const Color(0xFF141F2D),
-                  borderRadius: BorderRadius.circular(10),
+                      ? const Color(0xFFA855F7).withAlpha(40)
+                      : const Color(0xFF131B2E),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFFFF9900)
-                        : Colors.white10,
-                    width: isSelected ? 1.4 : 1,
+                    color: isSelected ? const Color(0xFFA855F7) : Colors.white10,
+                    width: isSelected ? 1.6 : 1,
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      isSelected ? Icons.check_circle : Icons.circle_outlined,
-                      color: isSelected
-                          ? const Color(0xFFFF9900)
-                          : Colors.white38,
-                      size: 18,
+                    // Level Number Circle with Lock Indicator
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isSelected ? const Color(0xFFA855F7) : Colors.white12,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${idx + 1}',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white54,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
                     ),
+
                     const SizedBox(width: 12),
+
+                    // Level Name & Description
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,18 +653,25 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                             style: TextStyle(
                               color: isSelected ? Colors.white : Colors.white70,
                               fontSize: 13,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          if (levelItem.isNotEmpty)
+                          if (levelItem.isNotEmpty) ...[
+                            const SizedBox(height: 2),
                             Text(
                               _cleanLevelItem(levelItem),
                               style: const TextStyle(
-                                  color: Colors.white38, fontSize: 11),
+                                color: Colors.white38,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
+                          ]
                         ],
                       ),
                     ),
+
+                    // Video Preview Button
                     if (videoUrl != null && videoUrl.isNotEmpty) ...[
                       const SizedBox(width: 6),
                       GestureDetector(
@@ -496,17 +690,15 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFF4655),
-                            borderRadius: BorderRadius.circular(6),
+                            color: const Color(0xFFA855F7),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.play_arrow,
-                                  color: Colors.white, size: 14),
+                              Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
                               SizedBox(width: 2),
                               Text(
                                 'VIDEO',
@@ -521,21 +713,22 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                         ),
                       ),
                     ],
+
+                    // RP Cost Tag for Upgrade Levels
                     if (idx > 0) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFF9900).withAlpha(30),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
                           '10 RP',
                           style: TextStyle(
                             color: Color(0xFFFF9900),
                             fontSize: 10,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
@@ -547,12 +740,12 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
           }),
         ],
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _buildFallbackBody(Color tierColor) {
+  Widget _buildFallbackBody(Color tierColor, String tierLabel, bool isWishlisted) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -560,12 +753,11 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
           if (widget.offer.displayIcon != null)
             CachedNetworkImage(
               imageUrl: widget.offer.displayIcon!,
-              height: 120,
+              height: 140,
               fit: BoxFit.contain,
             )
           else
-            const Icon(Icons.image_not_supported_outlined,
-                color: Colors.white24, size: 64),
+            const Icon(Icons.broken_image, color: Colors.white24, size: 64),
         ],
       ),
     );
@@ -575,6 +767,51 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final parts = item.split('::');
     final raw = parts.last;
     return raw.replaceAll(RegExp(r'([A-Z])'), ' \$1').trim();
+  }
+}
+
+class _QuickInfoChip extends StatelessWidget {
+  const _QuickInfoChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131B2E),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white10, width: 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

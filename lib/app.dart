@@ -11,7 +11,6 @@ import 'features/match/presentation/match_history_screen.dart';
 import 'features/rank/presentation/rank_screen.dart';
 import 'features/shop/presentation/shop_screen.dart';
 import 'features/shop/presentation/wishlist_catalog_screen.dart';
-import 'features/contracts/presentation/contracts_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -65,7 +64,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/rank', builder: (_, __) => const RankScreen()),
           GoRoute(path: '/matches', builder: (_, __) => const MatchHistoryScreen()),
           GoRoute(
-              path: '/progress', builder: (_, __) => const ContractsScreen()),
+              path: '/progress', builder: (_, __) => const WishlistCatalogScreen()),
           GoRoute(
               path: '/profile', builder: (_, __) => const ProfileScreen()),
         ],
@@ -143,10 +142,10 @@ class _ScaffoldWithNav extends StatelessWidget {
   final Widget child;
 
   static const _tabs = [
-    ('/shop', Icons.storefront_outlined, Icons.storefront, 'Shop'),
+    ('/shop', Icons.home_outlined, Icons.home_rounded, 'Home'),
     ('/rank', Icons.military_tech_outlined, Icons.military_tech, 'Rank'),
     ('/matches', Icons.sports_esports_outlined, Icons.sports_esports, 'Matches'),
-    ('/progress', Icons.task_alt_outlined, Icons.task_alt, 'Progress'),
+    ('/progress', Icons.grid_view_outlined, Icons.grid_view_rounded, 'Catalog'),
     ('/profile', Icons.person_outline, Icons.person, 'Profile'),
   ];
 
