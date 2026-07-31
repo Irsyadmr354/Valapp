@@ -285,6 +285,200 @@ class ValorantAssets {
       return null;
     }
   }
+
+  // ── Agents ─────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getAgentsMap() async {
+    final cache = CacheStorage.instance;
+    const keyAgents = 'agents_metadata';
+    const keyAgentsFetchedAt = 'agents_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyAgentsFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyAgents);
+      if (cached != null) return cached;
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+          '$_base/agents?isPlayableCharacter=true');
+      final agents = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final a in agents) {
+        final uuid = a['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': a['displayName'],
+            'displayIcon': a['displayIcon'],
+            'fullPortrait': a['fullPortraitV2'] ?? a['fullPortrait'],
+            'background': a['background'],
+            'role': (a['role'] as Map<String, dynamic>?)?['displayName'],
+            'roleIcon': (a['role'] as Map<String, dynamic>?)?['displayIcon'],
+          };
+        }
+      }
+      await cache.setJson(keyAgents, map);
+      await cache.setTimestamp(keyAgentsFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyAgents) ?? {};
+    }
+  }
+
+  // ── Player Cards ───────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getPlayerCardsMap() async {
+    final cache = CacheStorage.instance;
+    const keyCards = 'player_cards_metadata';
+    const keyCardsFetchedAt = 'player_cards_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyCardsFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyCards);
+      if (cached != null) return cached;
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/playercards');
+      final cards = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final c in cards) {
+        final uuid = c['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': c['displayName'],
+            'smallArt': c['smallArt'],
+            'wideArt': c['wideArt'],
+            'largeArt': c['largeArt'],
+            'displayIcon': c['displayIcon'],
+          };
+        }
+      }
+      await cache.setJson(keyCards, map);
+      await cache.setTimestamp(keyCardsFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyCards) ?? {};
+    }
+  }
+
+  // ── Sprays ─────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getSpraysMap() async {
+    final cache = CacheStorage.instance;
+    const keySprays = 'sprays_metadata';
+    const keySpraysFetchedAt = 'sprays_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keySpraysFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keySprays);
+      if (cached != null) return cached;
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/sprays');
+      final sprays = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final s in sprays) {
+        final uuid = s['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': s['displayName'],
+            'displayIcon': s['displayIcon'],
+            'fullIcon': s['fullIcon'],
+            'animationPng': s['animationPng'],
+          };
+        }
+      }
+      await cache.setJson(keySprays, map);
+      await cache.setTimestamp(keySpraysFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keySprays) ?? {};
+    }
+  }
+
+  // ── Player Titles ──────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getPlayerTitlesMap() async {
+    final cache = CacheStorage.instance;
+    const keyTitles = 'player_titles_metadata';
+    const keyTitlesFetchedAt = 'player_titles_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyTitlesFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyTitles);
+      if (cached != null) return cached;
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/playertitles');
+      final titles = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final t in titles) {
+        final uuid = t['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': t['displayName'],
+            'titleText': t['titleText'],
+          };
+        }
+      }
+      await cache.setJson(keyTitles, map);
+      await cache.setTimestamp(keyTitlesFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyTitles) ?? {};
+    }
+  }
+
+  // ── Gun Buddies ────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getBuddiesMap() async {
+    final cache = CacheStorage.instance;
+    const keyBuddies = 'buddies_metadata';
+    const keyBuddiesFetchedAt = 'buddies_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyBuddiesFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyBuddies);
+      if (cached != null) return cached;
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/buddies');
+      final buddies = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final b in buddies) {
+        final levels = b['levels'] as List<dynamic>? ?? [];
+        // Index each buddy level UUID
+        for (final level in levels) {
+          final uuid = level['uuid'] as String?;
+          if (uuid != null) {
+            map[uuid] = {
+              'displayName': b['displayName'],
+              'displayIcon': level['displayIcon'],
+              'buddyUuid': b['uuid'],
+            };
+          }
+        }
+        // Also index by parent buddy UUID for convenience
+        final buddyUuid = b['uuid'] as String?;
+        if (buddyUuid != null && levels.isNotEmpty) {
+          final firstLevel = levels.first as Map<String, dynamic>;
+          map[buddyUuid] = {
+            'displayName': b['displayName'],
+            'displayIcon': firstLevel['displayIcon'],
+            'buddyUuid': buddyUuid,
+          };
+        }
+      }
+      await cache.setJson(keyBuddies, map);
+      await cache.setTimestamp(keyBuddiesFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyBuddies) ?? {};
+    }
+  }
 }
 
 

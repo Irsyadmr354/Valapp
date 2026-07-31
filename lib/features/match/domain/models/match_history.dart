@@ -1,11 +1,22 @@
+/// Match result from the player's perspective.
+enum MatchResult { victory, defeat, draw, unknown }
+
 /// Summary entry from match history endpoint.
 class MatchHistoryEntry {
   final String matchId;
   final int gameStartMillis;
-  final String queueId;   // Riot returns this as String e.g. "competitive"
+  final String queueId;
   final String teamId;
   final bool isRanked;
   final String mapId;
+
+  // Optional stats that may be present in enriched match data
+  final int? kills;
+  final int? deaths;
+  final int? assists;
+  final bool isMvp;
+  final String? matchScore; // e.g. "13 – 8"
+  final MatchResult result;
 
   const MatchHistoryEntry({
     required this.matchId,
@@ -14,23 +25,58 @@ class MatchHistoryEntry {
     required this.teamId,
     required this.isRanked,
     this.mapId = '',
+    this.kills,
+    this.deaths,
+    this.assists,
+    this.isMvp = false,
+    this.matchScore,
+    this.result = MatchResult.unknown,
   });
 
   DateTime get gameStartTime =>
       DateTime.fromMillisecondsSinceEpoch(gameStartMillis);
+
+  /// Returns a copy with enriched per-player stats.
+  MatchHistoryEntry copyWithStats({
+    int? kills,
+    int? deaths,
+    int? assists,
+    bool isMvp = false,
+    String? matchScore,
+    MatchResult result = MatchResult.unknown,
+  }) {
+    return MatchHistoryEntry(
+      matchId: matchId,
+      gameStartMillis: gameStartMillis,
+      queueId: queueId,
+      teamId: teamId,
+      isRanked: isRanked,
+      mapId: mapId,
+      kills: kills ?? this.kills,
+      deaths: deaths ?? this.deaths,
+      assists: assists ?? this.assists,
+      isMvp: isMvp,
+      matchScore: matchScore ?? this.matchScore,
+      result: result,
+    );
+  }
 
   String getMapDisplayName(Map<String, dynamic> mapsMap) {
     if (mapId.isEmpty) return '';
     final raw = mapId.toLowerCase();
 
     final info = mapsMap[raw] as Map<String, dynamic>?;
-    if (info != null && info['displayName'] != null && (info['displayName'] as String).isNotEmpty) {
+    if (info != null &&
+        info['displayName'] != null &&
+        (info['displayName'] as String).isNotEmpty) {
       return info['displayName'] as String;
     }
 
     final lastSeg = raw.split('/').last.split('.').first;
     final segInfo = mapsMap[lastSeg] as Map<String, dynamic>?;
-    if (segInfo != null && segInfo['displayName'] != null && (segInfo['displayName'] as String).isNotEmpty) {
+    if (segInfo != null &&
+        segInfo['displayName'] != null &&
+        (segInfo['displayName'] as String).isNotEmpty) {
       return segInfo['displayName'] as String;
     }
 
@@ -41,18 +87,26 @@ class MatchHistoryEntry {
     if (mapId.isEmpty) return '';
     final raw = mapId.toLowerCase();
 
-    if (raw.contains('plummet') || raw.contains('infinity') || raw.contains('abyss')) return 'Abyss';
-    if (raw.contains('jam') || raw.contains('lotus')) return 'Lotus';
-    if (raw.contains('juliett') || raw.contains('sunset')) return 'Sunset';
-    if (raw.contains('canyon') || raw.contains('fracture')) return 'Fracture';
-    if (raw.contains('port') || raw.contains('icebox')) return 'Icebox';
-    if (raw.contains('lowpe') || raw.contains('pitt') || raw.contains('pearl')) return 'Pearl';
-    if (raw.contains('foxtrot')) return 'Drift';
-    if (raw.contains('triad') || raw.contains('haven')) return 'Haven';
-    if (raw.contains('bonsai') || raw.contains('split')) return 'Split';
-    if (raw.contains('duality') || raw.contains('bind')) return 'Bind';
-    if (raw.contains('ascent')) return 'Ascent';
-    if (raw.contains('breeze')) return 'Breeze';
+    if (raw.contains('plummet') ||
+        raw.contains('infinity') ||
+        raw.contains('abyss')) {
+      return 'Abyss';
+    }
+    if (raw.contains('jam') || raw.contains('lotus')) { return 'Lotus'; }
+    if (raw.contains('juliett') || raw.contains('sunset')) { return 'Sunset'; }
+    if (raw.contains('canyon') || raw.contains('fracture')) { return 'Fracture'; }
+    if (raw.contains('port') || raw.contains('icebox')) { return 'Icebox'; }
+    if (raw.contains('lowpe') ||
+        raw.contains('pitt') ||
+        raw.contains('pearl')) {
+      return 'Pearl';
+    }
+    if (raw.contains('foxtrot')) { return 'Drift'; }
+    if (raw.contains('triad') || raw.contains('haven')) { return 'Haven'; }
+    if (raw.contains('bonsai') || raw.contains('split')) { return 'Split'; }
+    if (raw.contains('duality') || raw.contains('bind')) { return 'Bind'; }
+    if (raw.contains('ascent')) { return 'Ascent'; }
+    if (raw.contains('breeze')) { return 'Breeze'; }
 
     final parts = mapId.split('/');
     final last = parts.last.split('.').first;
@@ -62,32 +116,47 @@ class MatchHistoryEntry {
 
   String get queueDisplayName {
     switch (queueId.toLowerCase()) {
-      case 'competitive': return 'Competitive';
-      case 'unrated': return 'Unrated';
-      case 'spikerush': return 'Spike Rush';
-      case 'deathmatch': return 'Deathmatch';
-      case 'ggteam': return 'Escalation';
-      case 'onefa': return 'Replication';
-      case 'hurm': return 'Team Deathmatch';
-      case 'swiftplay': return 'Swiftplay';
-      default: return queueId.isEmpty ? 'Custom' : queueId;
+      case 'competitive':
+        return 'Competitive';
+      case 'unrated':
+        return 'Unrated';
+      case 'spikerush':
+        return 'Spike Rush';
+      case 'deathmatch':
+        return 'Deathmatch';
+      case 'ggteam':
+        return 'Escalation';
+      case 'onefa':
+        return 'Replication';
+      case 'hurm':
+        return 'Team Deathmatch';
+      case 'swiftplay':
+        return 'Swiftplay';
+      default:
+        return queueId.isEmpty ? 'Custom' : queueId;
     }
   }
 
   factory MatchHistoryEntry.fromJson(Map<String, dynamic> json) {
-    final startMs = (json['GameStartTime'] as num?)?.toInt() ??
+    final startMs =
+        (json['GameStartTime'] as num?)?.toInt() ??
         (json['gameStartTime'] as num?)?.toInt() ??
         (json['MatchStartTime'] as num?)?.toInt() ??
         (json['matchStartTime'] as num?)?.toInt() ??
         0;
 
     return MatchHistoryEntry(
-      matchId: json['MatchID'] as String? ?? json['matchId'] as String? ?? '',
+      matchId:
+          json['MatchID'] as String? ?? json['matchId'] as String? ?? '',
       gameStartMillis: startMs,
-      queueId: json['QueueID']?.toString() ?? json['queueID']?.toString() ?? '',
-      teamId: json['TeamID']?.toString() ?? json['teamId']?.toString() ?? '',
+      queueId:
+          json['QueueID']?.toString() ?? json['queueID']?.toString() ?? '',
+      teamId:
+          json['TeamID']?.toString() ?? json['teamId']?.toString() ?? '',
       isRanked: json['IsRanked'] as bool? ?? false,
-      mapId: json['MapID']?.toString() ?? json['mapId']?.toString() ?? '',
+      mapId: json['MapID']?.toString() ??
+          json['mapId']?.toString() ??
+          '',
     );
   }
 }
@@ -109,9 +178,11 @@ class MatchHistoryResult {
 
   factory MatchHistoryResult.fromJson(Map<String, dynamic> json) {
     final matches = (json['History'] as List<dynamic>? ?? [])
-        .map((e) => MatchHistoryEntry.fromJson(e as Map<String, dynamic>))
+        .map((e) =>
+            MatchHistoryEntry.fromJson(e as Map<String, dynamic>))
         .toList();
-    matches.sort((a, b) => b.gameStartMillis.compareTo(a.gameStartMillis));
+    matches.sort(
+        (a, b) => b.gameStartMillis.compareTo(a.gameStartMillis));
     return MatchHistoryResult(
       puuid: json['Subject'] as String? ?? '',
       total: (json['Total'] as num?)?.toInt() ?? 0,

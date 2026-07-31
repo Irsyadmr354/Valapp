@@ -590,7 +590,7 @@ class _WishlistCatalogScreenState
                                 final offer = SkinOffer(
                                   offerId: levelUuid,
                                   skinLevelUuid: levelUuid,
-                                  price: 1775,
+                                  price: 0, // price shown in detail modal from live store data
                                   displayName: name,
                                   displayIcon: iconUrl,
                                   contentTierUuid: tierUuid,

@@ -25,6 +25,14 @@ final _contractsProvider =
   }
 });
 
+// Contract definitions metadata from valorant-api
+final _contractDefsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  final agentsMap = await assets.getAgentsMap();
+  return agentsMap;
+});
+
 class ContractsScreen extends ConsumerWidget {
   const ContractsScreen({super.key});
 
@@ -90,26 +98,44 @@ class _ContractsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final battlepass = contracts.activeBattlepass;
     final missions = contracts.missions;
+    // Agent contracts = all contracts that are NOT the active battlepass
+    final agentContracts = contracts.contracts
+        .where((c) =>
+            c.contractId != contracts.activeSpecialContractId &&
+            c.progressionLevelReached > 0)
+        .toList()
+      ..sort((a, b) =>
+          b.progressionLevelReached.compareTo(a.progressionLevelReached));
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         if (showCacheBanner) const CacheDataBanner(),
-        // Battlepass
+
+        // Battle Pass
         if (battlepass != null) ...[
           const _SectionHeader(title: 'BATTLE PASS'),
           _BattlepassCard(contract: battlepass),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
         ],
 
-        // Active missions
+        // Active Missions
         if (missions.isNotEmpty) ...[
           const _SectionHeader(title: 'ACTIVE MISSIONS'),
           ...missions.map((m) => _MissionTile(mission: m)),
+          const SizedBox(height: 24),
         ],
 
-        if (battlepass == null && missions.isEmpty)
+        // Agent Contracts
+        if (agentContracts.isNotEmpty) ...[
+          const _SectionHeader(title: 'AGENT CONTRACTS'),
+          ...agentContracts.take(10).map(
+              (c) => _AgentContractTile(contract: c)),
+          const SizedBox(height: 24),
+        ],
+
+        if (battlepass == null && missions.isEmpty && agentContracts.isEmpty)
           const Center(
             child: Padding(
               padding: EdgeInsets.only(top: 60),
@@ -117,6 +143,7 @@ class _ContractsContent extends StatelessWidget {
                   style: TextStyle(color: Colors.white38, fontSize: 13)),
             ),
           ),
+
         const SizedBox(height: 80),
       ],
     );
@@ -359,3 +386,109 @@ class _MissionTile extends StatelessWidget {
   }
 }
 
+
+// ── Agent Contract Tile ───────────────────────────────────────────────────────
+
+class _AgentContractTile extends ConsumerWidget {
+  const _AgentContractTile({required this.contract});
+  final Contract contract;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress =
+        (contract.progressionTowardsNextLevel / 10000.0).clamp(0.0, 1.0);
+
+    // Try to look up agent portrait from the contract UUID
+    final agentsAsync = ref.watch(_contractDefsProvider);
+    final agentInfo = agentsAsync.asData?.value[contract.contractId]
+        as Map<String, dynamic>?;
+    final agentName = agentInfo?['displayName'] as String?;
+    final agentPortrait = agentInfo?['displayIcon'] as String?;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1622),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10, width: 0.8),
+      ),
+      child: Row(
+        children: [
+          // Agent portrait or placeholder
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF141F2D),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white10, width: 0.8),
+            ),
+            child: agentPortrait != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(9),
+                    child: Image.network(
+                      agentPortrait,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(
+                          Icons.person_outline,
+                          color: Colors.white24,
+                          size: 22),
+                    ),
+                  )
+                : const Center(
+                    child: Icon(Icons.person_outline,
+                        color: Colors.white24, size: 22),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  agentName ?? 'Agent Contract',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'TIER ${contract.progressionLevelReached}',
+                      style: const TextStyle(
+                          color: Color(0xFF00F0FF),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
+                      style: const TextStyle(
+                          color: Colors.white38, fontSize: 10),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: const Color(0xFF141F2D),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF00F0FF)),
+                    minHeight: 5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

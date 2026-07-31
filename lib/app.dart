@@ -12,6 +12,8 @@ import 'features/rank/presentation/rank_screen.dart';
 import 'features/shop/presentation/shop_screen.dart';
 import 'features/shop/presentation/wishlist_catalog_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
+import 'features/contracts/presentation/contracts_screen.dart';
+import 'features/loadout/presentation/loadout_screen.dart';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
@@ -33,7 +35,6 @@ final _routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: authNotifier,
     redirect: (context, state) async {
       final credsAsync = ref.read(currentCredentialsProvider);
-      // While loading, don't redirect
       if (credsAsync.isLoading) return null;
 
       final creds = credsAsync.value;
@@ -48,23 +49,29 @@ final _routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/login/webview', builder: (_, __) => const WebViewLoginScreen()),
+      GoRoute(
+          path: '/login/webview',
+          builder: (_, __) => const WebViewLoginScreen()),
       GoRoute(path: '/mfa', builder: (_, __) => const MfaScreen()),
-      GoRoute(path: '/wishlist', builder: (_, __) => const WishlistCatalogScreen()),
+      GoRoute(
+          path: '/wishlist', builder: (_, __) => const WishlistCatalogScreen()),
+      GoRoute(path: '/loadout', builder: (_, __) => const LoadoutScreen()),
       GoRoute(
         path: '/match/:id',
         builder: (_, state) =>
             MatchDetailScreen(matchId: state.pathParameters['id']!),
       ),
       ShellRoute(
-        builder: (context, state, child) =>
-            _ScaffoldWithNav(child: child),
+        builder: (context, state, child) => _ScaffoldWithNav(child: child),
         routes: [
           GoRoute(path: '/shop', builder: (_, __) => const ShopScreen()),
           GoRoute(path: '/rank', builder: (_, __) => const RankScreen()),
-          GoRoute(path: '/matches', builder: (_, __) => const MatchHistoryScreen()),
           GoRoute(
-              path: '/progress', builder: (_, __) => const WishlistCatalogScreen()),
+              path: '/matches',
+              builder: (_, __) => const MatchHistoryScreen()),
+          GoRoute(
+              path: '/progress',
+              builder: (_, __) => const ContractsScreen()),
           GoRoute(
               path: '/profile', builder: (_, __) => const ProfileScreen()),
         ],
@@ -128,25 +135,29 @@ class ValorantShopApp extends ConsumerWidget {
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFFFF4655),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
   }
 }
 
-// ── Shell with futuristic Valorant bottom nav ─────────────────────────────────
+// ── Shell with Valorant bottom nav ────────────────────────────────────────────
 
 class _ScaffoldWithNav extends StatelessWidget {
   const _ScaffoldWithNav({required this.child});
   final Widget child;
 
+  // (route, outlinedIcon, filledIcon, label)
   static const _tabs = [
-    ('/shop', Icons.home_outlined, Icons.home_rounded, 'Home'),
-    ('/rank', Icons.military_tech_outlined, Icons.military_tech, 'Rank'),
-    ('/matches', Icons.sports_esports_outlined, Icons.sports_esports, 'Matches'),
-    ('/progress', Icons.grid_view_outlined, Icons.grid_view_rounded, 'Catalog'),
-    ('/profile', Icons.person_outline, Icons.person, 'Profile'),
+    ('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Shop'),
+    ('/rank', Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Rank'),
+    ('/matches', Icons.sports_esports_outlined, Icons.sports_esports_rounded,
+        'Matches'),
+    ('/progress', Icons.assignment_outlined, Icons.assignment_rounded,
+        'Progress'),
+    ('/profile', Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
   ];
 
   @override
@@ -158,58 +169,103 @@ class _ScaffoldWithNav extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF070A10),
       body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0A0F18),
-          border: Border(
-            top: BorderSide(color: Color(0xFFFF4655), width: 1.2),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0xFFFF4655),
-              blurRadius: 10,
-              spreadRadius: -4,
-              offset: Offset(0, -2),
-            ),
-          ],
+      bottomNavigationBar: _BottomNav(
+        currentIndex: currentIndex,
+        onTap: (i) => context.go(_tabs[i].$1),
+        tabs: _tabs,
+      ),
+    );
+  }
+}
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({
+    required this.currentIndex,
+    required this.onTap,
+    required this.tabs,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final List<(String, IconData, IconData, String)> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0F18),
+        border: Border(
+          top: BorderSide(color: Color(0xFFFF4655), width: 1.2),
         ),
-        child: BottomNavigationBar(
-          currentIndex: currentIndex,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: const Color(0xFFFF4655),
-          unselectedItemColor: Colors.white38,
-          selectedLabelStyle: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.8,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33FF4655),
+            blurRadius: 12,
+            spreadRadius: -4,
+            offset: Offset(0, -2),
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-          onTap: (i) => context.go(_tabs[i].$1),
-          items: _tabs.map((t) {
-            return BottomNavigationBarItem(
-              icon: Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Icon(t.$2, size: 22),
-              ),
-              activeIcon: Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF4655).withAlpha(35),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFFF4655).withAlpha(120), width: 1),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: List.generate(tabs.length, (i) {
+              final tab = tabs[i];
+              final isSelected = i == currentIndex;
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onTap(i),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: isSelected
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 4)
+                            : EdgeInsets.zero,
+                        decoration: isSelected
+                            ? BoxDecoration(
+                                color: const Color(0xFFFF4655).withAlpha(35),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color:
+                                      const Color(0xFFFF4655).withAlpha(120),
+                                  width: 1,
+                                ),
+                              )
+                            : null,
+                        child: Icon(
+                          isSelected ? tab.$3 : tab.$2,
+                          size: 22,
+                          color: isSelected
+                              ? const Color(0xFFFF4655)
+                              : Colors.white38,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        tab.$4,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? const Color(0xFFFF4655)
+                              : Colors.white38,
+                          letterSpacing: isSelected ? 0.4 : 0,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Icon(t.$3, size: 22, color: const Color(0xFFFF4655)),
                 ),
-              ),
-              label: t.$4,
-            );
-          }).toList(),
+              );
+            }),
+          ),
         ),
       ),
     );

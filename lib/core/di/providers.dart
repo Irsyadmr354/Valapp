@@ -41,6 +41,11 @@ import '../../features/contracts/data/contracts_local_cache.dart';
 import '../../features/profile/data/account_remote_source.dart';
 import '../../features/profile/data/account_local_cache.dart';
 
+// ── Loadout ───────────────────────────────────────────────────────────────
+
+import '../../features/loadout/data/loadout_remote_source.dart';
+import '../../features/loadout/data/loadout_local_cache.dart';
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Core singletons
 // ═════════════════════════════════════════════════════════════════════════════
@@ -186,4 +191,16 @@ final currentCredentialsProvider =
     FutureProvider.autoDispose((ref) async {
   final local = ref.watch(credentialsLocalSourceProvider);
   return local.load();
+});
+
+// ── Loadout ────────────────────────────────────────────────────────────────
+
+final loadoutRemoteSourceProvider =
+    FutureProvider<LoadoutRemoteSource>((ref) async {
+  final dio = await ref.watch(apiDioProvider.future);
+  return LoadoutRemoteSource(dio);
+});
+
+final loadoutLocalCacheProvider = Provider<LoadoutLocalCache>((ref) {
+  return LoadoutLocalCache(ref.watch(cacheStorageProvider));
 });

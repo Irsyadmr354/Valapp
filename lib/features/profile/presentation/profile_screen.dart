@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/account_xp.dart';
 import '../../auth/presentation/account_switcher_modal.dart';
@@ -88,36 +89,7 @@ final _profileMatchesProvider =
   }
 });
 
-String _tierName(int tier) {
-  switch (tier) {
-    case 3: return 'Iron 1';
-    case 4: return 'Iron 2';
-    case 5: return 'Iron 3';
-    case 6: return 'Bronze 1';
-    case 7: return 'Bronze 2';
-    case 8: return 'Bronze 3';
-    case 9: return 'Silver 1';
-    case 10: return 'Silver 2';
-    case 11: return 'Silver 3';
-    case 12: return 'Gold 1';
-    case 13: return 'Gold 2';
-    case 14: return 'Gold 3';
-    case 15: return 'Platinum 1';
-    case 16: return 'Platinum 2';
-    case 17: return 'Platinum 3';
-    case 18: return 'Diamond 1';
-    case 19: return 'Diamond 2';
-    case 20: return 'Diamond 3';
-    case 21: return 'Ascendant 1';
-    case 22: return 'Ascendant 2';
-    case 23: return 'Ascendant 3';
-    case 24: return 'Immortal 1';
-    case 25: return 'Immortal 2';
-    case 26: return 'Immortal 3';
-    case 27: return 'Radiant';
-    default: return 'Unranked';
-  }
-}
+// Tier name resolution is delegated to TierNameUtil.
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -182,6 +154,11 @@ class ProfileScreen extends ConsumerWidget {
               // 4. RECENT XP GAINS Card Section
               if (xpData != null && xpData.history.isNotEmpty)
                 _XpGainsCardSection(history: xpData.history),
+
+              const SizedBox(height: 16),
+
+              // 5. Equipped Loadout Quick-link card
+              _LoadoutQuickLink(),
 
               const SizedBox(height: 80),
             ],
@@ -484,7 +461,7 @@ class _AccountLevelXpCard extends StatelessWidget {
     final progress = (xp.xp / threshold).clamp(0.0, 1.0);
     final remainingXp = (threshold - xp.xp).clamp(0, threshold);
     final tierNameText = mmr != null && mmr!.currentTier > 0
-        ? _tierName(mmr!.currentTier).toUpperCase()
+        ? TierNameUtil.name(mmr!.currentTier).toUpperCase()
         : 'UNRANKED';
 
     return Container(
@@ -690,7 +667,22 @@ class _ProfileQuickStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final matchesCount = historyResult?.total ?? historyResult?.matches.length ?? 0;
+    final matches = historyResult?.matches ?? [];
+    final matchesCount = historyResult?.total ?? matches.length;
+    final winsCount =
+        matches.where((m) => m.result == MatchResult.victory).length;
+    final winPct =
+        matches.isNotEmpty ? (winsCount / matches.length * 100) : 0.0;
+
+    // Compute real K/D from matches that carry stats
+    final withStats = matches.where((m) => m.kills != null).toList();
+    final totalKills =
+        withStats.fold<int>(0, (s, m) => s + (m.kills ?? 0));
+    final totalDeaths =
+        withStats.fold<int>(0, (s, m) => s + (m.deaths ?? 0));
+    final kd = totalDeaths > 0
+        ? totalKills / totalDeaths
+        : totalKills.toDouble();
 
     return Row(
       children: [
@@ -767,7 +759,7 @@ class _ProfileQuickStatsRow extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          '${(matchesCount * 0.5).round()}',
+                          '$winsCount',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -775,9 +767,9 @@ class _ProfileQuickStatsRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Text(
-                          '50.0%',
-                          style: TextStyle(
+                        Text(
+                          '${winPct.toStringAsFixed(1)}%',
+                          style: const TextStyle(
                             color: Color(0xFFA855F7),
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
@@ -799,15 +791,15 @@ class _ProfileQuickStatsRow extends StatelessWidget {
         Expanded(
           child: _StatCardWrapper(
             onTap: () => context.go('/matches'),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _StatHeader(
+                const _StatHeader(
                   icon: Icons.sports_esports_outlined,
                   iconColor: Color(0xFFA855F7),
                 ),
-                SizedBox(height: 8),
-                Text(
+                const SizedBox(height: 8),
+                const Text(
                   'K/D RATIO',
                   style: TextStyle(
                     color: Colors.white38,
@@ -816,19 +808,19 @@ class _ProfileQuickStatsRow extends StatelessWidget {
                     letterSpacing: 0.4,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '1.24',
-                      style: TextStyle(
+                      kd.toStringAsFixed(2),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: Colors.white24, size: 16),
+                    const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
                   ],
                 ),
               ],
@@ -965,6 +957,67 @@ class _XpGainsCardSection extends StatelessWidget {
                 ),
               ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Loadout Quick-Link Card ───────────────────────────────────────────────────
+
+class _LoadoutQuickLink extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/loadout'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131B2E),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white10, width: 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF00F0FF).withAlpha(25),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(
+                child: Icon(Icons.inventory_2_outlined,
+                    color: Color(0xFF00F0FF), size: 22),
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'EQUIPPED LOADOUT',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'View your equipped weapon skins, sprays & identity',
+                    style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                color: Color(0xFF00F0FF), size: 20),
+          ],
+        ),
       ),
     );
   }
