@@ -58,60 +58,63 @@ final _matchHistoryProvider =
     }
   }
 
-  // ── Enrich each entry from cached match details ───────────────────────────
-  // The history endpoint gives us no stats — we pull them from detail cache.
-  final enriched = <MatchHistoryEntry>[];
-  for (final entry in result.matches) {
-    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
+  // ── Autonomous enrichment: parallel fetch + cache ────────────────────────
+  // For every match in the list:
+  //   1. Check the detail cache (no network call needed)
+  //   2. If not cached, fetch from network (fire in batches of 5)
+  //   3. Enrich the entry with result / KDA / agentId
+  Future<MatchHistoryEntry> enrichEntry(MatchHistoryEntry entry) async {
+    Map<String, dynamic>? detailRaw =
+        await detailCache.loadMatchDetailRaw(entry.matchId);
+
+    // Not cached → fetch from network
     if (detailRaw == null) {
-      enriched.add(entry);
-      continue;
+      try {
+        detailRaw =
+            await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
+        await detailCache.saveMatchDetail(entry.matchId, detailRaw);
+      } catch (_) {
+        return entry; // network failed, return as-is
+      }
     }
+
     try {
       final details = MatchDetails.fromJson(detailRaw);
       final player = details.players
           .cast<PlayerStats?>()
           .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
-      if (player == null) {
-        enriched.add(entry);
-        continue;
-      }
+      if (player == null) return entry;
 
-      // Determine result from round wins
+      // Result from round wins
       MatchResult matchResult = MatchResult.unknown;
       if (details.roundResults.isNotEmpty) {
-        final playerTeam = player.teamId.toLowerCase();
-        final teamWins = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == playerTeam)
-            .length;
-        final opponentWins = details.roundResults.length - teamWins;
-        if (teamWins > opponentWins) {
-          matchResult = MatchResult.victory;
-        } else if (teamWins < opponentWins) {
-          matchResult = MatchResult.defeat;
-        } else {
-          matchResult = MatchResult.draw;
-        }
-      }
-
-      // Score string e.g. "13 – 8"
-      String? scoreStr;
-      if (details.roundResults.isNotEmpty) {
-        final playerTeam = player.teamId.toLowerCase();
+        final pt = player.teamId.toLowerCase();
         final myWins = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == playerTeam)
+            .where((r) => r.winningTeam.toLowerCase() == pt)
             .length;
         final oppWins = details.roundResults.length - myWins;
-        scoreStr = '$myWins – $oppWins';
+        matchResult = myWins > oppWins
+            ? MatchResult.victory
+            : myWins < oppWins
+                ? MatchResult.defeat
+                : MatchResult.draw;
       }
 
-      // Is MVP — highest score on winning team, or overall
-      final sortedByScore = List<PlayerStats>.from(details.players)
-        ..sort((a, b) => b.score.compareTo(a.score));
-      final isMvp = sortedByScore.isNotEmpty &&
-          sortedByScore.first.puuid == creds.puuid;
+      // Score string
+      String? scoreStr;
+      if (details.roundResults.isNotEmpty) {
+        final pt = player.teamId.toLowerCase();
+        final my =
+            details.roundResults.where((r) => r.winningTeam.toLowerCase() == pt).length;
+        scoreStr = '$my – ${details.roundResults.length - my}';
+      }
 
-      enriched.add(entry.copyWithStats(
+      // MVP = top scorer overall
+      final sorted = List<PlayerStats>.from(details.players)
+        ..sort((a, b) => b.score.compareTo(a.score));
+      final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
+
+      return entry.copyWithStats(
         kills: player.kills,
         deaths: player.deaths,
         assists: player.assists,
@@ -119,10 +122,19 @@ final _matchHistoryProvider =
         matchScore: scoreStr,
         result: matchResult,
         agentId: player.agentId,
-      ));
+      );
     } catch (_) {
-      enriched.add(entry);
+      return entry;
     }
+  }
+
+  // Process in batches of 5 to avoid flooding the API
+  const batchSize = 5;
+  final enriched = <MatchHistoryEntry>[];
+  for (var i = 0; i < result.matches.length; i += batchSize) {
+    final batch = result.matches.skip(i).take(batchSize).toList();
+    final results = await Future.wait(batch.map(enrichEntry));
+    enriched.addAll(results);
   }
 
   final enrichedResult = MatchHistoryResult(
@@ -592,19 +604,19 @@ class _MatchTile extends ConsumerWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Container(
+                  child: SizedBox(
                     width: 72, height: 56,
-                    color: AppColors.bgCard2,
                     child: mapSplashUrl != null && mapSplashUrl.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: mapSplashUrl,
                             fit: BoxFit.cover,
                             placeholder: (_, __) =>
                                 Container(color: AppColors.bgCard2),
-                            errorWidget: (_, __, ___) => const Icon(
-                                Icons.map, color: AppColors.red, size: 20),
+                            // On error: styled fallback with map name
+                            errorWidget: (_, __, ___) =>
+                                _MapFallback(mapName: mapName),
                           )
-                        : const Icon(Icons.map, color: AppColors.red, size: 20),
+                        : _MapFallback(mapName: mapName),
                   ),
                 ),
                 Positioned(
@@ -756,3 +768,73 @@ class _MatchTile extends ConsumerWidget {
 }
 
 
+
+// ── Map Fallback placeholder ──────────────────────────────────────────────────
+// Shown when map splash image is unavailable — styled dark card with map name.
+
+class _MapFallback extends StatelessWidget {
+  const _MapFallback({required this.mapName});
+  final String mapName;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = mapName.isNotEmpty ? mapName.toUpperCase() : 'MAP';
+    return Container(
+      width: 72,
+      height: 56,
+      decoration: BoxDecoration(
+        color: AppColors.bgCard2,
+        border: Border.all(color: AppColors.border, width: 0.8),
+      ),
+      child: Stack(
+        children: [
+          // Subtle diagonal stripe texture
+          Positioned.fill(
+            child: CustomPaint(painter: _StripePainter()),
+          ),
+          // Map name + icon centred
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.map_outlined, color: AppColors.red, size: 16),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.4,
+                  ),
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withAlpha(6)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    const spacing = 8.0;
+    var x = -size.height.toDouble();
+    while (x < size.width + size.height) {
+      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
+      x += spacing;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}

@@ -93,25 +93,38 @@ final _profileMatchesProvider =
 
 // Tier name resolution is delegated to TierNameUtil.
 
-// ── Loadout provider (for player card background) ─────────────────────────────
-final _profileLoadoutProvider =
-    FutureProvider.autoDispose<String?>((ref) async {
-  // Returns the playerCardId from the equipped loadout, or null
+// ── Loadout provider — returns playerCardId + smallArt ────────────────────────
+class _PlayerCardInfo {
+  final String? cardId;
+  final String? wideArt;
+  final String? smallArt;
+  const _PlayerCardInfo({this.cardId, this.wideArt, this.smallArt});
+}
+
+final _profileCardProvider =
+    FutureProvider.autoDispose<_PlayerCardInfo?>((ref) async {
   try {
     final creds = await ref.watch(currentCredentialsProvider.future);
     if (creds == null) return null;
     final source = await ref.watch(loadoutRemoteSourceProvider.future);
     final raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
     final identity = raw['Identity'] as Map<String, dynamic>? ?? {};
-    return identity['PlayerCardID'] as String?;
+    final cardId = identity['PlayerCardID'] as String?;
+    if (cardId == null) return const _PlayerCardInfo();
+
+    final cardsMap =
+        await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
+    final cardInfo = cardsMap[cardId] as Map<String, dynamic>?;
+    return _PlayerCardInfo(
+      cardId: cardId,
+      wideArt: cardInfo?['wideArt'] as String?,
+      smallArt: cardInfo?['smallArt'] as String? ??
+          cardInfo?['displayIcon'] as String?,
+    );
   } catch (_) {
     return null;
   }
 });
-
-final _profilePlayerCardsProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getPlayerCardsMap());
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -124,8 +137,7 @@ class ProfileScreen extends ConsumerWidget {
     final nameAsync = ref.watch(_displayNameProvider);
     final mmrAsync = ref.watch(_profileMmrProvider);
     final matchesAsync = ref.watch(_profileMatchesProvider);
-    final cardIdAsync = ref.watch(_profileLoadoutProvider);
-    final cardsMapAsync = ref.watch(_profilePlayerCardsProvider);
+    final cardAsync = ref.watch(_profileCardProvider);
 
     final showCacheBanner = (xpAsync.asData?.value?.fromCache ?? false) ||
         (nameAsync.asData?.value?.fromCache ?? false);
@@ -135,11 +147,9 @@ class ProfileScreen extends ConsumerWidget {
     final mmrData = mmrAsync.asData?.value;
     final matchesData = matchesAsync.asData?.value;
 
-    // Player card wideArt for header background
-    final cardId = cardIdAsync.asData?.value;
-    final cardsMap = cardsMapAsync.asData?.value ?? {};
-    final cardInfo = cardId != null ? cardsMap[cardId] as Map<String, dynamic>? : null;
-    final cardWideArt = cardInfo?['wideArt'] as String?;
+    final cardInfo = cardAsync.asData?.value;
+    final cardWideArt = cardInfo?.wideArt;
+    final cardSmallArt = cardInfo?.smallArt;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -163,6 +173,7 @@ class ProfileScreen extends ConsumerWidget {
               _ProfileHeaderBanner(
                 displayName: displayName,
                 playerCardWideArt: cardWideArt,
+                playerCardSmallArt: cardSmallArt,
                 onSettingsPressed: () => AccountSwitcherModal.show(context),
                 onLogoutPressed: () => _confirmLogout(context, ref),
               ),
@@ -244,10 +255,12 @@ class _ProfileHeaderBanner extends StatelessWidget {
     required this.onSettingsPressed,
     required this.onLogoutPressed,
     this.playerCardWideArt,
+    this.playerCardSmallArt,
   });
 
   final String? displayName;
   final String? playerCardWideArt;
+  final String? playerCardSmallArt;
   final VoidCallback onSettingsPressed;
   final VoidCallback onLogoutPressed;
 
@@ -371,16 +384,48 @@ class _ProfileHeaderBanner extends StatelessWidget {
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(2.5),
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                    shape: BoxShape.circle, color: AppColors.bg),
-                                child: Center(
-                                  child: Text(initial,
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.w900)),
-                                ),
+                              child: ClipOval(
+                                child: playerCardSmallArt != null &&
+                                        playerCardSmallArt!.isNotEmpty
+                                    // Show the equipped player card portrait
+                                    ? CachedNetworkImage(
+                                        imageUrl: playerCardSmallArt!,
+                                        fit: BoxFit.cover,
+                                        placeholder: (_, __) => Container(
+                                          color: AppColors.bg,
+                                          child: Center(
+                                            child: Text(initial,
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 26,
+                                                    fontWeight:
+                                                        FontWeight.w900)),
+                                          ),
+                                        ),
+                                        errorWidget: (_, __, ___) => Container(
+                                          color: AppColors.bg,
+                                          child: Center(
+                                            child: Text(initial,
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 26,
+                                                    fontWeight:
+                                                        FontWeight.w900)),
+                                          ),
+                                        ),
+                                      )
+                                    // Fallback: initial letter
+                                    : Container(
+                                        color: AppColors.bg,
+                                        child: Center(
+                                          child: Text(initial,
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 26,
+                                                  fontWeight:
+                                                      FontWeight.w900)),
+                                        ),
+                                      ),
                               ),
                             ),
                           ),
@@ -391,8 +436,7 @@ class _ProfileHeaderBanner extends StatelessWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: AppColors.win,
-                                border: Border.all(
-                                    color: AppColors.bg, width: 2),
+                                border: Border.all(color: AppColors.bg, width: 2),
                               ),
                             ),
                           ),
@@ -531,7 +575,7 @@ class _AccountLevelXpCard extends StatelessWidget {
                           border: Border.all(color: AppColors.red, width: 1),
                         ),
                         child: const Center(
-                          child: Icon(Icons.shield_outlined, color: Color(0xFFA855F7), size: 16),
+                          child: Icon(Icons.shield_outlined, color: AppColors.red, size: 16),
                         ),
                       ),
                     ],
@@ -540,7 +584,7 @@ class _AccountLevelXpCard extends StatelessWidget {
                   Text(
                     tierNameText,
                     style: const TextStyle(
-                      color: Color(0xFFA855F7),
+                      color: AppColors.red,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
@@ -625,7 +669,7 @@ class _AccountLevelXpCard extends StatelessWidget {
                               child: Text(
                                 '${xp.level + 1}',
                                 style: const TextStyle(
-                                  color: Color(0xFFA855F7),
+                                  color: AppColors.red,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -708,7 +752,7 @@ class _ProfileQuickStatsRow extends StatelessWidget {
               children: [
                 const _StatHeader(
                   icon: Icons.center_focus_strong_outlined,
-                  iconColor: Color(0xFFA855F7),
+                  iconColor: AppColors.red,
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -751,7 +795,7 @@ class _ProfileQuickStatsRow extends StatelessWidget {
               children: [
                 const _StatHeader(
                   icon: Icons.emoji_events_outlined,
-                  iconColor: Color(0xFFA855F7),
+                  iconColor: AppColors.red,
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -783,7 +827,7 @@ class _ProfileQuickStatsRow extends StatelessWidget {
                         Text(
                           '${winPct.toStringAsFixed(1)}%',
                           style: const TextStyle(
-                            color: Color(0xFFA855F7),
+                            color: AppColors.red,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                           ),
@@ -809,7 +853,7 @@ class _ProfileQuickStatsRow extends StatelessWidget {
               children: [
                 const _StatHeader(
                   icon: Icons.sports_esports_outlined,
-                  iconColor: Color(0xFFA855F7),
+                  iconColor: AppColors.red,
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -943,7 +987,7 @@ class _XpGainsCardSection extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.bolt_rounded, color: Color(0xFFA855F7), size: 18),
+                      const Icon(Icons.bolt_rounded, color: AppColors.red, size: 18),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
