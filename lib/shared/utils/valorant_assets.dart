@@ -205,7 +205,7 @@ class ValorantAssets {
     const keyMaps = 'maps_metadata';
     const keyMapsFetchedAt = 'maps_metadata_fetched_at';
     // Version bump — forces re-fetch when map indexing logic changes
-    const mapsVersion = 'v3';
+    const mapsVersion = 'v4';
     const keyMapsVersion = 'maps_metadata_version';
 
     final storedVersion = await cache.getString(keyMapsVersion);
@@ -234,10 +234,10 @@ class ValorantAssets {
         'foxtrot': 'drift',
         'triad': 'haven',
         'bonsai': 'split',
-        'duality': 'bind',
       };
 
       for (final m in maps) {
+        final uuid = m['uuid']?.toString();
         final displayName = m['displayName']?.toString() ?? '';
         final mapUrl = m['mapUrl']?.toString() ?? '';
         final splash = m['splash']?.toString() ?? m['listViewIcon']?.toString() ?? '';
@@ -249,6 +249,11 @@ class ValorantAssets {
           'displayIcon': displayIcon,
           'listViewIcon': m['listViewIcon']?.toString() ?? splash,
         };
+
+        if (uuid != null && uuid.isNotEmpty) {
+          map[uuid] = info;
+          map[uuid.toLowerCase()] = info;
+        }
 
         // Index by display name (e.g. "bind")
         if (displayName.isNotEmpty) {
@@ -372,13 +377,15 @@ class ValorantAssets {
       for (final c in cards) {
         final uuid = c['uuid'] as String?;
         if (uuid != null) {
-          map[uuid] = {
+          final info = {
             'displayName': c['displayName'],
             'smallArt': c['smallArt'],
             'wideArt': c['wideArt'],
             'largeArt': c['largeArt'],
             'displayIcon': c['displayIcon'],
           };
+          map[uuid] = info;
+          map[uuid.toLowerCase()] = info;
         }
       }
       await cache.setJson(keyCards, map);

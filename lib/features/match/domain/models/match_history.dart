@@ -46,6 +46,7 @@ class MatchHistoryEntry {
     String? matchScore,
     MatchResult result = MatchResult.unknown,
     String? agentId,
+    String? mapId,
   }) {
     return MatchHistoryEntry(
       matchId: matchId,
@@ -53,7 +54,7 @@ class MatchHistoryEntry {
       queueId: queueId,
       teamId: teamId,
       isRanked: isRanked,
-      mapId: mapId,
+      mapId: mapId ?? this.mapId,
       kills: kills ?? this.kills,
       deaths: deaths ?? this.deaths,
       assists: assists ?? this.assists,

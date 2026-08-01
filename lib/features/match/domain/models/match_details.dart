@@ -142,6 +142,8 @@ class MatchDetails {
     required this.roundResults,
   });
 
+  String get mapId => matchInfo.mapId;
+
   /// Returns stats for a specific player by PUUID.
   PlayerStats? playerStats(String puuid) {
     try {

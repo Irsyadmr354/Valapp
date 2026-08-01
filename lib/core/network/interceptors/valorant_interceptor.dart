@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../../../core/exceptions/auth_exception.dart';
 import '../../storage/secure_storage.dart';
 import '../../../shared/utils/version_service.dart';
 
@@ -194,8 +195,12 @@ class ValorantInterceptor extends Interceptor {
       return true;
     } catch (e) {
       debugPrint(
-          '[ValorantInterceptor] Reauth failed — triggering onAuthFailed: $e');
-      await onAuthFailed();
+          '[ValorantInterceptor] Reauth failed (will preserve session for retry): $e');
+      // Do not clear credentials on transient errors or timeouts — keep session intact.
+      // Only clear if error is explicitly an unrecoverable auth rejection.
+      if (e is AuthException && e.message.contains('invalid_grant')) {
+        await onAuthFailed();
+      }
       return false;
     }
   }

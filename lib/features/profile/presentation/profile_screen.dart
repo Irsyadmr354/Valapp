@@ -141,6 +141,7 @@ final _profileMatchesProvider =
         isMvp: isMvp,
         result: matchResult,
         agentId: player.agentId,
+        mapId: details.mapId,
       ));
     } catch (_) {
       enriched.add(entry);
@@ -177,13 +178,18 @@ final _profileCardProvider =
     final loadoutRoot = raw.containsKey('Loadout')
         ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
         : raw;
-    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ?? {};
-    final cardId = identity['PlayerCardID'] as String?;
+    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
+        raw['Identity'] as Map<String, dynamic>? ??
+        {};
+    final cardId = identity['PlayerCardID'] as String? ??
+        loadoutRoot['PlayerCardID'] as String? ??
+        raw['PlayerCardID'] as String?;
     if (cardId == null) return const _PlayerCardInfo();
 
     final cardsMap =
         await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
-    final cardInfo = cardsMap[cardId] as Map<String, dynamic>?;
+    final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
+        as Map<String, dynamic>?;
     // Use largeArt for header background (best quality), fallback chain
     final wideArt = cardInfo?['largeArt'] as String? ??
         cardInfo?['wideArt'] as String? ??
@@ -316,7 +322,10 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               // 4. 3 Quick Stat Cards Row (Matches Played, Wins, K/D Ratio)
-              _ProfileQuickStatsRow(historyResult: matchesData),
+              if (matchesAsync.isLoading && matchesData == null)
+                const _ProfileQuickStatsSkeleton()
+              else
+                _ProfileQuickStatsRow(historyResult: matchesData),
 
               const SizedBox(height: 20),
 
@@ -1015,6 +1024,40 @@ class _ProfileQuickStatsRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ProfileQuickStatsSkeleton extends StatelessWidget {
+  const _ProfileQuickStatsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(
+        3,
+        (i) => Expanded(
+          child: Container(
+            margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
+            height: 90,
+            decoration: BoxDecoration(
+              color: AppColors.bgCard2,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white10, width: 1),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.red,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

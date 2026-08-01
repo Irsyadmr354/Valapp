@@ -102,7 +102,7 @@ final _matchHistoryProvider =
       quickEnriched.add(entry.copyWithStats(
         kills: player.kills, deaths: player.deaths, assists: player.assists,
         isMvp: isMvp, matchScore: scoreStr, result: matchResult,
-        agentId: player.agentId,
+        agentId: player.agentId, mapId: details.mapId,
       ));
     } catch (_) {
       quickEnriched.add(entry);
