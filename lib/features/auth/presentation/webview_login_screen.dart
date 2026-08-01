@@ -96,6 +96,7 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
       final idToken = tokens['id_token']!;
       final expiresIn = int.parse(tokens['expires_in']!);
 
+      final repo = await ref.read(authRepositoryProvider.future);
       final creds = await repo.completeLoginFromWebView(
         accessToken: accessToken,
         idToken: idToken,

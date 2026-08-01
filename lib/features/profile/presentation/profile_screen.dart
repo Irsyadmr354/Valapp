@@ -14,6 +14,7 @@ import '../../auth/presentation/account_switcher_modal.dart';
 import 'account_health_modal.dart';
 import '../../match/domain/models/match_history.dart';
 import '../../match/domain/models/match_details.dart';
+import '../../rank/domain/models/player_mmr.dart';
 import '../../shop/presentation/notification_rule_service.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
@@ -178,7 +179,7 @@ final _profileCardProvider =
     if (raw == null) {
       final source = await ref.watch(loadoutRemoteSourceProvider.future);
       raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
-      await cache.saveLoadoutRaw(raw);
+      await cache.saveLoadout(raw);
     }
     // v3 wraps fields under 'Loadout' key; v2 exposes them at root
     final loadoutRoot = raw.containsKey('Loadout')
@@ -1656,11 +1657,11 @@ class _NotificationRulesCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.notifications_active_outlined, color: AppColors.red, size: 18),
-              const SizedBox(width: 8),
-              const Text(
+              Icon(Icons.notifications_active_outlined, color: AppColors.red, size: 18),
+              SizedBox(width: 8),
+              Text(
                 'SMART NOTIFICATION RULES',
                 style: TextStyle(
                   color: Colors.white,

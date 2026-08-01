@@ -117,7 +117,6 @@ class BackgroundShopChecker {
     } catch (_) {
       return;
     }
-    }
 
     // ── Extract offers with prices ──────────────────────────────────────────
     final skinPanel =

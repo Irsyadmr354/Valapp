@@ -10,6 +10,9 @@ class LoadoutLocalCache {
   Future<void> saveLoadout(Map<String, dynamic> raw) =>
       _cache.setJson(_keyLoadout, raw);
 
+  Future<Map<String, dynamic>?> loadLoadoutRaw() =>
+      _cache.getJson(_keyLoadout);
+
   Future<PlayerLoadout?> loadLoadout() async {
     final raw = await _cache.getJson(_keyLoadout);
     if (raw == null) return null;
