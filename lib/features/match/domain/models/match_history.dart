@@ -17,6 +17,7 @@ class MatchHistoryEntry {
   final bool isMvp;
   final String? matchScore; // e.g. "13 – 8"
   final MatchResult result;
+  final String? agentId; // characterId from match details enrichment
 
   const MatchHistoryEntry({
     required this.matchId,
@@ -31,12 +32,12 @@ class MatchHistoryEntry {
     this.isMvp = false,
     this.matchScore,
     this.result = MatchResult.unknown,
+    this.agentId,
   });
 
   DateTime get gameStartTime =>
       DateTime.fromMillisecondsSinceEpoch(gameStartMillis);
 
-  /// Returns a copy with enriched per-player stats.
   MatchHistoryEntry copyWithStats({
     int? kills,
     int? deaths,
@@ -44,6 +45,7 @@ class MatchHistoryEntry {
     bool isMvp = false,
     String? matchScore,
     MatchResult result = MatchResult.unknown,
+    String? agentId,
   }) {
     return MatchHistoryEntry(
       matchId: matchId,
@@ -58,6 +60,7 @@ class MatchHistoryEntry {
       isMvp: isMvp,
       matchScore: matchScore ?? this.matchScore,
       result: result,
+      agentId: agentId ?? this.agentId,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/skin_card.dart';
@@ -150,10 +151,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
     final wishlist = ref.watch(wishlistProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bg,
       body: RefreshIndicator(
-        color: const Color(0xFFFF4655),
-        backgroundColor: const Color(0xFF1A2634),
+        color: AppColors.red,
+        backgroundColor: AppColors.bgCard2,
         onRefresh: _refresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -213,7 +214,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
 
   Widget _buildAppBar(AsyncValue<Wallet?> walletAsync) {
     return SliverAppBar(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bgPanel,
       pinned: true,
       floating: false,
       centerTitle: false,
@@ -242,7 +243,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: [Color(0xFF00E8F0), Color(0xFF005841)],
+                      colors: [AppColors.red, AppColors.redDark],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -302,7 +303,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                               widthFactor: xpProgress,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF00E8F0),
+                                  color: AppColors.red,
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
@@ -744,12 +745,12 @@ class _BundleBanner extends ConsumerWidget {
                       Row(
                         children: [
                           const Icon(Icons.bolt,
-                              color: Color(0xFF00F0FF), size: 16),
+                              color: AppColors.red, size: 16),
                           const SizedBox(width: 4),
                           Text(
                             '${bundle.totalDiscountedCost} VP',
                             style: const TextStyle(
-                              color: Color(0xFF00F0FF),
+                              color: AppColors.red,
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
                             ),
@@ -1098,7 +1099,7 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
           ),
         ),
         const SizedBox(height: 10),
-        // Purple indicator dots
+        // Indicator dots
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(widget.offers.length, (index) {
@@ -1109,9 +1110,7 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
               width: isSelected ? 16 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFFA855F7)
-                    : Colors.white24,
+                color: isSelected ? AppColors.red : Colors.white24,
                 borderRadius: BorderRadius.circular(3),
               ),
             );
@@ -1223,7 +1222,7 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                 children: [
                   const _QuickCardHeader(
                     icon: Icons.emoji_events_outlined,
-                    iconColor: Color(0xFF00E8F0),
+                    iconColor: AppColors.red,
                     title: 'COMPETITIVE RANK',
                   ),
                   const SizedBox(height: 8),
@@ -1237,10 +1236,10 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                                 width: 48, height: 48),
                             errorWidget: (_, __, ___) => const Icon(
                                 Icons.shield_outlined,
-                                color: Color(0xFF00E8F0), size: 36),
+                                color: AppColors.red, size: 36),
                           )
                         : const Icon(Icons.shield_outlined,
-                            color: Color(0xFF00E8F0), size: 36),
+                            color: AppColors.red, size: 36),
                   ),
                   const SizedBox(height: 6),
                   Center(
@@ -1274,7 +1273,7 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                           .clamp(0.0, 1.0),
                       backgroundColor: Colors.white12,
                       valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF00E8F0)),
+                          AppColors.red),
                       minHeight: 3,
                     ),
                   ),
@@ -1293,7 +1292,7 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                 children: [
                   const _QuickCardHeader(
                     icon: Icons.sports_esports_outlined,
-                    iconColor: Color(0xFFA855F7),
+                    iconColor: AppColors.red,
                     title: 'MATCH HISTORY',
                   ),
                   const SizedBox(height: 6),
@@ -1309,9 +1308,9 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                   else
                     ...matches.take(3).toList().asMap().entries.map((e) {
                       final colors = [
-                        const Color(0xFFFF4655),
-                        const Color(0xFF00E8F0),
-                        const Color(0xFF3B82F6),
+                        AppColors.red,
+                        AppColors.red.withAlpha(180),
+                        AppColors.red.withAlpha(120),
                       ];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 4),
@@ -1337,7 +1336,7 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                 children: [
                   const _QuickCardHeader(
                     icon: Icons.trending_up,
-                    iconColor: Color(0xFF00E8F0),
+                    iconColor: AppColors.red,
                     title: 'RECENT TREND',
                   ),
                   const SizedBox(height: 8),
@@ -1350,8 +1349,8 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                           color: mmr?.latestUpdate == null
                               ? Colors.white54
                               : (isPos
-                                  ? const Color(0xFF00E8F0)
-                                  : const Color(0xFFFF4655)),
+                                  ? AppColors.win
+                                  : AppColors.loss),
                           fontSize: 15,
                           fontWeight: FontWeight.w900),
                     ),
@@ -1379,9 +1378,7 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                           width: 3,
                           height: h,
                           decoration: BoxDecoration(
-                            color: isPos
-                                ? const Color(0xFF00E8F0)
-                                : const Color(0xFFFF4655),
+                            color: isPos ? AppColors.win : AppColors.loss,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         );
@@ -1417,9 +1414,9 @@ class _QuickCard extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         height: 150,
         decoration: BoxDecoration(
-          color: const Color(0xFF131B2E),
+          color: AppColors.bgCard2,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF1A2540), width: 0.8),
+          border: Border.all(color: AppColors.border, width: 0.8),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withAlpha(50),

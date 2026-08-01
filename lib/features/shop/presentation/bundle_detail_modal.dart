@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/countdown_timer.dart';
 import '../domain/models/skin_offer.dart';
@@ -48,10 +49,10 @@ class BundleDetailModal extends ConsumerWidget {
         maxHeight: MediaQuery.of(context).size.height * 0.88,
       ),
       decoration: const BoxDecoration(
-        color: Color(0xFF0E1622),
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         border: Border.fromBorderSide(
-          BorderSide(color: Color(0xFFFF4655), width: 1.5),
+          BorderSide(color: AppColors.red, width: 1.5),
         ),
       ),
       child: Column(
@@ -116,7 +117,7 @@ class BundleDetailModal extends ConsumerWidget {
                                     ? '${bundle.totalBaseCost} VP'
                                     : 'FEATURED BUNDLE'),
                             style: const TextStyle(
-                              color: Color(0xFF00F0FF),
+                              color: AppColors.red,
                               fontSize: 14,
                               fontWeight: FontWeight.w900,
                             ),
@@ -133,7 +134,42 @@ class BundleDetailModal extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // Full-width countdown timer bar
+          if (bundle.durationRemainingSeconds > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.red.withAlpha(20),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.red.withAlpha(80), width: 0.8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer_outlined, color: AppColors.red, size: 16),
+                    const SizedBox(width: 8),
+                    const Text('OFFER ENDS IN ',
+                        style: TextStyle(
+                            color: AppColors.red,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8)),
+                    CountdownTimer(
+                      remainingSeconds: bundle.durationRemainingSeconds,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 8),
 
           // Bundle Content List
           Expanded(
@@ -142,7 +178,7 @@ class BundleDetailModal extends ConsumerWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+                    child: CircularProgressIndicator(color: AppColors.red),
                   );
                 }
 
@@ -176,8 +212,7 @@ class BundleDetailModal extends ConsumerWidget {
                     // Section Title
                     Row(
                       children: [
-                        Container(
-                            width: 3, height: 14, color: const Color(0xFFFF4655)),
+                        Container(width: 3, height: 14, color: AppColors.red),
                         const SizedBox(width: 8),
                         Text(
                           'BUNDLE ITEMS (${bundle.itemIds.length})',
@@ -188,16 +223,6 @@ class BundleDetailModal extends ConsumerWidget {
                             letterSpacing: 1.2,
                           ),
                         ),
-                        const Spacer(),
-                        if (bundle.durationRemainingSeconds > 0)
-                          CountdownTimer(
-                            remainingSeconds: bundle.durationRemainingSeconds,
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -224,14 +249,12 @@ class BundleDetailModal extends ConsumerWidget {
                       );
 
                       return GestureDetector(
-                        onTap: () {
-                          SkinDetailModal.show(context, offer);
-                        },
+                        onTap: () => SkinDetailModal.show(context, offer),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF141F2D),
+                            color: AppColors.bgCard2,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                                 color: tierColor.withAlpha(80), width: 1),
@@ -243,7 +266,7 @@ class BundleDetailModal extends ConsumerWidget {
                                 width: 56,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF070A10),
+                                  color: AppColors.bg,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: displayIcon != null && displayIcon.isNotEmpty
@@ -265,37 +288,56 @@ class BundleDetailModal extends ConsumerWidget {
                                       skinName,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 14,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.w800,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: tierColor.withAlpha(30),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        TierColors.tierLabel(tierUuid)
-                                            .toUpperCase(),
-                                        style: TextStyle(
-                                          color: tierColor,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: tierColor.withAlpha(30),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            TierColors.tierLabel(tierUuid).toUpperCase(),
+                                            style: TextStyle(
+                                              color: tierColor,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
 
-                              // Tap hint
-                              const Icon(Icons.chevron_right,
-                                  color: Colors.white38, size: 20),
+                              // INSPECT label + chevron
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('INSPECT',
+                                          style: TextStyle(
+                                              color: AppColors.red,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 0.5)),
+                                      Icon(Icons.chevron_right,
+                                          color: AppColors.red, size: 16),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
                         ),

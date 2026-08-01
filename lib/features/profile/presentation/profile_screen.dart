@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/account_xp.dart';
@@ -91,6 +93,26 @@ final _profileMatchesProvider =
 
 // Tier name resolution is delegated to TierNameUtil.
 
+// ── Loadout provider (for player card background) ─────────────────────────────
+final _profileLoadoutProvider =
+    FutureProvider.autoDispose<String?>((ref) async {
+  // Returns the playerCardId from the equipped loadout, or null
+  try {
+    final creds = await ref.watch(currentCredentialsProvider.future);
+    if (creds == null) return null;
+    final source = await ref.watch(loadoutRemoteSourceProvider.future);
+    final raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
+    final identity = raw['Identity'] as Map<String, dynamic>? ?? {};
+    return identity['PlayerCardID'] as String?;
+  } catch (_) {
+    return null;
+  }
+});
+
+final _profilePlayerCardsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
+        ref.watch(valorantAssetsProvider).getPlayerCardsMap());
+
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 class ProfileScreen extends ConsumerWidget {
@@ -102,6 +124,8 @@ class ProfileScreen extends ConsumerWidget {
     final nameAsync = ref.watch(_displayNameProvider);
     final mmrAsync = ref.watch(_profileMmrProvider);
     final matchesAsync = ref.watch(_profileMatchesProvider);
+    final cardIdAsync = ref.watch(_profileLoadoutProvider);
+    final cardsMapAsync = ref.watch(_profilePlayerCardsProvider);
 
     final showCacheBanner = (xpAsync.asData?.value?.fromCache ?? false) ||
         (nameAsync.asData?.value?.fromCache ?? false);
@@ -111,12 +135,18 @@ class ProfileScreen extends ConsumerWidget {
     final mmrData = mmrAsync.asData?.value;
     final matchesData = matchesAsync.asData?.value;
 
+    // Player card wideArt for header background
+    final cardId = cardIdAsync.asData?.value;
+    final cardsMap = cardsMapAsync.asData?.value ?? {};
+    final cardInfo = cardId != null ? cardsMap[cardId] as Map<String, dynamic>? : null;
+    final cardWideArt = cardInfo?['wideArt'] as String?;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: RefreshIndicator(
-          color: const Color(0xFF00E8F0),
-          backgroundColor: const Color(0xFF131B2E),
+          color: AppColors.red,
+          backgroundColor: AppColors.bgCard2,
           onRefresh: () async {
             ref.invalidate(_accountXpProvider);
             ref.invalidate(_displayNameProvider);
@@ -132,6 +162,7 @@ class ProfileScreen extends ConsumerWidget {
               // 1. Top Section (Avatar + Name + Tag + Settings Action Buttons)
               _ProfileHeaderBanner(
                 displayName: displayName,
+                playerCardWideArt: cardWideArt,
                 onSettingsPressed: () => AccountSwitcherModal.show(context),
                 onLogoutPressed: () => _confirmLogout(context, ref),
               ),
@@ -172,7 +203,7 @@ class ProfileScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF131B2E),
+        backgroundColor: AppColors.bgCard2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Logout',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
@@ -187,7 +218,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF4655),
+              backgroundColor: AppColors.red,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
@@ -212,9 +243,11 @@ class _ProfileHeaderBanner extends StatelessWidget {
     required this.displayName,
     required this.onSettingsPressed,
     required this.onLogoutPressed,
+    this.playerCardWideArt,
   });
 
   final String? displayName;
+  final String? playerCardWideArt;
   final VoidCallback onSettingsPressed;
   final VoidCallback onLogoutPressed;
 
@@ -223,227 +256,214 @@ class _ProfileHeaderBanner extends StatelessWidget {
     final nameText = displayName ?? 'Valorant Player';
     final initial = nameText.isNotEmpty ? nameText[0].toUpperCase() : 'V';
 
-    return Stack(
-      children: [
-        // Background Energy Aura Glow Overlay (Omen style purple/cyan aura)
-        Positioned(
-          right: -20,
-          top: -20,
-          child: Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFFA855F7).withAlpha(45),
-                  const Color(0xFF00E8F0).withAlpha(15),
-                  Colors.transparent,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.bgCard2,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border, width: 1),
+        boxShadow: AppColors.redGlow(alpha: 0.10),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(19),
+        child: Stack(
+          children: [
+            // Player card wide art as background
+            if (playerCardWideArt != null && playerCardWideArt!.isNotEmpty)
+              Positioned.fill(
+                child: CachedNetworkImage(
+                  imageUrl: playerCardWideArt!,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  errorWidget: (_, __, ___) => const SizedBox(),
+                ),
+              ),
+            // Dark overlay for readability
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.bgCard2.withAlpha(playerCardWideArt != null ? 160 : 220),
+                      AppColors.bgCard2.withAlpha(240),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Red radial glow top-right
+            Positioned(
+              right: -20, top: -20,
+              child: Container(
+                width: 140, height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.red.withAlpha(45),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top action bar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 6, height: 6,
+                            decoration: BoxDecoration(
+                              color: AppColors.red,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text('AGENT PROFILE',
+                              style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2)),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.settings_outlined,
+                                color: Colors.white70, size: 20),
+                            onPressed: onSettingsPressed,
+                            tooltip: 'Switch Account',
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.logout_rounded,
+                                color: AppColors.red, size: 20),
+                            onPressed: onLogoutPressed,
+                            tooltip: 'Logout',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      // Avatar with red ring
+                      Stack(
+                        children: [
+                          Container(
+                            width: 64, height: 64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: AppColors.redGradient,
+                              boxShadow: AppColors.redGlow(alpha: 0.35, blur: 14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2.5),
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                    shape: BoxShape.circle, color: AppColors.bg),
+                                child: Center(
+                                  child: Text(initial,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.w900)),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 2, bottom: 2,
+                            child: Container(
+                              width: 12, height: 12,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.win,
+                                border: Border.all(
+                                    color: AppColors.bg, width: 2),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(nameText,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.3),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () {
+                                    Clipboard.setData(ClipboardData(text: nameText));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Riot ID copied!'),
+                                        duration: Duration(seconds: 2),
+                                        backgroundColor: AppColors.bgCard2,
+                                      ),
+                                    );
+                                  },
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(Icons.copy_rounded,
+                                        color: Colors.white38, size: 14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.red.withAlpha(30),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: AppColors.red.withAlpha(80),
+                                    width: 0.8),
+                              ),
+                              child: const Text('VALORANT PLAYER',
+                                  style: TextStyle(
+                                      color: AppColors.red,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
-
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF131B2E).withAlpha(220),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white10, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFA855F7).withAlpha(20),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              )
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top Action Bar inside banner
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Section Indicator Tag
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFA855F7),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'AGENT PROFILE',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Top Action Buttons (Settings & Multi-Account Switcher)
-                  Row(
-                    children: [
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.settings_outlined, color: Colors.white70, size: 20),
-                        onPressed: onSettingsPressed,
-                        tooltip: 'Switch Account',
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.logout_rounded, color: Color(0xFFFF4655), size: 20),
-                        onPressed: onLogoutPressed,
-                        tooltip: 'Logout',
-                      ),
-                    ],
-                  )
-                ],
-              ),
-
-              const SizedBox(height: 8),
-
-              // Avatar + Name + Tag Badge Row
-              Row(
-                children: [
-                  // Circle Avatar with glowing ring and online status dot
-                  Stack(
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFA855F7), Color(0xFF00E8F0)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFA855F7).withAlpha(80),
-                              blurRadius: 12,
-                            )
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(2.5),
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF070A10),
-                            ),
-                            child: Center(
-                              child: Text(
-                                initial,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Green Online Status Dot
-                      Positioned(
-                        right: 2,
-                        bottom: 2,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFF00FF9D),
-                            border: Border.all(color: const Color(0xFF070A10), width: 2),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(width: 16),
-
-                  // Name + Tag Pill Badge
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                nameText,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.3,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            InkWell(
-                              onTap: () {
-                                Clipboard.setData(ClipboardData(text: nameText));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Riot ID copied to clipboard!'),
-                                    duration: Duration(seconds: 2),
-                                    backgroundColor: Color(0xFF131B2E),
-                                  ),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(4),
-                              child: const Padding(
-                                padding: EdgeInsets.all(4.0),
-                                child: Icon(Icons.copy_rounded, color: Colors.white38, size: 14),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFA855F7).withAlpha(40),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: const Color(0xFFA855F7).withAlpha(80),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: const Text(
-                            'VALORANT PLAYER',
-                            style: TextStyle(
-                              color: Color(0xFFA855F7),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -467,7 +487,7 @@ class _AccountLevelXpCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
+        color: AppColors.bgCard2,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10, width: 1),
       ),
@@ -507,8 +527,8 @@ class _AccountLevelXpCard extends StatelessWidget {
                         height: 28,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFFA855F7).withAlpha(30),
-                          border: Border.all(color: const Color(0xFFA855F7), width: 1),
+                          color: AppColors.red.withAlpha(30),
+                          border: Border.all(color: AppColors.red, width: 1),
                         ),
                         child: const Center(
                           child: Icon(Icons.shield_outlined, color: Color(0xFFA855F7), size: 16),
@@ -573,15 +593,8 @@ class _AccountLevelXpCard extends StatelessWidget {
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(4),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF00E8F0), Color(0xFFA855F7)],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFA855F7).withAlpha(80),
-                                blurRadius: 6,
-                              )
-                            ],
+                            gradient: AppColors.redGradient,
+                            boxShadow: AppColors.redGlow(alpha: 0.25, blur: 6),
                           ),
                         ),
                       ),
@@ -606,7 +619,7 @@ class _AccountLevelXpCard extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFA855F7).withAlpha(40),
+                                color: AppColors.red.withAlpha(40),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -649,11 +662,11 @@ class _AccountLevelXpSkeleton extends StatelessWidget {
     return Container(
       height: 110,
       decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
+        color: AppColors.bgCard2,
         borderRadius: BorderRadius.circular(20),
       ),
       child: const Center(
-        child: CircularProgressIndicator(color: Color(0xFF00E8F0)),
+        child: CircularProgressIndicator(color: AppColors.red),
       ),
     );
   }
@@ -844,7 +857,7 @@ class _StatCardWrapper extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF131B2E),
+          color: AppColors.bgCard2,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white10, width: 1),
         ),
@@ -886,7 +899,7 @@ class _XpGainsCardSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
+        color: AppColors.bgCard2,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white10, width: 1),
       ),
@@ -972,7 +985,7 @@ class _LoadoutQuickLink extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF131B2E),
+          color: AppColors.bgCard2,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white10, width: 1),
         ),
@@ -982,12 +995,12 @@ class _LoadoutQuickLink extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF00F0FF).withAlpha(25),
+                color: AppColors.red.withAlpha(25),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Center(
                 child: Icon(Icons.inventory_2_outlined,
-                    color: Color(0xFF00F0FF), size: 22),
+                    color: AppColors.red, size: 22),
               ),
             ),
             const SizedBox(width: 14),
@@ -1015,7 +1028,7 @@ class _LoadoutQuickLink extends StatelessWidget {
               ),
             ),
             const Icon(Icons.chevron_right,
-                color: Color(0xFF00F0FF), size: 20),
+                color: AppColors.red, size: 20),
           ],
         ),
       ),

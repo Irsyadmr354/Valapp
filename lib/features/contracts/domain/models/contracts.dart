@@ -6,6 +6,7 @@ class Mission {
   final int currentProgress;
   final bool isCompleted;
   final DateTime? expirationTime;
+  final int xpGrant;
 
   const Mission({
     required this.missionId,
@@ -14,6 +15,7 @@ class Mission {
     required this.currentProgress,
     required this.isCompleted,
     this.expirationTime,
+    this.xpGrant = 0,
   });
 
   double get progressFraction =>
@@ -32,16 +34,13 @@ class Mission {
 
     return Mission(
       missionId: json['ID'] as String? ?? '',
-      // Title is not in the API — use mission ID as fallback
       title: json['Title'] as String? ?? 'Mission',
-      // ProgressToComplete isn't directly in the response — 
-      // default to totalProgress if complete, else use a reasonable estimate
       progressToComplete:
           (json['ProgressToComplete'] as num?)?.toInt() ?? totalProgress.clamp(1, 999999),
       currentProgress: totalProgress,
       isCompleted: json['Complete'] as bool? ?? false,
-      expirationTime:
-          expiry != null ? DateTime.tryParse(expiry) : null,
+      expirationTime: expiry != null ? DateTime.tryParse(expiry) : null,
+      xpGrant: (json['XPGrant'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import 'skin_detail_modal.dart';
@@ -105,7 +106,7 @@ Color _getTierColor(String? tierUuid) {
   // Absolute Tier Colors (Official Valorant Color Palette)
   if (uuid.contains('12683d76')) return const Color(0xFF5A9FE2); // Select (Light Blue)
   if (uuid.contains('0cebb8be')) return const Color(0xFF009587); // Deluxe (Teal Green)
-  if (uuid.contains('60bca009')) return const Color(0xFFD1548D); // Premium (Pink/Magenta)
+  if (uuid.contains('60bca009')) return AppColors.red; // Premium (Pink/Magenta)
   if (uuid.contains('411e4a55')) return const Color(0xFFFAD663); // Ultra (Gold/Yellow)
   if (uuid.contains('e046854e')) return const Color(0xFFF5955B); // Exclusive (Orange)
   return TierColors.forName(tierUuid);
@@ -127,6 +128,7 @@ class _WishlistCatalogScreenState
   String _selectedQuickFilter = 'ALL';
   String _selectedTierFilter = 'ALL';
   String _searchQuery = '';
+  String _sortMode = 'name'; // 'name' | 'tier'
   final _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> _quickFilterPills = [
@@ -154,7 +156,7 @@ class _WishlistCatalogScreenState
     {'id': 'ALL', 'label': 'ALL EDITIONS', 'color': Colors.white70},
     {'id': 'Ultra', 'label': 'ULTRA EDITION (GOLD)', 'color': const Color(0xFFFAD663)},
     {'id': 'Exclusive', 'label': 'EXCLUSIVE EDITION (ORANGE)', 'color': const Color(0xFFF5955B)},
-    {'id': 'Premium', 'label': 'PREMIUM EDITION (PINK)', 'color': const Color(0xFFD1548D)},
+    {'id': 'Premium', 'label': 'PREMIUM EDITION (PINK)', 'color': AppColors.red},
     {'id': 'Deluxe', 'label': 'DELUXE EDITION (GREEN)', 'color': const Color(0xFF009587)},
     {'id': 'Select', 'label': 'SELECT EDITION (BLUE)', 'color': const Color(0xFF5A9FE2)},
   ];
@@ -172,9 +174,9 @@ class _WishlistCatalogScreenState
       builder: (_) => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF131B2E),
+          color: AppColors.bgCard2,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: const Color(0xFFA855F7), width: 1.5),
+          border: Border.all(color: AppColors.red, width: 1.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -212,7 +214,7 @@ class _WishlistCatalogScreenState
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isSelected ? color.withAlpha(40) : const Color(0xFF070A10),
+                    color: isSelected ? color.withAlpha(40) : AppColors.bg,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected ? color : Colors.white10,
@@ -259,7 +261,7 @@ class _WishlistCatalogScreenState
     final wishlist = ref.watch(wishlistProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -291,7 +293,7 @@ class _WishlistCatalogScreenState
                         Text(
                           'COLLECT. CUSTOMIZE. DOMINATE.',
                           style: TextStyle(
-                            color: Color(0xFFA855F7),
+                            color: AppColors.red,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.0,
@@ -321,7 +323,7 @@ class _WishlistCatalogScreenState
                     child: Container(
                       height: 42,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF131B2E),
+                        color: AppColors.bgCard2,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.white10, width: 1),
                       ),
@@ -350,42 +352,82 @@ class _WishlistCatalogScreenState
                   ),
                   const SizedBox(width: 8),
 
-                  // Tier Filter Dropdown Button
-                  GestureDetector(
-                    onTap: _showTierFilterModal,
-                    child: Container(
-                      height: 42,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF131B2E),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _selectedTierFilter != 'ALL'
-                              ? const Color(0xFFA855F7)
-                              : Colors.white10,
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.tune_rounded, color: Color(0xFFA855F7), size: 18),
-                          const SizedBox(width: 6),
-                          Text(
-                            _selectedTierFilter == 'ALL'
-                                ? 'ALL EDITIONS'
-                                : _selectedTierFilter.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
+                  // Tier Filter + Sort buttons row
+                  Row(
+                    children: [
+                      // Tier Filter button
+                      GestureDetector(
+                        onTap: _showTierFilterModal,
+                        child: Container(
+                          height: 42,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.bgCard2,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _selectedTierFilter != 'ALL'
+                                  ? AppColors.red
+                                  : AppColors.border,
+                              width: 1,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 18),
-                        ],
+                          child: Row(
+                            children: [
+                              const Icon(Icons.tune_rounded, color: AppColors.red, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                _selectedTierFilter == 'ALL'
+                                    ? 'TIERS'
+                                    : _selectedTierFilter.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.keyboard_arrow_down_rounded,
+                                  color: Colors.white54, size: 18),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      // Sort button
+                      GestureDetector(
+                        onTap: () => setState(() =>
+                            _sortMode = _sortMode == 'name' ? 'tier' : 'name'),
+                        child: Container(
+                          height: 42,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.bgCard2,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _sortMode == 'tier'
+                                  ? AppColors.red
+                                  : AppColors.border,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.sort_rounded,
+                                  color: AppColors.red, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                _sortMode == 'name' ? 'A–Z' : 'TIER',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -407,10 +449,10 @@ class _WishlistCatalogScreenState
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFA855F7) : const Color(0xFF131B2E),
+                        color: isSelected ? AppColors.red : AppColors.bgCard2,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFFA855F7) : Colors.white10,
+                          color: isSelected ? AppColors.red : Colors.white10,
                           width: 1,
                         ),
                       ),
@@ -441,7 +483,7 @@ class _WishlistCatalogScreenState
                   Container(
                     width: 78,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF070A10),
+                      color: AppColors.bg,
                       border: Border(right: BorderSide(color: Colors.white10, width: 0.8)),
                     ),
                     child: ListView.builder(
@@ -459,15 +501,15 @@ class _WishlistCatalogScreenState
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? (isWishlistCat
-                                      ? const Color(0xFFD1548D).withAlpha(40)
-                                      : const Color(0xFFA855F7).withAlpha(40))
+                                      ? AppColors.red.withAlpha(40)
+                                      : AppColors.red.withAlpha(40))
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                               border: isSelected
                                   ? Border.all(
                                       color: isWishlistCat
-                                          ? const Color(0xFFD1548D)
-                                          : const Color(0xFFA855F7),
+                                          ? AppColors.red
+                                          : AppColors.red,
                                       width: 1,
                                     )
                                   : null,
@@ -478,7 +520,7 @@ class _WishlistCatalogScreenState
                                 Icon(
                                   cat['icon'] as IconData,
                                   color: isSelected
-                                      ? (isWishlistCat ? const Color(0xFFD1548D) : const Color(0xFFA855F7))
+                                      ? (isWishlistCat ? AppColors.red : AppColors.red)
                                       : Colors.white38,
                                   size: 20,
                                 ),
@@ -540,6 +582,32 @@ class _WishlistCatalogScreenState
                           return true;
                         }).toList();
 
+                        // Sort
+                        if (_sortMode == 'tier') {
+                          const tierOrder = {
+                            '411e4a55': 0, // Ultra
+                            'e046854e': 1, // Exclusive
+                            '60bca009': 2, // Premium
+                            '0cebb8be': 3, // Deluxe
+                            '12683d76': 4, // Select
+                          };
+                          filteredSkins.sort((a, b) {
+                            final ta = tierOrder.entries
+                                .firstWhere(
+                                  (e) => (a['contentTierUuid'] as String? ?? '').toLowerCase().contains(e.key),
+                                  orElse: () => const MapEntry('', 5),
+                                )
+                                .value;
+                            final tb = tierOrder.entries
+                                .firstWhere(
+                                  (e) => (b['contentTierUuid'] as String? ?? '').toLowerCase().contains(e.key),
+                                  orElse: () => const MapEntry('', 5),
+                                )
+                                .value;
+                            return ta.compareTo(tb);
+                          });
+                        }
+
                         if (filteredSkins.isEmpty) {
                           return const Center(
                             child: Column(
@@ -556,7 +624,35 @@ class _WishlistCatalogScreenState
                           );
                         }
 
-                        return GridView.builder(
+                        return Column(
+                          children: [
+                            // Skin count badge
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.red.withAlpha(25),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: AppColors.red.withAlpha(80), width: 0.8),
+                                    ),
+                                    child: Text(
+                                      '${filteredSkins.length} SKINS',
+                                      style: const TextStyle(
+                                        color: AppColors.red,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: GridView.builder(
                           padding: const EdgeInsets.all(12),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
@@ -600,10 +696,13 @@ class _WishlistCatalogScreenState
                               },
                             );
                           },
-                        );
+                        ),
+                            ),  // Expanded
+                          ],
+                        ); // Column
                       },
                       loading: () => const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF00E8F0)),
+                        child: CircularProgressIndicator(color: AppColors.red),
                       ),
                       error: (e, _) => Center(
                         child: Text('Error: $e', style: const TextStyle(color: Colors.white54)),
@@ -657,12 +756,12 @@ class _WishlistHeaderSummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF131B2E),
+          color: AppColors.bgCard2,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD1548D).withAlpha(80), width: 1),
+          border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFD1548D).withAlpha(25),
+              color: AppColors.red.withAlpha(25),
               blurRadius: 10,
             )
           ],
@@ -673,7 +772,7 @@ class _WishlistHeaderSummaryCard extends StatelessWidget {
           children: [
             const Row(
               children: [
-                Icon(Icons.bookmark_rounded, color: Color(0xFFD1548D), size: 14),
+                Icon(Icons.bookmark_rounded, color: AppColors.red, size: 14),
                 SizedBox(width: 4),
                 Text(
                   'WISHLIST',
@@ -701,12 +800,12 @@ class _WishlistHeaderSummaryCard extends StatelessWidget {
                 const Text(
                   'VIEW WISHLIST',
                   style: TextStyle(
-                    color: Color(0xFFD1548D),
+                    color: AppColors.red,
                     fontSize: 8,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: Color(0xFFD1548D), size: 12),
+                const Icon(Icons.chevron_right, color: AppColors.red, size: 12),
               ],
             ),
           ],
@@ -743,10 +842,10 @@ class _SkinCatalogGridCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF131B2E),
+          color: AppColors.bgCard2,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isWishlisted ? const Color(0xFFD1548D) : Colors.white10,
+            color: isWishlisted ? AppColors.red : Colors.white10,
             width: isWishlisted ? 1.5 : 1,
           ),
         ),
@@ -764,18 +863,18 @@ class _SkinCatalogGridCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: isWishlisted
-                            ? const Color(0xFFD1548D).withAlpha(40)
-                            : const Color(0xFFA855F7).withAlpha(30),
+                            ? AppColors.red.withAlpha(40)
+                            : AppColors.red.withAlpha(30),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: isWishlisted ? const Color(0xFFD1548D) : const Color(0xFFA855F7),
+                          color: isWishlisted ? AppColors.red : AppColors.red,
                           width: 0.8,
                         ),
                       ),
                       child: Text(
                         isWishlisted ? 'WISHLIST' : 'OWNED',
                         style: TextStyle(
-                          color: isWishlisted ? const Color(0xFFD1548D) : const Color(0xFFA855F7),
+                          color: isWishlisted ? AppColors.red : AppColors.red,
                           fontSize: 7,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.4,
@@ -831,7 +930,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isWishlisted ? const Color(0xFFD1548D) : Colors.black38,
+                    color: isWishlisted ? AppColors.red : Colors.black38,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -865,7 +964,7 @@ class _WishlistPreviewBottomDock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        color: Color(0xFF070A10),
+        color: AppColors.bg,
         border: Border(top: BorderSide(color: Colors.white10, width: 1)),
       ),
       child: Column(
@@ -876,7 +975,7 @@ class _WishlistPreviewBottomDock extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.star_rounded, color: Color(0xFFA855F7), size: 16),
+                  Icon(Icons.star_rounded, color: AppColors.red, size: 16),
                   SizedBox(width: 6),
                   Text(
                     'WISHLIST PREVIEW',
@@ -924,7 +1023,7 @@ class _WishlistPreviewBottomDock extends StatelessWidget {
                 return Container(
                   width: 90,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF131B2E),
+                    color: AppColors.bgCard2,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: tierColor.withAlpha(80), width: 1),
                   ),

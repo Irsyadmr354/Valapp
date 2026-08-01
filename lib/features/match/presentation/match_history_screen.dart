@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/match_history.dart';
 
@@ -17,6 +18,12 @@ final _mapsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
   return assets.getMapsMap();
+});
+
+final _agentsMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getAgentsMap();
 });
 
 final _matchHistoryProvider =
@@ -66,9 +73,9 @@ class MatchHistoryScreen extends ConsumerWidget {
     final selectedQueue = ref.watch(_queueFilterProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070A10),
+        backgroundColor: AppColors.bgPanel,
         centerTitle: false,
         title: const Text('MATCH HISTORY',
             style: TextStyle(
@@ -79,7 +86,7 @@ class MatchHistoryScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list_rounded,
-                color: Color(0xFF00F0FF), size: 22),
+                color: AppColors.red, size: 22),
             onPressed: () {},
           ),
         ],
@@ -94,8 +101,8 @@ class MatchHistoryScreen extends ConsumerWidget {
         ),
       ),
       body: RefreshIndicator(
-        color: const Color(0xFFFF4655),
-        backgroundColor: const Color(0xFF141F2D),
+        color: AppColors.red,
+        backgroundColor: AppColors.bgCard2,
         onRefresh: () async => ref.invalidate(_matchHistoryProvider),
         child: historyAsync.when(
           data: (result) {
@@ -199,20 +206,15 @@ class _QueueFilter extends StatelessWidget {
               label: Text(_queueLabels[q] ?? 'All'),
               selected: isSelected,
               onSelected: (_) => onSelected(q),
-              selectedColor: const Color(0xFFFF4655).withAlpha(40),
+              selectedColor: AppColors.red.withAlpha(40),
               labelStyle: TextStyle(
-                color: isSelected
-                    ? const Color(0xFFFF4655)
-                    : Colors.white60,
+                color: isSelected ? AppColors.red : Colors.white60,
                 fontSize: 12,
-                fontWeight:
-                    isSelected ? FontWeight.w800 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
               ),
-              backgroundColor: const Color(0xFF0E1622),
+              backgroundColor: AppColors.bgCard,
               side: BorderSide(
-                color: isSelected
-                    ? const Color(0xFFFF4655)
-                    : const Color(0xFF1B2738),
+                color: isSelected ? AppColors.red : AppColors.border,
                 width: isSelected ? 1.2 : 0.8,
               ),
               showCheckmark: false,
@@ -256,9 +258,9 @@ class _StatsSummaryBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10, width: 0.8),
+        border: Border.all(color: AppColors.border, width: 0.8),
       ),
       child: Row(
         children: [
@@ -280,10 +282,10 @@ class _StatsSummaryBanner extends StatelessWidget {
                 Row(
                   children: [
                     _StatCount(value: won, label: 'WON',
-                        color: const Color(0xFF00E8F0)),
+                        color: AppColors.win),
                     const SizedBox(width: 14),
                     _StatCount(value: lost, label: 'LOST',
-                        color: const Color(0xFFFF4655)),
+                        color: AppColors.loss),
                     const SizedBox(width: 14),
                     _StatCount(value: draw, label: 'DRAW',
                         color: Colors.white38),
@@ -386,7 +388,7 @@ class _RingPainter extends CustomPainter {
         ..strokeWidth = strokeWidth,
     );
 
-    // Progress arc (teal from top)
+    // Progress arc — red
     final sweepAngle = 2 * math.pi * progress;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
@@ -394,7 +396,7 @@ class _RingPainter extends CustomPainter {
       sweepAngle,
       false,
       Paint()
-        ..color = const Color(0xFF00E8F0)
+        ..color = AppColors.red
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round,
@@ -443,15 +445,13 @@ class _MatchTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dateStr =
-        DateFormat('MMM d, HH:mm').format(entry.gameStartTime);
-    final mapsAsync = ref.watch(_mapsMapProvider);
-    final mapsMap = mapsAsync.asData?.value ?? {};
+    final dateStr = DateFormat('MMM d, HH:mm').format(entry.gameStartTime);
+    final mapsMap = ref.watch(_mapsMapProvider).asData?.value ?? {};
+    final agentsMap = ref.watch(_agentsMapProvider).asData?.value ?? {};
     final mapName = entry.getMapDisplayName(mapsMap);
 
     final rawKey = entry.mapId.toLowerCase();
-    final lastSeg =
-        rawKey.split('/').last.split('.').first;
+    final lastSeg = rawKey.split('/').last.split('.').first;
     final mapInfo = mapsMap[rawKey] as Map<String, dynamic>? ??
         mapsMap[lastSeg] as Map<String, dynamic>? ??
         mapsMap[mapName.toLowerCase()] as Map<String, dynamic>?;
@@ -460,99 +460,89 @@ class _MatchTile extends ConsumerWidget {
         mapInfo?['splash'] as String?;
 
     final result = entry.result;
+    // Victory = green, Defeat = red, Draw = grey
     final resultColor = result == MatchResult.victory
-        ? const Color(0xFF00E8F0)
+        ? AppColors.win
         : result == MatchResult.defeat
-            ? const Color(0xFFFF4655)
-            : Colors.white38;
+            ? AppColors.loss
+            : AppColors.draw;
     final resultLabel = result == MatchResult.victory
         ? 'VICTORY'
         : result == MatchResult.defeat
             ? 'DEFEAT'
             : 'DRAW';
 
-    final score = entry.matchScore; // e.g. "13 - 8"
+    final score = entry.matchScore;
     final hasKda = entry.kills != null;
     final kdaStr = hasKda
         ? '${entry.kills} / ${entry.deaths} / ${entry.assists}'
         : null;
     final kdoStr = hasKda && (entry.deaths ?? 0) > 0
-        ? ((entry.kills! + (entry.assists ?? 0)) /
-                (entry.deaths!))
+        ? ((entry.kills! + (entry.assists ?? 0)) / (entry.deaths!))
             .toStringAsFixed(2)
         : null;
     final isMvp = entry.isMvp;
+
+    // Agent icon from agentId field (added in match history enrichment)
+    final agentId = entry.agentId;
+    final agentInfo = agentId != null ? agentsMap[agentId] as Map<String, dynamic>? : null;
+    final agentIconUrl = agentInfo?['displayIcon'] as String?;
 
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: const BoxDecoration(
-          border: Border(
-              bottom: BorderSide(color: Colors.white10, width: 0.8)),
+          border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
         ),
         child: Row(
           children: [
-            // Victory/Defeat tag strip + map image
+            // Map thumbnail + result tag
             Stack(
               children: [
-                // Map thumbnail
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    width: 72,
-                    height: 56,
-                    color: const Color(0xFF141F2D),
-                    child: mapSplashUrl != null &&
-                            mapSplashUrl.isNotEmpty
+                    width: 72, height: 56,
+                    color: AppColors.bgCard2,
+                    child: mapSplashUrl != null && mapSplashUrl.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: mapSplashUrl,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) => Container(
-                                color: const Color(0xFF141F2D)),
+                            placeholder: (_, __) =>
+                                Container(color: AppColors.bgCard2),
                             errorWidget: (_, __, ___) => const Icon(
-                                Icons.map,
-                                color: Color(0xFFFF4655),
-                                size: 20),
+                                Icons.map, color: AppColors.red, size: 20),
                           )
-                        : const Icon(Icons.map,
-                            color: Color(0xFFFF4655), size: 20),
+                        : const Icon(Icons.map, color: AppColors.red, size: 20),
                   ),
                 ),
-                // Result tag overlaid at bottom of thumbnail
                 Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
+                  bottom: 0, left: 0, right: 0,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     decoration: BoxDecoration(
-                      color: resultColor.withAlpha(200),
+                      color: resultColor.withAlpha(210),
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(8),
                         bottomRight: Radius.circular(8),
                       ),
                     ),
                     child: Center(
-                      child: Text(
-                        resultLabel,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.6),
-                      ),
+                      child: Text(resultLabel,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.6)),
                     ),
                   ),
                 ),
-                // Score badge top-left if available
                 if (score != null)
                   Positioned(
-                    top: 4,
-                    left: 4,
+                    top: 4, left: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.black.withAlpha(160),
                         borderRadius: BorderRadius.circular(4),
@@ -566,23 +556,38 @@ class _MatchTile extends ConsumerWidget {
                   ),
               ],
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
 
-            // Queue + map name + date
+            // Agent icon (small circle)
+            if (agentIconUrl != null && agentIconUrl.isNotEmpty)
+              Container(
+                width: 30, height: 30,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.bgCard2,
+                  border: Border.all(color: resultColor.withAlpha(80), width: 1),
+                ),
+                child: ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: agentIconUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => const SizedBox(),
+                  ),
+                ),
+              ),
+
+            // Queue + map + date
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Queue badge
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: resultColor.withAlpha(30),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                          color: resultColor.withAlpha(80),
-                          width: 0.6),
+                      border: Border.all(color: resultColor.withAlpha(80), width: 0.6),
                     ),
                     child: Text(
                       entry.queueDisplayName.toUpperCase(),
@@ -594,63 +599,51 @@ class _MatchTile extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    dateStr,
-                    style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500),
-                  ),
-                  if (mapName.isNotEmpty)
-                    Text(
-                      mapName,
+                  Text(dateStr,
                       style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700),
-                    ),
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                  if (mapName.isNotEmpty)
+                    Text(mapName,
+                        style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
 
-            // KDA + K/O column
+            // KDA column
             if (kdaStr != null) ...[
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   const Text('KDA',
                       style: TextStyle(
-                          color: Colors.white38,
+                          color: AppColors.textMuted,
                           fontSize: 9,
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(
-                    kdaStr,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900),
-                  ),
+                  Text(kdaStr,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900)),
                   if (kdoStr != null)
-                    Text(
-                      '$kdoStr K/O',
-                      style: TextStyle(
-                          color: resultColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800),
-                    ),
-                  // MVP badge
+                    Text('$kdoStr K/O',
+                        style: TextStyle(
+                            color: resultColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800)),
                   if (isMvp)
                     Container(
                       margin: const EdgeInsets.only(top: 3),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFD700).withAlpha(35),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                            color: const Color(0xFFFFD700),
-                            width: 0.8),
+                        border: Border.all(color: const Color(0xFFFFD700), width: 0.8),
                       ),
                       child: const Text('MVP',
                           style: TextStyle(
@@ -664,11 +657,12 @@ class _MatchTile extends ConsumerWidget {
               const SizedBox(width: 8),
             ],
 
-            const Icon(Icons.chevron_right,
-                color: Colors.white24, size: 18),
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 18),
           ],
         ),
       ),
     );
   }
 }
+
+

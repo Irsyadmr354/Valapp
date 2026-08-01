@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/match_details.dart';
 
@@ -10,6 +11,18 @@ final _mapsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
   return assets.getMapsMap();
+});
+
+final _detailAgentsMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getAgentsMap();
+});
+
+final _detailTiersMapProvider =
+    FutureProvider.autoDispose<Map<int, Map<String, dynamic>>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getCompetitiveTiersMap();
 });
 
 final _matchDetailFamily = FutureProvider.autoDispose
@@ -61,9 +74,9 @@ class MatchDetailScreen extends ConsumerWidget {
     final detailAsync = ref.watch(_matchDetailFamily(matchId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070A10),
+        backgroundColor: AppColors.bgPanel,
         title: const Text('MATCH DETAILS',
             style: TextStyle(
                 color: Colors.white,
@@ -81,7 +94,7 @@ class MatchDetailScreen extends ConsumerWidget {
                 showCacheBanner: result.fromCache,
               ),
         loading: () => const Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+          child: CircularProgressIndicator(color: AppColors.red),
         ),
         error: (e, _) => Center(
           child: Text('Error: $e',
@@ -195,8 +208,8 @@ class _MatchDetailsContent extends ConsumerWidget {
           height: 130,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            color: const Color(0xFF141F2D),
-            border: Border.all(color: const Color(0xFFFF4655).withAlpha(80), width: 1),
+            color: AppColors.bgCard2,
+            border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(13),
@@ -295,7 +308,7 @@ class _MatchDetailsContent extends ConsumerWidget {
           _TeamSection(
             title: 'DEFENSE',
             players: blueTeam,
-            color: const Color(0xFF0BC4C4),
+            color: const Color(0xFF3B82F6),
             matchMvpPuuid: matchMvpPuuid,
           ),
         ] else ...[
@@ -397,7 +410,7 @@ class _TeamSection extends StatelessWidget {
   }
 }
 
-class _PlayerRow extends StatelessWidget {
+class _PlayerRow extends ConsumerWidget {
   const _PlayerRow({
     required this.player,
     this.accentColor,
@@ -421,25 +434,58 @@ class _PlayerRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final agentsMap = ref.watch(_detailAgentsMapProvider).asData?.value ?? {};
+    final tiersMap = ref.watch(_detailTiersMapProvider).asData?.value ?? {};
+
+    final agentInfo = player.agentId.isNotEmpty
+        ? agentsMap[player.agentId] as Map<String, dynamic>?
+        : null;
+    final agentIconUrl = agentInfo?['displayIcon'] as String?;
+
+    final tierData = player.competitiveTier > 0
+        ? tiersMap[player.competitiveTier]
+        : null;
+    final rankIconUrl = tierData?['displayIcon'] as String? ??
+        tierData?['smallIcon'] as String?;
+
+    final color = accentColor ?? Colors.white38;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.white10, width: 0.8),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
       ),
       child: Row(
         children: [
           Container(
-            width: 3,
-            height: 16,
+            width: 3, height: 16,
             decoration: BoxDecoration(
-              color: accentColor ?? Colors.white38,
-              borderRadius: BorderRadius.circular(2),
+              color: color, borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
+          // Agent portrait
+          if (agentIconUrl != null && agentIconUrl.isNotEmpty)
+            Container(
+              width: 32, height: 32,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.bgCard2,
+                border: Border.all(color: color.withAlpha(80), width: 1),
+              ),
+              child: ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: agentIconUrl,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => const SizedBox(),
+                ),
+              ),
+            )
+          else
+            const SizedBox(width: 40),
+          // Name + MVP badges
           Expanded(
             child: Row(
               children: [
@@ -447,10 +493,7 @@ class _PlayerRow extends StatelessWidget {
                   child: Text(
                     _name,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
+                        color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -463,55 +506,50 @@ class _PlayerRow extends StatelessWidget {
                       border: Border.all(color: const Color(0xFFFFD700), width: 0.8),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      'MATCH MVP',
-                      style: TextStyle(
-                        color: Color(0xFFFFD700),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                    child: const Text('MATCH MVP',
+                        style: TextStyle(
+                            color: Color(0xFFFFD700), fontSize: 8, fontWeight: FontWeight.w900)),
                   ),
                 ] else if (isTeamMvp) ...[
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00F0FF).withAlpha(30),
-                      border: Border.all(color: const Color(0xFF00F0FF), width: 0.8),
+                      color: AppColors.red.withAlpha(30),
+                      border: Border.all(color: AppColors.red, width: 0.8),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      'TEAM MVP',
-                      style: TextStyle(
-                        color: Color(0xFF00F0FF),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                    child: const Text('TEAM MVP',
+                        style: TextStyle(
+                            color: AppColors.red, fontSize: 8, fontWeight: FontWeight.w900)),
                   ),
                 ],
               ],
             ),
           ),
+          // Rank icon (competitive matches)
+          if (rankIconUrl != null && rankIconUrl.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: CachedNetworkImage(
+                imageUrl: rankIconUrl,
+                width: 20, height: 20, fit: BoxFit.contain,
+                errorWidget: (_, __, ___) => const SizedBox(),
+              ),
+            ),
+          // K/D/A
           Text(
             '${player.kills}/${player.deaths}/${player.assists}',
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
+                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
           ),
           const SizedBox(width: 16),
           SizedBox(
-            width: 48,
+            width: 42,
             child: Text(
               player.averageScore.toStringAsFixed(0),
               style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+                  color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700),
               textAlign: TextAlign.end,
             ),
           ),

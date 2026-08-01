@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/contracts.dart';
 import 'battlepass_carousel_modal.dart';
@@ -25,12 +26,19 @@ final _contractsProvider =
   }
 });
 
-// Contract definitions metadata from valorant-api
+// Contract definitions: contractUuid → { agentUuid, displayName, displayIcon }
+// This is the CORRECT fix — contracts API gives us contract→agent mapping.
 final _contractDefsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
-  final agentsMap = await assets.getAgentsMap();
-  return agentsMap;
+  return assets.getContractDefsMap();
+});
+
+// Agents map for portrait lookup
+final _contractAgentsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getAgentsMap();
 });
 
 class ContractsScreen extends ConsumerWidget {
@@ -41,10 +49,10 @@ class ContractsScreen extends ConsumerWidget {
     final contractsAsync = ref.watch(_contractsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070A10),
-        title: const Text('ACT PROGRESS & MISSIONS',
+        backgroundColor: AppColors.bgPanel,
+        title: const Text('PROGRESS',
             style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -58,8 +66,8 @@ class ContractsScreen extends ConsumerWidget {
         ],
       ),
       body: RefreshIndicator(
-        color: const Color(0xFFFF4655),
-        backgroundColor: const Color(0xFF141F2D),
+        color: AppColors.red,
+        backgroundColor: AppColors.bgCard2,
         onRefresh: () async => ref.invalidate(_contractsProvider),
         child: contractsAsync.when(
           data: (result) => result == null
@@ -73,7 +81,7 @@ class ContractsScreen extends ConsumerWidget {
           loading: () => const Center(
             child: Padding(
               padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+              child: CircularProgressIndicator(color: AppColors.red),
             ),
           ),
           error: (e, _) => Center(
@@ -177,123 +185,139 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _BattlepassCard extends StatelessWidget {
+class _BattlepassCard extends ConsumerWidget {
   const _BattlepassCard({required this.contract});
   final Contract contract;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final progress = contract.progressionTowardsNextLevel / 10000;
+    // Fetch battlepass banner art from contract defs
+    final defsAsync = ref.watch(_contractDefsProvider);
+    final contractDef = defsAsync.asData?.value[contract.contractId] as Map<String, dynamic>?;
+    final bannerUrl = contractDef?['displayIcon'] as String?;
 
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFF4655).withAlpha(90), width: 1),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF141F2D), Color(0xFF0E1622)],
-        ),
+        border: Border.all(color: AppColors.red.withAlpha(90), width: 1),
+        gradient: AppColors.cardGradient,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF4655).withAlpha(30),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.military_tech,
-                    color: Color(0xFFFF4655), size: 24),
-              ),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'BATTLE PASS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
+          // Banner art header
+          if (bannerUrl != null && bannerUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+              child: SizedBox(
+                height: 80,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(bannerUrl, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Container(color: AppColors.bgCard2)),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            AppColors.bgCard.withAlpha(200),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'TIER LEVEL ${contract.progressionLevelReached}',
-                    style: const TextStyle(
-                      color: Color(0xFF00F0FF),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'XP PROGRESSION',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
+                  ],
                 ),
               ),
-              Text(
-                '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              backgroundColor: const Color(0xFF070A10),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFFFF4655)),
-              minHeight: 8,
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFFF4655)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.red.withAlpha(30),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.military_tech,
+                          color: AppColors.red, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('BATTLE PASS',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8)),
+                        const SizedBox(height: 2),
+                        Text('TIER ${contract.progressionLevelReached}',
+                            style: const TextStyle(
+                                color: AppColors.red,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-              onPressed: () {
-                BattlepassCarouselModal.show(context, contract);
-              },
-              icon: const Icon(Icons.view_carousel, color: Color(0xFFFF4655), size: 18),
-              label: const Text(
-                'VIEW BATTLE PASS ITEMS & CAROUSEL',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('XP PROGRESSION',
+                        style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0)),
+                    Text(
+                      '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    backgroundColor: AppColors.bgCard2,
+                    valueColor: const AlwaysStoppedAnimation(AppColors.red),
+                    minHeight: 8,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => BattlepassCarouselModal.show(context, contract),
+                    icon: const Icon(Icons.view_carousel, color: AppColors.red, size: 18),
+                    label: const Text('VIEW BATTLE PASS REWARDS',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8)),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -312,6 +336,12 @@ class _MissionTile extends StatelessWidget {
     final expiryStr = mission.expirationTime != null
         ? 'Expires ${DateFormat('MMM d').format(mission.expirationTime!)}'
         : null;
+    // Determine daily vs weekly from expiry window
+    final isDaily = mission.expirationTime != null &&
+        mission.expirationTime!.difference(DateTime.now()).inHours <= 28;
+    final typeIcon = isDaily ? Icons.wb_sunny_outlined : Icons.calendar_month_outlined;
+    final typeLabel = isDaily ? 'DAILY' : 'WEEKLY';
+    final xpReward = mission.xpGrant > 0 ? mission.xpGrant : null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
@@ -324,33 +354,57 @@ class _MissionTile extends StatelessWidget {
           Row(
             children: [
               Icon(
-                mission.isCompleted
-                    ? Icons.check_circle
-                    : Icons.radio_button_unchecked,
+                mission.isCompleted ? Icons.check_circle : typeIcon,
                 color: mission.isCompleted
-                    ? const Color(0xFF10B981)
-                    : Colors.white38,
+                    ? AppColors.win
+                    : AppColors.red,
                 size: 18,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.red.withAlpha(20),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(typeLabel,
+                    style: const TextStyle(
+                        color: AppColors.red,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5)),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   mission.title,
                   style: TextStyle(
-                    color: mission.isCompleted ? Colors.white54 : Colors.white,
+                    color: mission.isCompleted ? AppColors.textMuted : Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    decoration: mission.isCompleted
-                        ? TextDecoration.lineThrough
-                        : null,
+                    decoration: mission.isCompleted ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
-              if (expiryStr != null)
-                Text(
-                  expiryStr,
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+              if (xpReward != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.rpAmber.withAlpha(25),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.rpAmber.withAlpha(80), width: 0.8),
+                  ),
+                  child: Text('+${_fmtXp(xpReward)} XP',
+                      style: const TextStyle(
+                          color: AppColors.rpAmber,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900)),
                 ),
+              if (expiryStr != null) ...[
+                const SizedBox(width: 6),
+                Text(expiryStr,
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+              ],
             ],
           ),
           if (!mission.isCompleted) ...[
@@ -362,10 +416,7 @@ class _MissionTile extends StatelessWidget {
                 Text(
                   '${mission.currentProgress} / ${mission.progressToComplete}',
                   style: const TextStyle(
-                    color: Color(0xFF00F0FF),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
+                      color: AppColors.red, fontSize: 11, fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -374,8 +425,8 @@ class _MissionTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
-                backgroundColor: const Color(0xFF141F2D),
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF00F0FF)),
+                backgroundColor: AppColors.bgCard2,
+                valueColor: const AlwaysStoppedAnimation(AppColors.red),
                 minHeight: 6,
               ),
             ),
@@ -384,6 +435,9 @@ class _MissionTile extends StatelessWidget {
       ),
     );
   }
+
+  String _fmtXp(int xp) =>
+      xp >= 1000 ? '${(xp / 1000).toStringAsFixed(0)}k' : '$xp';
 }
 
 
@@ -395,34 +449,39 @@ class _AgentContractTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progress =
-        (contract.progressionTowardsNextLevel / 10000.0).clamp(0.0, 1.0);
+    final progress = (contract.progressionTowardsNextLevel / 10000.0).clamp(0.0, 1.0);
 
-    // Try to look up agent portrait from the contract UUID
-    final agentsAsync = ref.watch(_contractDefsProvider);
-    final agentInfo = agentsAsync.asData?.value[contract.contractId]
+    // Two-step lookup: contractDefs gives us agentUuid, agentsMap gives us portrait
+    final contractDefsAsync = ref.watch(_contractDefsProvider);
+    final agentsAsync = ref.watch(_contractAgentsProvider);
+
+    final contractDef = contractDefsAsync.asData?.value[contract.contractId]
         as Map<String, dynamic>?;
-    final agentName = agentInfo?['displayName'] as String?;
+    final agentUuid = contractDef?['agentUuid'] as String?;
+    final agentInfo = agentUuid != null
+        ? agentsAsync.asData?.value[agentUuid] as Map<String, dynamic>?
+        : null;
+
+    final agentName = agentInfo?['displayName'] as String? ??
+        contractDef?['displayName'] as String?;
     final agentPortrait = agentInfo?['displayIcon'] as String?;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
+        color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10, width: 0.8),
+        border: Border.all(color: AppColors.border, width: 0.8),
       ),
       child: Row(
         children: [
-          // Agent portrait or placeholder
           Container(
-            width: 44,
-            height: 44,
+            width: 44, height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFF141F2D),
+              color: AppColors.bgCard2,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white10, width: 0.8),
+              border: Border.all(color: AppColors.border, width: 0.8),
             ),
             child: agentPortrait != null
                 ? ClipRRect(
@@ -431,9 +490,7 @@ class _AgentContractTile extends ConsumerWidget {
                       agentPortrait,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Icon(
-                          Icons.person_outline,
-                          color: Colors.white24,
-                          size: 22),
+                          Icons.person_outline, color: Colors.white24, size: 22),
                     ),
                   )
                 : const Center(
@@ -449,9 +506,7 @@ class _AgentContractTile extends ConsumerWidget {
                 Text(
                   agentName ?? 'Agent Contract',
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800),
+                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -459,17 +514,12 @@ class _AgentContractTile extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'TIER ${contract.progressionLevelReached}',
-                      style: const TextStyle(
-                          color: Color(0xFF00F0FF),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700),
-                    ),
+                    Text('TIER ${contract.progressionLevelReached}',
+                        style: const TextStyle(
+                            color: AppColors.red, fontSize: 11, fontWeight: FontWeight.w700)),
                     Text(
                       '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 10),
+                      style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
                     ),
                   ],
                 ),
@@ -478,9 +528,8 @@ class _AgentContractTile extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
                     value: progress,
-                    backgroundColor: const Color(0xFF141F2D),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF00F0FF)),
+                    backgroundColor: AppColors.bgCard2,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.red),
                     minHeight: 5,
                   ),
                 ),

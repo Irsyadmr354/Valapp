@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/di/providers.dart';
+import 'shared/utils/app_colors.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/mfa_screen.dart';
 import 'features/auth/presentation/webview_login_screen.dart';
@@ -102,42 +103,59 @@ class ValorantShopApp extends ConsumerWidget {
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
-        primary: Color(0xFFFF4655),
-        secondary: Color(0xFF00F0FF),
-        surface: Color(0xFF0E1622),
+        primary: AppColors.red,
+        secondary: AppColors.vpCyan,
+        surface: AppColors.bgCard,
         onSurface: Colors.white,
-        error: Color(0xFFFF4655),
+        error: AppColors.red,
       ),
-      scaffoldBackgroundColor: const Color(0xFF070A10),
+      scaffoldBackgroundColor: AppColors.bg,
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF070A10),
+        backgroundColor: AppColors.bgPanel,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         titleTextStyle: TextStyle(
           color: Colors.white,
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.2,
         ),
         iconTheme: IconThemeData(color: Colors.white),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Color(0xFF070A10),
-        selectedItemColor: Color(0xFFFF4655),
-        unselectedItemColor: Colors.white38,
+        backgroundColor: AppColors.bgPanel,
+        selectedItemColor: AppColors.red,
+        unselectedItemColor: Color(0xFF5C6B7A),
         type: BottomNavigationBarType.fixed,
         elevation: 16,
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: Color(0xFFFF4655),
+        color: AppColors.red,
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.bgCard2,
+        selectedColor: AppColors.red.withAlpha(50),
+        side: const BorderSide(color: AppColors.border, width: 0.8),
+        labelStyle: const TextStyle(color: Colors.white, fontSize: 12),
+        showCheckmark: false,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFFFF4655),
+          backgroundColor: AppColors.red,
           foregroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.red,
+          side: const BorderSide(color: AppColors.red),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 0.8,
       ),
     );
   }
@@ -151,12 +169,10 @@ class _ScaffoldWithNav extends StatelessWidget {
 
   // (route, outlinedIcon, filledIcon, label)
   static const _tabs = [
-    ('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Shop'),
+    ('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Home'),
     ('/rank', Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Rank'),
-    ('/matches', Icons.sports_esports_outlined, Icons.sports_esports_rounded,
-        'Matches'),
-    ('/progress', Icons.assignment_outlined, Icons.assignment_rounded,
-        'Progress'),
+    ('/matches', Icons.sports_esports_outlined, Icons.sports_esports_rounded, 'Matches'),
+    ('/progress', Icons.assignment_outlined, Icons.assignment_rounded, 'Progress'),
     ('/profile', Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
   ];
 
@@ -193,15 +209,15 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0A0F18),
+        color: AppColors.bgPanel,
         border: Border(
-          top: BorderSide(color: Color(0xFFFF4655), width: 1.2),
+          top: BorderSide(color: AppColors.red, width: 1.5),
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0x33FF4655),
-            blurRadius: 12,
-            spreadRadius: -4,
+            color: Color(0x44FF4655),
+            blurRadius: 14,
+            spreadRadius: -2,
             offset: Offset(0, -2),
           ),
         ],
@@ -224,16 +240,14 @@ class _BottomNav extends StatelessWidget {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: isSelected
-                            ? const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 4)
+                            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 4)
                             : EdgeInsets.zero,
                         decoration: isSelected
                             ? BoxDecoration(
-                                color: const Color(0xFFFF4655).withAlpha(35),
+                                color: AppColors.red.withAlpha(35),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color:
-                                      const Color(0xFFFF4655).withAlpha(120),
+                                  color: AppColors.red.withAlpha(130),
                                   width: 1,
                                 ),
                               )
@@ -241,9 +255,7 @@ class _BottomNav extends StatelessWidget {
                         child: Icon(
                           isSelected ? tab.$3 : tab.$2,
                           size: 22,
-                          color: isSelected
-                              ? const Color(0xFFFF4655)
-                              : Colors.white38,
+                          color: isSelected ? AppColors.red : const Color(0xFF5C6B7A),
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -251,12 +263,8 @@ class _BottomNav extends StatelessWidget {
                         tab.$4,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isSelected
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                          color: isSelected
-                              ? const Color(0xFFFF4655)
-                              : Colors.white38,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                          color: isSelected ? AppColors.red : const Color(0xFF5C6B7A),
                           letterSpacing: isSelected ? 0.4 : 0,
                         ),
                       ),

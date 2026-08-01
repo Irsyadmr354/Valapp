@@ -431,6 +431,230 @@ class ValorantAssets {
     }
   }
 
+  // ── Seasons ────────────────────────────────────────────────────────────────
+
+  /// Returns the active episode and act display names as a map:
+  /// { 'episode': 'EPISODE 8', 'act': 'ACT 3', 'label': 'EPISODE 8 // ACT 3' }
+  Future<Map<String, String>> getActiveSeason() async {
+    final cache = CacheStorage.instance;
+    const keySeasons = 'seasons_metadata';
+    const keySeasonsFetchedAt = 'seasons_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keySeasonsFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keySeasons);
+      if (cached != null) {
+        return Map<String, String>.from(cached.map(
+            (k, v) => MapEntry(k, v?.toString() ?? '')));
+      }
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('$_base/seasons');
+      final seasons = (response.data?['data'] as List<dynamic>?) ?? [];
+      final now = DateTime.now();
+
+      String episode = '';
+      String act = '';
+
+      for (final s in seasons) {
+        final start = DateTime.tryParse(s['startTime']?.toString() ?? '') ??
+            DateTime(2020);
+        final end = DateTime.tryParse(s['endTime']?.toString() ?? '') ??
+            DateTime(2099);
+        if (!now.isAfter(start) || !now.isBefore(end)) continue;
+
+        final type = s['type']?.toString() ?? '';
+        final name = s['displayName']?.toString() ?? '';
+        if (type.toLowerCase().contains('episode') || type == 'EAresSeasonType::Episode') {
+          final num = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
+          episode = num.isNotEmpty ? 'EPISODE $num' : name.toUpperCase();
+        } else if (type.toLowerCase().contains('act') || type == 'EAresSeasonType::Act') {
+          final num = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
+          act = num.isNotEmpty ? 'ACT $num' : name.toUpperCase();
+        }
+      }
+
+      // Fallback
+      if (episode.isEmpty) episode = 'EPISODE 9';
+      if (act.isEmpty) act = 'ACT 1';
+
+      final result = {
+        'episode': episode,
+        'act': act,
+        'label': '$episode // $act',
+      };
+      await cache.setJson(keySeasons, result);
+      await cache.setTimestamp(keySeasonsFetchedAt);
+      return result;
+    } catch (_) {
+      final cached = await cache.getJson(keySeasons);
+      if (cached != null) {
+        return Map<String, String>.from(
+            cached.map((k, v) => MapEntry(k, v?.toString() ?? '')));
+      }
+      return {'episode': 'EPISODE 9', 'act': 'ACT 1', 'label': 'EPISODE 9 // ACT 1'};
+    }
+  }
+
+  // ── Themes (Skin Collections) ─────────────────────────────────────────────
+
+  /// Returns a map of theme UUID → { 'displayName', 'displayIcon' }
+  Future<Map<String, dynamic>> getThemesMap() async {
+    final cache = CacheStorage.instance;
+    const keyThemes = 'themes_metadata';
+    const keyThemesFetchedAt = 'themes_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyThemesFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyThemes);
+      if (cached != null) return cached;
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('$_base/themes');
+      final themes = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final t in themes) {
+        final uuid = t['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': t['displayName'],
+            'displayIcon': t['displayIcon'],
+            'storeFeaturedImage': t['storeFeaturedImage'],
+          };
+        }
+      }
+      await cache.setJson(keyThemes, map);
+      await cache.setTimestamp(keyThemesFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyThemes) ?? {};
+    }
+  }
+
+  // ── Weapons (base weapon data, not skins) ─────────────────────────────────
+
+  /// Returns a map of weapon UUID → { 'displayName', 'displayIcon', 'killStreamIcon' }
+  Future<Map<String, dynamic>> getWeaponsMap() async {
+    final cache = CacheStorage.instance;
+    const keyWeapons = 'weapons_base_metadata';
+    const keyWeaponsFetchedAt = 'weapons_base_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyWeaponsFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyWeapons);
+      if (cached != null) return cached;
+    }
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('$_base/weapons');
+      final weapons = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final w in weapons) {
+        final uuid = w['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': w['displayName'],
+            'displayIcon': w['displayIcon'],
+            'killStreamIcon': w['killStreamIcon'],
+            'category': w['shopData']?['category'] ?? w['category'],
+          };
+          // Also index by lowercased display name for easy lookup
+          final name = (w['displayName'] as String?)?.toLowerCase();
+          if (name != null) map[name] = map[uuid];
+        }
+      }
+      await cache.setJson(keyWeapons, map);
+      await cache.setTimestamp(keyWeaponsFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyWeapons) ?? {};
+    }
+  }
+
+  // ── Currencies (VP / RP / KC icons) ───────────────────────────────────────
+
+  /// Returns a map of currency UUID → { 'displayName', 'displayIcon', 'largeIcon' }
+  /// VP UUID: 85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741
+  /// RP UUID: e59aa87c-4cbf-517a-5983-6e81511be9b7
+  /// KC UUID: 85ca954a-41f2-ce94-9b45-8ca3dd39a00d
+  Future<Map<String, dynamic>> getCurrenciesMap() async {
+    final cache = CacheStorage.instance;
+    const keyCurrencies = 'currencies_metadata';
+    const keyCurrenciesFetchedAt = 'currencies_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyCurrenciesFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyCurrencies);
+      if (cached != null) return cached;
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/currencies');
+      final currencies = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final c in currencies) {
+        final uuid = c['uuid'] as String?;
+        if (uuid != null) {
+          map[uuid] = {
+            'displayName': c['displayName'],
+            'displayIcon': c['displayIcon'],
+            'largeIcon': c['largeIcon'],
+          };
+        }
+      }
+      await cache.setJson(keyCurrencies, map);
+      await cache.setTimestamp(keyCurrenciesFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyCurrencies) ?? {};
+    }
+  }
+
+  // ── Contract Definitions (UUID → agent UUID mapping) ──────────────────────
+
+  /// Returns a map of contract UUID → { 'displayName', 'agentUuid', 'displayIcon', 'isFreeToPlay' }
+  /// Used to properly resolve agent contracts on the Progress screen.
+  Future<Map<String, dynamic>> getContractDefsMap() async {
+    final cache = CacheStorage.instance;
+    const keyContractDefs = 'contract_defs_metadata';
+    const keyContractDefsFetchedAt = 'contract_defs_metadata_fetched_at';
+
+    final isStale =
+        await cache.isStale(keyContractDefsFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyContractDefs);
+      if (cached != null) return cached;
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/contracts');
+      final contracts = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final c in contracts) {
+        final uuid = c['uuid'] as String?;
+        if (uuid != null) {
+          // shipIt: agent UUID lives in c['content']['relationType'] == 'Agent'
+          // and c['content']['relationUuid']
+          final content = c['content'] as Map<String, dynamic>? ?? {};
+          final relationType = content['relationType'] as String?;
+          final agentUuid = relationType == 'Agent'
+              ? content['relationUuid'] as String?
+              : null;
+          map[uuid] = {
+            'displayName': c['displayName'],
+            'displayIcon': c['displayIcon'],
+            'agentUuid': agentUuid,
+            'isFreeToPlay': c['freeRewardScheduleUuid'] != null,
+          };
+        }
+      }
+      await cache.setJson(keyContractDefs, map);
+      await cache.setTimestamp(keyContractDefsFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyContractDefs) ?? {};
+    }
+  }
+
   // ── Gun Buddies ────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getBuddiesMap() async {

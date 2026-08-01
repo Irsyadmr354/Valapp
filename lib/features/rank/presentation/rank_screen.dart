@@ -1,12 +1,21 @@
+import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/rank_badge.dart';
 import '../domain/models/player_mmr.dart';
+
+// Dynamic season provider
+final _activeSeasonProvider =
+    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getActiveSeason();
+});
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -87,26 +96,31 @@ class _RankScreenState extends ConsumerState<RankScreen>
         (updatesAsync.asData?.value.fromCache ?? false);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF070A10),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('COMPETITIVE RANK',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
-                    fontSize: 16)),
-            // Sub-label: Episode / Act (static placeholder — enriched via API later)
-            Text('EPISODE 8 // ACT 3',
-                style: TextStyle(
-                    color: Color(0xFFFF4655),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8)),
-          ],
+        backgroundColor: AppColors.bgPanel,
+        title: Consumer(
+          builder: (ctx, r, _) {
+            final seasonAsync = r.watch(_activeSeasonProvider);
+            final label = seasonAsync.asData?.value['label'] ?? 'EPISODE 9 // ACT 1';
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('COMPETITIVE RANK',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                        fontSize: 16)),
+                Text(label,
+                    style: const TextStyle(
+                        color: AppColors.red,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8)),
+              ],
+            );
+          },
         ),
         actions: [
           IconButton(
@@ -123,8 +137,8 @@ class _RankScreenState extends ConsumerState<RankScreen>
         ),
       ),
       body: RefreshIndicator(
-        color: const Color(0xFFFF4655),
-        backgroundColor: const Color(0xFF141F2D),
+        color: AppColors.red,
+        backgroundColor: AppColors.bgCard2,
         onRefresh: () async {
           ref.invalidate(_mmrProvider);
           ref.invalidate(_competitiveUpdatesProvider);
@@ -159,17 +173,15 @@ class _RankTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF070A10),
+      color: AppColors.bgPanel,
       child: TabBar(
         controller: controller,
-        indicatorColor: const Color(0xFFFF4655),
+        indicatorColor: AppColors.red,
         indicatorWeight: 2.5,
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white38,
-        labelStyle: const TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8),
-        unselectedLabelStyle: const TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+        unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         tabs: const [
           Tab(text: 'LEADERBOARD'),
           Tab(text: 'MATCH HISTORY'),
@@ -214,228 +226,256 @@ class _LeaderboardTab extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
 
-        // RR trend summary
+        // RR sparkline
         updatesAsync.when(
-          data: (result) => _RrTrendSummaryCard(updates: result.data),
+          data: (result) => _RrSparklineCard(updates: result.data),
           loading: () => const SizedBox(),
           error: (_, __) => const SizedBox(),
         ),
+        const SizedBox(height: 20),
 
-        // Top players header
-        Row(
-          children: [
-            Container(
-                width: 3, height: 14, color: const Color(0xFFFF4655)),
-            const SizedBox(width: 8),
-            const Text('TOP PLAYERS',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5)),
-            const Spacer(),
-            _GlobalDropdown(),
-          ],
+        // Peak rank info card (replaces fake hardcoded leaderboard)
+        updatesAsync.when(
+          data: (result) => _PeakRankCard(
+            updates: result.data,
+            mmr: mmrAsync.asData?.value?.data,
+          ),
+          loading: () => const SizedBox(),
+          error: (_, __) => const SizedBox(),
         ),
-        const SizedBox(height: 12),
-
-        // Column header
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard2,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: const Row(
             children: [
-              SizedBox(width: 28),
-              SizedBox(width: 12),
+              Icon(Icons.info_outline_rounded, color: AppColors.textMuted, size: 16),
+              SizedBox(width: 10),
               Expanded(
-                child: Text('#    PLAYER',
-                    style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8)),
+                child: Text(
+                  'Regional leaderboard requires Riot\'s official leaderboard endpoint. '
+                  'Your personal peak rank and recent performance are shown above.',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.4),
+                ),
               ),
-              Text('RANK RATING',
-                  style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8)),
             ],
           ),
         ),
-        const Divider(color: Colors.white10, height: 20),
-
-        // Static leaderboard entries (top players shown for context;
-        // real leaderboard requires Riot's leaderboard API endpoint).
-        ...List.generate(6, (i) {
-          const names = [
-            ('AstraX', '#2024', 27, 723),
-            ('Reyna Only', '#777', 27, 689),
-            ('ZennKai', '#999', 26, 612),
-            ('Midnight', '#1337', 23, 598),
-            ('Kuroo', '#666', 22, 584),
-            ('Brimstone', '#556', 22, 572),
-          ];
-          final e = names[i];
-          return _LeaderboardRow(
-            rank: i + 1,
-            name: e.$1,
-            tag: e.$2,
-            tier: e.$3,
-            rr: e.$4,
-          );
-        }),
       ],
     );
   }
 }
 
-class _GlobalDropdown extends StatelessWidget {
+// ── RR Sparkline Card ─────────────────────────────────────────────────────────
+
+class _RrSparklineCard extends StatelessWidget {
+  const _RrSparklineCard({required this.updates});
+  final List<CompetitiveUpdate> updates;
+
   @override
   Widget build(BuildContext context) {
+    if (updates.isEmpty) return const SizedBox();
+    final recent = updates.take(10).toList().reversed.toList();
+    final netRr = recent.fold<int>(0, (sum, u) => sum + u.rankedRatingEarned);
+    final wins = recent.where((u) => u.isWin).length;
+    final losses = recent.where((u) => u.isLoss).length;
+    final draws = recent.where((u) => u.isDraw).length;
+    final isPos = netRr >= 0;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white10, width: 0.8),
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (isPos ? AppColors.win : AppColors.loss).withAlpha(90),
+        ),
       ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('GLOBAL',
-              style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700)),
-          SizedBox(width: 4),
-          Icon(Icons.keyboard_arrow_down_rounded,
-              color: Colors.white54, size: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (isPos ? AppColors.win : AppColors.loss).withAlpha(25),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isPos ? Icons.trending_up : Icons.trending_down,
+                  color: isPos ? AppColors.win : AppColors.loss,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('LAST 10 GAMES RR TREND',
+                        style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${isPos ? '+' : ''}$netRr RR',
+                      style: TextStyle(
+                          color: isPos ? AppColors.win : AppColors.loss,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.bgCard2,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  draws > 0 ? '${wins}W · ${losses}L · ${draws}D' : '${wins}W · ${losses}L',
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 40,
+            child: CustomPaint(
+              size: const Size(double.infinity, 40),
+              painter: _SparklinePainter(updates: recent),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _LeaderboardRow extends ConsumerWidget {
-  const _LeaderboardRow({
-    required this.rank,
-    required this.name,
-    required this.tag,
-    required this.tier,
-    required this.rr,
-  });
+class _SparklinePainter extends CustomPainter {
+  const _SparklinePainter({required this.updates});
+  final List<CompetitiveUpdate> updates;
 
-  final int rank;
-  final String name;
-  final String tag;
-  final int tier;
-  final int rr;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (updates.isEmpty) return;
+    final count = updates.length;
+    final barW = (size.width / count) * 0.55;
+    final gap = (size.width / count) * 0.45;
+    final maxAbs = updates
+        .map((u) => u.rankedRatingEarned.abs())
+        .fold<int>(1, (a, b) => a > b ? a : b);
+
+    for (var i = 0; i < count; i++) {
+      final rr = updates[i].rankedRatingEarned;
+      final isWin = rr > 0;
+      final norm = rr.abs() / maxAbs;
+      final barH = math.max(4.0, norm * size.height);
+      final x = i * (barW + gap);
+      final y = size.height - barH;
+
+      final paint = Paint()
+        ..color = (isWin ? AppColors.win : AppColors.loss).withAlpha(200)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(x, y, barW, barH), const Radius.circular(3)),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter old) => old.updates != updates;
+}
+
+// ── Peak Rank Card ────────────────────────────────────────────────────────────
+
+class _PeakRankCard extends ConsumerWidget {
+  const _PeakRankCard({this.updates, this.mmr});
+  final List<CompetitiveUpdate>? updates;
+  final PlayerMmr? mmr;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tiersAsync = ref.watch(_competitiveTiersMapProvider);
-    final tiersMap = tiersAsync.asData?.value ?? {};
-    final tierData = tiersMap[tier];
-    final iconUrl = tierData?['displayIcon'] as String? ??
-        tierData?['smallIcon'] as String?;
-    final tierName = tierData?['tierName'] as String? ?? TierNameUtil.name(tier);
-
-    final isTop3 = rank <= 3;
-    final rankColor = rank == 1
-        ? const Color(0xFFFFD700)
-        : rank == 2
-            ? const Color(0xFFC0C0C0)
-            : rank == 3
-                ? const Color(0xFFCD7F32)
-                : Colors.white38;
+    if (mmr == null) return const SizedBox();
+    final tiersMap = ref.watch(_competitiveTiersMapProvider).asData?.value ?? {};
+    int peakTier = mmr!.currentTier;
+    int peakRr = mmr!.currentRankedRating;
+    if (updates != null) {
+      for (final u in updates!) {
+        if (u.tierAfterUpdate > peakTier ||
+            (u.tierAfterUpdate == peakTier && u.rankedRatingAfterUpdate > peakRr)) {
+          peakTier = u.tierAfterUpdate;
+          peakRr = u.rankedRatingAfterUpdate;
+        }
+      }
+    }
+    final peakData = tiersMap[peakTier];
+    final peakIconUrl = peakData?['largeIcon'] as String? ?? peakData?['displayIcon'] as String?;
+    final peakName = peakData?['tierName'] as String? ?? TierNameUtil.name(peakTier);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-      decoration: const BoxDecoration(
-        border:
-            Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.red.withAlpha(70)),
+        boxShadow: AppColors.redGlow(alpha: 0.07),
       ),
       child: Row(
         children: [
-          // Rank number
-          SizedBox(
-            width: 28,
-            child: Text(
-              '$rank',
-              style: TextStyle(
-                  color: rankColor,
-                  fontSize: isTop3 ? 15 : 13,
-                  fontWeight: FontWeight.w900),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Avatar placeholder
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF1A2540),
-              border: Border.all(color: Colors.white10, width: 1),
-            ),
-            child: Center(
-              child: Text(
-                name[0].toUpperCase(),
-                style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Name + tag
+          if (peakIconUrl != null && peakIconUrl.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: peakIconUrl,
+              width: 56, height: 56, fit: BoxFit.contain,
+              errorWidget: (_, __, ___) =>
+                  const Icon(Icons.military_tech, color: AppColors.red, size: 40),
+            )
+          else
+            const Icon(Icons.military_tech, color: AppColors.red, size: 40),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(name,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700)),
-                    Text(' $tag',
-                        style: const TextStyle(
-                            color: Colors.white38, fontSize: 11)),
-                  ],
-                ),
+                const Text('PEAK RANK THIS ACT',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 10,
+                        fontWeight: FontWeight.w800, letterSpacing: 1.0)),
+                const SizedBox(height: 4),
+                Text(peakName.toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 16,
+                        fontWeight: FontWeight.w900)),
+                const SizedBox(height: 2),
+                Text('$peakRr RR',
+                    style: const TextStyle(color: AppColors.red, fontSize: 13,
+                        fontWeight: FontWeight.w700)),
               ],
             ),
           ),
-          // Tier badge
-          if (iconUrl != null && iconUrl.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: CachedNetworkImage(
-                imageUrl: iconUrl,
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
-                errorWidget: (_, __, ___) => const SizedBox(),
-              ),
-            ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(tierName,
-                  style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700)),
-              Text('$rr RR',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900)),
+              const Text('CURRENT', style: TextStyle(color: AppColors.textMuted,
+                  fontSize: 9, fontWeight: FontWeight.w700)),
+              Text('${mmr!.currentRankedRating} RR',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12,
+                      fontWeight: FontWeight.w800)),
+              if (mmr!.gamesNeededForRating > 0)
+                Text('${mmr!.gamesNeededForRating} games for rating',
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
             ],
           ),
         ],
@@ -443,8 +483,6 @@ class _LeaderboardRow extends ConsumerWidget {
     );
   }
 }
-
-// ── Tab 1 — Match History (competitive updates) ────────────────────────────────
 
 class _MatchHistoryTab extends StatelessWidget {
   const _MatchHistoryTab(
@@ -499,12 +537,16 @@ class _MatchHistoryTab extends StatelessWidget {
 
 // ── Tab 2 — Act Rank ──────────────────────────────────────────────────────────
 
-class _ActRankTab extends StatelessWidget {
+class _ActRankTab extends ConsumerWidget {
   const _ActRankTab({required this.mmrAsync});
   final AsyncValue<CachedFetchResult<PlayerMmr>?> mmrAsync;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final seasonAsync = ref.watch(_activeSeasonProvider);
+    final tiersAsync = ref.watch(_competitiveTiersMapProvider);
+    final seasonLabel = seasonAsync.asData?.value['label'] ?? 'EPISODE 9 // ACT 1';
+
     return mmrAsync.when(
       data: (result) {
         if (result == null) {
@@ -514,30 +556,44 @@ class _ActRankTab extends StatelessWidget {
           );
         }
         final mmr = result.data;
+        final tierData = tiersAsync.asData?.value[mmr.currentTier];
+        final iconUrl = tierData?['largeIcon'] as String? ??
+            tierData?['displayIcon'] as String?;
         return ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
           children: [
             if (result.fromCache) const CacheDataBanner(),
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF0E1622),
+                color: AppColors.bgCard,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: const Color(0xFF00F0FF).withAlpha(80), width: 1),
+                border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
+                boxShadow: AppColors.redGlow(alpha: 0.08),
               ),
               child: Column(
                 children: [
-                  const Text('EPISODE 8 // ACT 3',
-                      style: TextStyle(
-                          color: Color(0xFF00F0FF),
+                  Text(seasonLabel,
+                      style: const TextStyle(
+                          color: AppColors.red,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.5)),
                   const SizedBox(height: 20),
-                  const Icon(Icons.shield_outlined,
-                      color: Color(0xFF00F0FF), size: 64),
+                  if (iconUrl != null && iconUrl.isNotEmpty)
+                    CachedNetworkImage(
+                      imageUrl: iconUrl,
+                      width: 88,
+                      height: 88,
+                      fit: BoxFit.contain,
+                      errorWidget: (_, __, ___) => const Icon(
+                          Icons.shield_outlined,
+                          color: AppColors.red, size: 64),
+                    )
+                  else
+                    const Icon(Icons.shield_outlined,
+                        color: AppColors.red, size: 64),
                   const SizedBox(height: 12),
                   Text(
                     TierNameUtil.name(mmr.currentTier).toUpperCase(),
@@ -551,7 +607,7 @@ class _ActRankTab extends StatelessWidget {
                   Text(
                     '${mmr.currentRankedRating} RR',
                     style: const TextStyle(
-                        color: Color(0xFF00F0FF),
+                        color: AppColors.red,
                         fontSize: 16,
                         fontWeight: FontWeight.w700),
                   ),
@@ -560,9 +616,8 @@ class _ActRankTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: (mmr.currentRankedRating / 100).clamp(0.0, 1.0),
-                      backgroundColor: const Color(0xFF141F2D),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF00F0FF)),
+                      backgroundColor: AppColors.bgCard2,
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.red),
                       minHeight: 8,
                     ),
                   ),
@@ -570,7 +625,7 @@ class _ActRankTab extends StatelessWidget {
                   Text(
                     '${mmr.currentRankedRating} / 100 RR',
                     style: const TextStyle(
-                        color: Colors.white54, fontSize: 11),
+                        color: AppColors.textMuted, fontSize: 11),
                   ),
                 ],
               ),
@@ -579,7 +634,7 @@ class _ActRankTab extends StatelessWidget {
         );
       },
       loading: () => const Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF4655))),
+          child: CircularProgressIndicator(color: AppColors.red)),
       error: (e, _) => Center(child: _ErrorCard(message: e.toString())),
     );
   }
@@ -611,19 +666,9 @@ class _RankCard extends ConsumerWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: const Color(0xFF00F0FF).withAlpha(100), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-              color: const Color(0xFF00F0FF).withAlpha(15),
-              blurRadius: 18,
-              spreadRadius: 2),
-        ],
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF141F2D), Color(0xFF0B101A)],
-        ),
+        border: Border.all(color: AppColors.red.withAlpha(100), width: 1.2),
+        boxShadow: AppColors.redGlow(alpha: 0.10),
+        gradient: AppColors.cardGradient,
       ),
       child: Column(
         children: [
@@ -711,108 +756,11 @@ class _RankCard extends ConsumerWidget {
                 child: LinearProgressIndicator(
                   value: rrProgress,
                   backgroundColor: const Color(0xFF141F2D),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFF00F0FF)),
-                  minHeight: 8,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.red),
+              minHeight: 8,
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── RR Trend Summary Card ─────────────────────────────────────────────────────
-
-class _RrTrendSummaryCard extends StatelessWidget {
-  const _RrTrendSummaryCard({required this.updates});
-  final List<CompetitiveUpdate> updates;
-
-  @override
-  Widget build(BuildContext context) {
-    if (updates.isEmpty) return const SizedBox();
-
-    final recent = updates.take(10).toList();
-    final netRr =
-        recent.fold<int>(0, (sum, u) => sum + u.rankedRatingEarned);
-    final wins = recent.where((u) => u.isWin).length;
-    final losses = recent.where((u) => u.isLoss).length;
-    final draws = recent.where((u) => u.isDraw).length;
-    final isPos = netRr >= 0;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E1622),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: (isPos
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFFFF4655))
-              .withAlpha(90),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: (isPos
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFFF4655))
-                  .withAlpha(25),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isPos ? Icons.trending_up : Icons.trending_down,
-              color: isPos
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFFFF4655),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('LAST 10 GAMES RR TREND',
-                    style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0)),
-                const SizedBox(height: 2),
-                Text(
-                  '${isPos ? '+' : ''}$netRr RR',
-                  style: TextStyle(
-                      color: isPos
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFFF4655),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF141F2D),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              draws > 0
-                  ? '${wins}W · ${losses}L · ${draws}D'
-                  : '${wins}W · ${losses}L',
-              style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800),
-            ),
           ),
         ],
       ),
@@ -830,52 +778,38 @@ class _UpdateTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final rr = update.rankedRatingEarned;
     final isWin = rr > 0;
-    final color =
-        isWin ? const Color(0xFF10B981) : const Color(0xFFFF4655);
+    final color = isWin ? AppColors.win : AppColors.loss;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
       decoration: const BoxDecoration(
-        border:
-            Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
+        border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
       ),
       child: Row(
         children: [
           Container(
-            width: 3,
-            height: 18,
-            decoration: BoxDecoration(
-                color: color, borderRadius: BorderRadius.circular(2)),
+            width: 3, height: 18,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(width: 12),
-          Icon(isWin ? Icons.trending_up : Icons.trending_down,
-              color: color, size: 18),
+          Icon(isWin ? Icons.trending_up : Icons.trending_down, color: color, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               '${isWin ? '+' : ''}$rr RR',
-              style: TextStyle(
-                  color: color, fontSize: 15, fontWeight: FontWeight.w900),
+              style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w900),
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${update.rankedRatingAfterUpdate} RR',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700),
-              ),
+              Text('${update.rankedRatingAfterUpdate} RR',
+                  style: const TextStyle(color: Colors.white, fontSize: 13,
+                      fontWeight: FontWeight.w700)),
               if (update.afkPenalty != 0)
-                Text(
-                  'AFK: ${update.afkPenalty}',
-                  style: const TextStyle(
-                      color: Colors.orange,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700),
-                ),
+                Text('AFK: ${update.afkPenalty}',
+                    style: const TextStyle(color: Colors.orange, fontSize: 11,
+                        fontWeight: FontWeight.w700)),
             ],
           ),
         ],
