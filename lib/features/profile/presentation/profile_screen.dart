@@ -11,6 +11,7 @@ import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/account_xp.dart';
 import '../../auth/presentation/account_switcher_modal.dart';
+import 'account_health_modal.dart';
 import '../../match/domain/models/match_history.dart';
 import '../../match/domain/models/match_details.dart';
 import '../../rank/domain/models/player_mmr.dart';
@@ -306,6 +307,11 @@ class ProfileScreen extends ConsumerWidget {
                 onLogoutPressed: () => _confirmLogout(context, ref),
               ),
 
+              const SizedBox(height: 12),
+
+              // Account Health Status Quick Banner
+              const _AccountHealthBannerCard(),
+
               const SizedBox(height: 16),
 
               // 2. Account Level & XP Card
@@ -487,6 +493,13 @@ class _ProfileHeaderBanner extends StatelessWidget {
                       ),
                       Row(
                         children: [
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.health_and_safety_outlined,
+                                color: AppColors.win, size: 20),
+                            onPressed: () => AccountHealthModal.show(context),
+                            tooltip: 'Account Health',
+                          ),
                           IconButton(
                             visualDensity: VisualDensity.compact,
                             icon: const Icon(Icons.settings_outlined,
@@ -1505,6 +1518,87 @@ class _LevelBorderContent extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AccountHealthBannerCard extends ConsumerWidget {
+  const _AccountHealthBannerCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final healthAsync = ref.watch(accountHealthProvider);
+    final health = healthAsync.asData?.value;
+
+    final isClean = health?.isClean ?? true;
+    final statusColor = isClean ? AppColors.win : AppColors.red;
+    final statusText = isClean ? 'HEALTHY // GOOD STANDING' : 'RESTRICTIONS ACTIVE';
+
+    return InkWell(
+      onTap: () => AccountHealthModal.show(context),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: statusColor.withAlpha(80), width: 0.8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isClean ? Icons.shield_outlined : Icons.warning_amber_rounded,
+                  color: statusColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ACCOUNT HEALTH',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const Row(
+              children: [
+                Text(
+                  'VIEW DETAILS',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Icon(Icons.chevron_right, color: Colors.white24, size: 16),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

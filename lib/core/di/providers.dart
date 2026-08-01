@@ -195,6 +195,12 @@ final accountLocalCacheProvider = Provider<AccountLocalCache>((ref) {
   return AccountLocalCache(ref.watch(cacheStorageProvider));
 });
 
+final restrictionsRemoteSourceProvider =
+    FutureProvider<RestrictionsRemoteSource>((ref) async {
+  final dio = await ref.watch(apiDioProvider.future);
+  return RestrictionsRemoteSource(dio);
+});
+
 // ── Current credentials (reactive) ────────────────────────────────────────
 
 final currentCredentialsProvider = FutureProvider((ref) async {
