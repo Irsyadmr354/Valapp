@@ -84,26 +84,39 @@ class BackgroundShopChecker {
 
     // ── Fetch storefront ────────────────────────────────────────────────────
     final Map<String, dynamic> storefront;
+    final headers = {
+      'Authorization': 'Bearer $accessToken',
+      'X-Riot-Entitlements-JWT': entitlementToken,
+      'Content-Type': 'application/json',
+    };
     try {
-      final resp = await _dio.post<dynamic>(
-        'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
-        options: Options(headers: {
-          'Authorization': 'Bearer $accessToken',
-          'X-Riot-Entitlements-JWT': entitlementToken,
-          'Content-Type': 'application/json',
-        }),
-        data: {},
-      );
-      final raw = resp.data;
-      if (raw is Map<String, dynamic>) {
-        storefront = raw;
-      } else if (raw is String) {
-        storefront = jsonDecode(raw) as Map<String, dynamic>;
+      dynamic rawData;
+      try {
+        final resp = await _dio.post<dynamic>(
+          'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
+          options: Options(headers: headers),
+          data: {},
+        );
+        rawData = resp.data;
+      } catch (_) {
+        final resp = await _dio.post<dynamic>(
+          'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
+          options: Options(headers: headers),
+          data: {},
+        );
+        rawData = resp.data;
+      }
+
+      if (rawData is Map<String, dynamic>) {
+        storefront = rawData;
+      } else if (rawData is String) {
+        storefront = jsonDecode(rawData) as Map<String, dynamic>;
       } else {
         return;
       }
     } catch (_) {
       return;
+    }
     }
 
     // ── Extract offers with prices ──────────────────────────────────────────

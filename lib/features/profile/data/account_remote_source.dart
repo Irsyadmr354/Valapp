@@ -43,12 +43,20 @@ class AccountRemoteSource {
     if (puuids.isEmpty) return {};
     final cleanShard = shard.toLowerCase();
     try {
-      final response = await _dio.put<dynamic>(
-        'https://pd.$cleanShard.a.pvp.net/name-service/v2/players',
-        data: puuids,
-      );
-
-      dynamic data = response.data;
+      dynamic data;
+      try {
+        final response = await _dio.post<dynamic>(
+          'https://pd.$cleanShard.a.pvp.net/name-service/v3/players',
+          data: puuids,
+        );
+        data = response.data;
+      } catch (_) {
+        final response = await _dio.put<dynamic>(
+          'https://pd.$cleanShard.a.pvp.net/name-service/v2/players',
+          data: puuids,
+        );
+        data = response.data;
+      }
       if (data is String) {
         try {
           data = jsonDecode(data);

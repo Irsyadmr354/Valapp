@@ -41,6 +41,32 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
         _isLoading = false;
       });
     }
+
+    // Auto-resolve real Riot ID for any accounts still using generic fallback names
+    _resolveGenericNames(list);
+  }
+
+  Future<void> _resolveGenericNames(List<SavedAccountProfile> list) async {
+    try {
+      final remoteSource = await ref.read(accountRemoteSourceProvider.future);
+      final localSource = ref.read(credentialsLocalSourceProvider);
+
+      for (final acc in list) {
+        final name = acc.displayName;
+        if (name.startsWith('Account (') || name == 'Valorant Account' || name == 'Valorant Player') {
+          final realName = await remoteSource.fetchDisplayName(acc.shard, acc.puuid);
+          if (realName != null && realName.isNotEmpty && realName != name) {
+            await localSource.save(acc.credentials, displayName: realName);
+            final updated = await localSource.getSavedAccounts();
+            if (mounted) {
+              setState(() {
+                _savedAccounts = updated;
+              });
+            }
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   @override

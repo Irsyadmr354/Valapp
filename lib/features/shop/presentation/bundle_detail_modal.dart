@@ -239,10 +239,11 @@ class BundleDetailModal extends ConsumerWidget {
                       final tierUuid = meta?['contentTierUuid'] as String?;
                       final tierColor = TierColors.forName(tierUuid);
 
+                      final itemPrice = bundle.itemPrices[itemId] ?? 0;
                       final offer = SkinOffer(
                         offerId: itemId,
                         skinLevelUuid: itemId,
-                        price: 0,
+                        price: itemPrice,
                         displayName: skinName,
                         displayIcon: displayIcon,
                         contentTierUuid: tierUuid,

@@ -78,29 +78,39 @@ class AvoidedPlayer {
   }
 }
 
+enum AccountHealthStatus { clean, hasRestrictions, unknown }
+
 /// Aggregated account health status.
 class AccountHealth {
-  final bool isClean;
+  final AccountHealthStatus status;
   final List<AccountPenalty> penalties;
   final List<AvoidedPlayer> avoidedPlayers;
 
   const AccountHealth({
-    required this.isClean,
+    required this.status,
     required this.penalties,
     required this.avoidedPlayers,
   });
 
+  bool get isClean => status == AccountHealthStatus.clean;
+  bool get isUnknown => status == AccountHealthStatus.unknown;
+
   factory AccountHealth.fromJson({
     Map<String, dynamic>? penaltiesJson,
     Map<String, dynamic>? avoidListJson,
+    Map<String, dynamic>? interventionsJson,
+    bool hasFetchErrors = false,
   }) {
-    final rawPenalties = (penaltiesJson?['Penalties'] as List<dynamic>?) ??
-        (penaltiesJson?['interventions'] as List<dynamic>?) ??
-        (penaltiesJson?['activeFutureInterventions'] as List<dynamic>?) ??
-        [];
+    final rawPenalties = [
+      ...(penaltiesJson?['Penalties'] as List<dynamic>? ?? []),
+      ...(penaltiesJson?['interventions'] as List<dynamic>? ?? []),
+      ...(interventionsJson?['activeFutureInterventions'] as List<dynamic>? ?? []),
+      ...(interventionsJson?['interventions'] as List<dynamic>? ?? []),
+    ];
 
     final penalties = rawPenalties
-        .map((e) => AccountPenalty.fromJson(e as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map((e) => AccountPenalty.fromJson(e))
         .where((p) => !p.isExpired)
         .toList();
 
@@ -109,11 +119,21 @@ class AccountHealth {
         [];
 
     final avoided = rawAvoid
-        .map((e) => AvoidedPlayer.fromJson(e as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map((e) => AvoidedPlayer.fromJson(e))
         .toList();
 
+    AccountHealthStatus status;
+    if (hasFetchErrors && penalties.isEmpty && avoided.isEmpty) {
+      status = AccountHealthStatus.unknown;
+    } else if (penalties.isNotEmpty) {
+      status = AccountHealthStatus.hasRestrictions;
+    } else {
+      status = AccountHealthStatus.clean;
+    }
+
     return AccountHealth(
-      isClean: penalties.isEmpty,
+      status: status,
       penalties: penalties,
       avoidedPlayers: avoided,
     );

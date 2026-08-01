@@ -509,14 +509,37 @@ class ValorantAssets {
         }
       }
 
-      // Fallback
-      if (episode.isEmpty) episode = 'EPISODE 9';
-      if (act.isEmpty) act = 'ACT 1';
+      // Fallback: pick the most recent Episode & Act entry if date range didn't match
+      if (episode.isEmpty || act.isEmpty) {
+        final sortedSeasons = List<dynamic>.from(seasons);
+        sortedSeasons.sort((a, b) {
+          final aStart = DateTime.tryParse(a['startTime']?.toString() ?? '') ?? DateTime(2020);
+          final bStart = DateTime.tryParse(b['startTime']?.toString() ?? '') ?? DateTime(2020);
+          return bStart.compareTo(aStart);
+        });
+
+        for (final s in sortedSeasons) {
+          final type = s['type']?.toString() ?? '';
+          final name = s['displayName']?.toString() ?? '';
+          if (episode.isEmpty && (type.toLowerCase().contains('episode') || type == 'EAresSeasonType::Episode')) {
+            final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
+            episode = numStr.isNotEmpty ? 'EPISODE $numStr' : name.toUpperCase();
+          } else if (act.isEmpty && (type.toLowerCase().contains('act') || type == 'EAresSeasonType::Act')) {
+            final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
+            act = numStr.isNotEmpty ? 'ACT $numStr' : name.toUpperCase();
+          }
+          if (episode.isNotEmpty && act.isNotEmpty) break;
+        }
+      }
+
+      final label = (episode.isNotEmpty && act.isNotEmpty)
+          ? '$episode // $act'
+          : (episode.isNotEmpty ? episode : 'VALORANT COMPETITIVE');
 
       final result = {
         'episode': episode,
         'act': act,
-        'label': '$episode // $act',
+        'label': label,
       };
       await cache.setJson(keySeasons, result);
       await cache.setTimestamp(keySeasonsFetchedAt);

@@ -14,7 +14,11 @@ final accountHealthProvider =
     final source = await ref.watch(restrictionsRemoteSourceProvider.future);
     return source.fetchAccountHealth(creds.shard, creds.puuid);
   } catch (_) {
-    return const AccountHealth(isClean: true, penalties: [], avoidedPlayers: []);
+    return const AccountHealth(
+      status: AccountHealthStatus.unknown,
+      penalties: [],
+      avoidedPlayers: [],
+    );
   }
 });
 
@@ -126,9 +130,16 @@ class _AccountHealthBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isClean = health.isClean;
-    final statusColor = isClean ? AppColors.win : AppColors.red;
-    final statusText = isClean ? 'EXCELLENT // NO PENALTIES' : 'RESTRICTIONS ACTIVE';
+    final statusColor = health.isUnknown
+        ? AppColors.textMuted
+        : health.isClean
+            ? AppColors.win
+            : AppColors.red;
+    final statusText = health.isUnknown
+        ? 'STATUS UNKNOWN // UNABLE TO VERIFY'
+        : health.isClean
+            ? 'EXCELLENT // NO PENALTIES'
+            : 'RESTRICTIONS ACTIVE';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -160,7 +171,11 @@ class _AccountHealthBody extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    isClean ? Icons.shield_outlined : Icons.warning_amber_rounded,
+                    health.isUnknown
+                        ? Icons.help_outline_rounded
+                        : health.isClean
+                            ? Icons.shield_outlined
+                            : Icons.warning_amber_rounded,
                     color: statusColor,
                     size: 28,
                   ),
@@ -183,18 +198,20 @@ class _AccountHealthBody extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       statusText,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.5,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      isClean
-                          ? 'Your account is in good standing with zero active restrictions.'
-                          : '${health.penalties.length} active penalty / restriction currently applied.',
+                      health.isUnknown
+                          ? 'Could not verify account restrictions from Riot servers.'
+                          : health.isClean
+                              ? 'Your account is in good standing with zero active restrictions.'
+                              : '${health.penalties.length} active penalty / restriction currently applied.',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,

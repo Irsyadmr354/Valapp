@@ -1,4 +1,5 @@
 import '../../../core/storage/cache_storage.dart';
+import '../../../core/utils/async_lock.dart';
 import '../domain/models/match_history.dart';
 
 class MatchHistoryLocalCache {
@@ -9,21 +10,23 @@ class MatchHistoryLocalCache {
       queue == null || queue.isEmpty ? 'all' : queue;
 
   Future<void> saveHistory(MatchHistoryResult result, {String? queue}) async {
-    final all = await _cache.getJson(CacheStorage.keyMatchHistoryCache) ?? {};
-    all[_cacheKey(queue)] = {
-      'History': result.matches
-          .map((e) => {
-                'MatchID': e.matchId,
-                'GameStartTime': e.gameStartMillis,
-                'QueueID': e.queueId,
-                'TeamID': e.teamId,
-                'IsRanked': e.isRanked,
-                'MapID': e.mapId,
-              })
-          .toList(),
-    };
-    await _cache.setJson(CacheStorage.keyMatchHistoryCache, all);
-    await _cache.setTimestamp(CacheStorage.keyMatchHistoryCacheFetchedAt);
+    await AsyncLock.run('match_history_cache', () async {
+      final all = await _cache.getJson(CacheStorage.keyMatchHistoryCache) ?? {};
+      all[_cacheKey(queue)] = {
+        'History': result.matches
+            .map((e) => {
+                  'MatchID': e.matchId,
+                  'GameStartTime': e.gameStartMillis,
+                  'QueueID': e.queueId,
+                  'TeamID': e.teamId,
+                  'IsRanked': e.isRanked,
+                  'MapID': e.mapId,
+                })
+            .toList(),
+      };
+      await _cache.setJson(CacheStorage.keyMatchHistoryCache, all);
+      await _cache.setTimestamp(CacheStorage.keyMatchHistoryCacheFetchedAt);
+    });
   }
 
   Future<MatchHistoryResult?> loadHistory({String? queue}) async {
@@ -41,16 +44,18 @@ class MatchDetailLocalCache {
 
   Future<void> saveMatchDetail(
       String matchId, Map<String, dynamic> raw) async {
-    final all = await _cache.getJson(CacheStorage.keyMatchDetailCache) ?? {};
-    all[matchId] = raw;
-    const maxEntries = 30;
-    if (all.length > maxEntries) {
-      final sortedKeys = all.keys.toList();
-      for (final k in sortedKeys.take(all.length - maxEntries)) {
-        all.remove(k);
+    await AsyncLock.run('match_detail_cache', () async {
+      final all = await _cache.getJson(CacheStorage.keyMatchDetailCache) ?? {};
+      all[matchId] = raw;
+      const maxEntries = 30;
+      if (all.length > maxEntries) {
+        final sortedKeys = all.keys.toList();
+        for (final k in sortedKeys.take(all.length - maxEntries)) {
+          all.remove(k);
+        }
       }
-    }
-    await _cache.setJson(CacheStorage.keyMatchDetailCache, all);
+      await _cache.setJson(CacheStorage.keyMatchDetailCache, all);
+    });
   }
 
   Future<Map<String, dynamic>?> loadMatchDetailRaw(String matchId) async {

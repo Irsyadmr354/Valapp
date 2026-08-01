@@ -46,7 +46,8 @@ class PlayerLoadout {
     String? preRoundSpray;
     for (final s in spraySelections) {
       final sMap = _asMap(s);
-      if ((sMap['SocketID'] as String? ?? '').contains('01')) {
+      final socketId = sMap['SocketID'] as String? ?? '';
+      if (socketId.endsWith('01')) {
         preRoundSpray = sMap['SprayID'] as String?;
         break;
       }

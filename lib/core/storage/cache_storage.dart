@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Lightweight cache using [SharedPreferences] for non-sensitive data
 /// (skin metadata, client version, last-fetch timestamps, etc.).
+import '../utils/async_lock.dart';
+
 class CacheStorage {
   CacheStorage._();
   static final CacheStorage instance = CacheStorage._();
@@ -127,7 +129,6 @@ class CacheStorage {
   // ── Match Map Cache ────────────────────────────────────────────────────────
 
   static const keyMatchMapCache = 'match_map_cache';
-  Future<void>? _saveMatchMapLock;
 
   Future<Map<String, String>> getMatchMaps() async {
     final cached = await getJson(keyMatchMapCache);
@@ -137,23 +138,11 @@ class CacheStorage {
 
   Future<void> saveMatchMap(String matchId, String mapId) async {
     if (matchId.isEmpty || mapId.isEmpty) return;
-
-    // Mutex lock to prevent concurrent read-modify-write race conditions
-    while (_saveMatchMapLock != null) {
-      await _saveMatchMapLock;
-    }
-
-    final completer = Completer<void>();
-    _saveMatchMapLock = completer.future;
-
-    try {
+    await AsyncLock.run('cache_match_map', () async {
       final current = await getMatchMaps();
       current[matchId] = mapId;
       await setJson(keyMatchMapCache, current);
-    } finally {
-      completer.complete();
-      _saveMatchMapLock = null;
-    }
+    });
   }
 
   // ── Remove ─────────────────────────────────────────────────────────────────

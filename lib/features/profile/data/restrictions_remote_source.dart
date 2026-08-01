@@ -21,25 +21,44 @@ class RestrictionsRemoteSource {
   Future<AccountHealth> fetchAccountHealth(String shard, String puuid) async {
     final cleanShard = shard.toLowerCase();
 
-    // Fetch penalties & avoid list concurrently
+    bool hasErrors = false;
+
+    // Fetch penalties, avoid list, and activeFutureInterventions concurrently
     final responses = await Future.wait([
       _dio
           .get<dynamic>(
             'https://pd.$cleanShard.a.pvp.net/restrictions/v3/penalties',
           )
           .then((r) => _toMap(r.data))
-          .catchError((_) => <String, dynamic>{}),
+          .catchError((_) {
+        hasErrors = true;
+        return <String, dynamic>{};
+      }),
       _dio
           .get<dynamic>(
             'https://pd.$cleanShard.a.pvp.net/restrictions/v1/avoidList',
           )
           .then((r) => _toMap(r.data))
-          .catchError((_) => <String, dynamic>{}),
+          .catchError((_) {
+        hasErrors = true;
+        return <String, dynamic>{};
+      }),
+      _dio
+          .get<dynamic>(
+            'https://pd.$cleanShard.a.pvp.net/restrictions/v1/activeFutureInterventions',
+          )
+          .then((r) => _toMap(r.data))
+          .catchError((_) {
+        hasErrors = true;
+        return <String, dynamic>{};
+      }),
     ]);
 
     return AccountHealth.fromJson(
       penaltiesJson: responses[0],
       avoidListJson: responses[1],
+      interventionsJson: responses[2],
+      hasFetchErrors: hasErrors,
     );
   }
 }

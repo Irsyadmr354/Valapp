@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../../../core/storage/secure_storage.dart';
+import '../../../core/utils/async_lock.dart';
 import '../domain/models/credentials.dart';
 
 /// Class representing a saved account profile.
@@ -101,36 +102,38 @@ class CredentialsLocalSource {
   }
 
   Future<void> save(Credentials creds, {String? displayName}) async {
-    await Future.wait([
-      _storage.write(SecureStorage.keyAccessToken, creds.accessToken),
-      _storage.write(SecureStorage.keyIdToken, creds.idToken),
-      _storage.write(SecureStorage.keyEntitlementToken, creds.entitlementToken),
-      _storage.write(SecureStorage.keyPuuid, creds.puuid),
-      _storage.write(SecureStorage.keyRegion, creds.region),
-      _storage.write(SecureStorage.keyShard, creds.shard),
-      _storage.write(
-          SecureStorage.keyExpiresAt, creds.expiresAt.toIso8601String()),
-      _storage.writeEntitlementExpiry(creds.entitlementExpiresAt),
-    ]);
+    await AsyncLock.run('credentials_save', () async {
+      await Future.wait([
+        _storage.write(SecureStorage.keyAccessToken, creds.accessToken),
+        _storage.write(SecureStorage.keyIdToken, creds.idToken),
+        _storage.write(SecureStorage.keyEntitlementToken, creds.entitlementToken),
+        _storage.write(SecureStorage.keyPuuid, creds.puuid),
+        _storage.write(SecureStorage.keyRegion, creds.region),
+        _storage.write(SecureStorage.keyShard, creds.shard),
+        _storage.write(
+            SecureStorage.keyExpiresAt, creds.expiresAt.toIso8601String()),
+        _storage.writeEntitlementExpiry(creds.entitlementExpiresAt),
+      ]);
 
-    // Also add/update profile in saved accounts list
-    final profiles = await getSavedAccounts();
-    final idx = profiles.indexWhere((p) => p.puuid == creds.puuid);
-    final newProfile = SavedAccountProfile(
-      puuid: creds.puuid,
-      displayName: displayName ?? (idx != -1 ? profiles[idx].displayName : 'Account (${creds.puuid.substring(0, 6)})'),
-      region: creds.region,
-      shard: creds.shard,
-      credentials: creds,
-    );
+      // Also add/update profile in saved accounts list
+      final profiles = await getSavedAccounts();
+      final idx = profiles.indexWhere((p) => p.puuid == creds.puuid);
+      final newProfile = SavedAccountProfile(
+        puuid: creds.puuid,
+        displayName: displayName ?? (idx != -1 ? profiles[idx].displayName : 'Account (${creds.puuid.substring(0, 6)})'),
+        region: creds.region,
+        shard: creds.shard,
+        credentials: creds,
+      );
 
-    if (idx != -1) {
-      profiles[idx] = newProfile;
-    } else {
-      profiles.add(newProfile);
-    }
+      if (idx != -1) {
+        profiles[idx] = newProfile;
+      } else {
+        profiles.add(newProfile);
+      }
 
-    await _saveProfiles(profiles);
+      await _saveProfiles(profiles);
+    });
   }
 
   Future<List<SavedAccountProfile>> getSavedAccounts() async {
@@ -145,19 +148,21 @@ class CredentialsLocalSource {
   }
 
   Future<void> removeAccount(String puuid) async {
-    final profiles = await getSavedAccounts();
-    profiles.removeWhere((p) => p.puuid == puuid);
-    await _saveProfiles(profiles);
+    await AsyncLock.run('credentials_save', () async {
+      final profiles = await getSavedAccounts();
+      profiles.removeWhere((p) => p.puuid == puuid);
+      await _saveProfiles(profiles);
 
-    // If active account was removed, clear current credentials
-    final currentPuuid = await _storage.read(SecureStorage.keyPuuid);
-    if (currentPuuid == puuid) {
-      if (profiles.isNotEmpty) {
-        await save(profiles.first.credentials);
-      } else {
-        await clear();
+      // If active account was removed, clear current credentials
+      final currentPuuid = await _storage.read(SecureStorage.keyPuuid);
+      if (currentPuuid == puuid) {
+        if (profiles.isNotEmpty) {
+          await save(profiles.first.credentials);
+        } else {
+          await clear();
+        }
       }
-    }
+    });
   }
 
   Future<void> _saveProfiles(List<SavedAccountProfile> profiles) async {

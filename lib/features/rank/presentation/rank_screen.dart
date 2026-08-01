@@ -450,8 +450,8 @@ class _PeakRankCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('PEAK RANK THIS ACT',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 10,
+                const Text('HIGHEST RECORDED RANK (RECENT)',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 9,
                         fontWeight: FontWeight.w800, letterSpacing: 1.0)),
                 const SizedBox(height: 4),
                 Text(peakName.toUpperCase(),

@@ -397,7 +397,10 @@ class _WeaponSkinTile extends StatelessWidget {
       for (final ch in chromas) {
         if (ch is Map && ch['uuid'] == weapon.chromaId) {
           final hex = ch['swatch'] as String?;
-          if (hex != null) break;
+          if (hex != null && hex.isNotEmpty) {
+            chromaColor = _parseHexColor(hex);
+            if (chromaColor != null) break;
+          }
         }
       }
     }
@@ -577,4 +580,18 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+Color? _parseHexColor(String? hex) {
+  if (hex == null || hex.isEmpty) return null;
+  var cleaned = hex.replaceAll('#', '');
+  if (cleaned.length == 6) cleaned = 'FF$cleaned';
+  if (cleaned.length == 8 && !cleaned.startsWith('FF')) {
+    // If format is RRGGBBAA, convert to AARRGGBB for Flutter Color
+    final rrggbb = cleaned.substring(0, 6);
+    final aa = cleaned.substring(6, 8);
+    cleaned = '$aa$rrggbb';
+  }
+  final value = int.tryParse(cleaned, radix: 16);
+  return value != null ? Color(value) : null;
 }

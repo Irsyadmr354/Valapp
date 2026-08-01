@@ -96,12 +96,21 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
       final idToken = tokens['id_token']!;
       final expiresIn = int.parse(tokens['expires_in']!);
 
-      final repo = await ref.read(authRepositoryProvider.future);
-      await repo.completeLoginFromWebView(
+      final creds = await repo.completeLoginFromWebView(
         accessToken: accessToken,
         idToken: idToken,
         expiresIn: expiresIn,
       );
+
+      // Attempt to resolve real Riot ID display name for multi-account profile
+      try {
+        final source = await ref.read(accountRemoteSourceProvider.future);
+        final realName = await source.fetchDisplayName(creds.shard, creds.puuid);
+        if (realName != null && realName.isNotEmpty) {
+          final localSource = ref.read(credentialsLocalSourceProvider);
+          await localSource.save(creds, displayName: realName);
+        }
+      } catch (_) {}
 
       // Invalidate credentials provider so router picks up the new session
       ref.invalidate(currentCredentialsProvider);

@@ -14,7 +14,7 @@ import '../../auth/presentation/account_switcher_modal.dart';
 import 'account_health_modal.dart';
 import '../../match/domain/models/match_history.dart';
 import '../../match/domain/models/match_details.dart';
-import '../../rank/domain/models/player_mmr.dart';
+import '../../shop/presentation/notification_rule_service.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -173,8 +173,13 @@ final _profileCardProvider =
   try {
     final creds = await ref.watch(currentCredentialsProvider.future);
     if (creds == null) return null;
-    final source = await ref.watch(loadoutRemoteSourceProvider.future);
-    final raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
+    final cache = ref.watch(loadoutLocalCacheProvider);
+    Map<String, dynamic>? raw = await cache.loadLoadoutRaw();
+    if (raw == null) {
+      final source = await ref.watch(loadoutRemoteSourceProvider.future);
+      raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
+      await cache.saveLoadoutRaw(raw);
+    }
     // v3 wraps fields under 'Loadout' key; v2 exposes them at root
     final loadoutRoot = raw.containsKey('Loadout')
         ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
@@ -336,8 +341,13 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // 4. RECENT XP GAINS Card Section
-              if (xpData != null && xpData.history.isNotEmpty)
+              if (xpData != null && xpData.history.isNotEmpty) ...[
                 _XpGainsCardSection(history: xpData.history),
+                const SizedBox(height: 20),
+              ],
+
+              // 5. SMART NOTIFICATION RULES SETTINGS CARD
+              const _NotificationRulesCard(),
 
               const SizedBox(height: 16),
 
@@ -1531,9 +1541,19 @@ class _AccountHealthBannerCard extends ConsumerWidget {
     final healthAsync = ref.watch(accountHealthProvider);
     final health = healthAsync.asData?.value;
 
-    final isClean = health?.isClean ?? true;
-    final statusColor = isClean ? AppColors.win : AppColors.red;
-    final statusText = isClean ? 'HEALTHY // GOOD STANDING' : 'RESTRICTIONS ACTIVE';
+    final isUnknown = health == null || health.isUnknown;
+    final isClean = health?.isClean ?? false;
+
+    final statusColor = isUnknown
+        ? AppColors.textMuted
+        : isClean
+            ? AppColors.win
+            : AppColors.red;
+    final statusText = isUnknown
+        ? 'STATUS UNKNOWN // VERIFYING'
+        : isClean
+            ? 'HEALTHY // GOOD STANDING'
+            : 'RESTRICTIONS ACTIVE';
 
     return InkWell(
       onTap: () => AccountHealthModal.show(context),
@@ -1551,7 +1571,11 @@ class _AccountHealthBannerCard extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  isClean ? Icons.shield_outlined : Icons.warning_amber_rounded,
+                  isUnknown
+                      ? Icons.help_outline_rounded
+                      : isClean
+                          ? Icons.shield_outlined
+                          : Icons.warning_amber_rounded,
                   color: statusColor,
                   size: 18,
                 ),
@@ -1599,6 +1623,99 @@ class _AccountHealthBannerCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NotificationRulesCard extends ConsumerWidget {
+  const _NotificationRulesCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeRules = ref.watch(notificationRulesProvider);
+    final notifier = ref.read(notificationRulesProvider.notifier);
+
+    final categories = [
+      {'key': NotificationCategory.wishlist, 'label': 'Wishlist Skin Match', 'icon': Icons.star_rounded},
+      {'key': NotificationCategory.melee, 'label': 'Melee / Knives', 'icon': Icons.sports_kabaddi_rounded},
+      {'key': NotificationCategory.vandal, 'label': 'Vandal Skins', 'icon': Icons.ads_click_rounded},
+      {'key': NotificationCategory.phantom, 'label': 'Phantom Skins', 'icon': Icons.blur_on_rounded},
+      {'key': NotificationCategory.operator, 'label': 'Operator / Sniper', 'icon': Icons.gps_fixed_rounded},
+      {'key': NotificationCategory.sheriff, 'label': 'Sheriff / Pistols', 'icon': Icons.adjust_rounded},
+      {'key': NotificationCategory.nightMarket, 'label': 'Night Market Alerts', 'icon': Icons.local_offer_rounded},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.notifications_active_outlined, color: AppColors.red, size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'SMART NOTIFICATION RULES',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Select which shop items trigger automatic background notifications.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: categories.map((cat) {
+              final key = cat['key'] as String;
+              final label = cat['label'] as String;
+              final icon = cat['icon'] as IconData;
+              final isSelected = activeRules.contains(key);
+
+              return FilterChip(
+                selected: isSelected,
+                showCheckmark: false,
+                avatar: Icon(
+                  icon,
+                  size: 14,
+                  color: isSelected ? Colors.white : AppColors.textMuted,
+                ),
+                label: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white60,
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                  ),
+                ),
+                backgroundColor: AppColors.bgCard2,
+                selectedColor: AppColors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: isSelected ? AppColors.red : AppColors.border,
+                    width: 0.8,
+                  ),
+                ),
+                onSelected: (_) => notifier.toggleCategory(key),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

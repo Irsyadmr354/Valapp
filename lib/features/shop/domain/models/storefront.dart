@@ -2,11 +2,27 @@ import 'package:flutter/foundation.dart';
 import 'skin_offer.dart';
 import 'wallet.dart';
 
+class BundleItem {
+  final String itemId;
+  final int basePrice;
+  final int discountedPrice;
+  final int discountPercent;
+
+  const BundleItem({
+    required this.itemId,
+    required this.basePrice,
+    required this.discountedPrice,
+    required this.discountPercent,
+  });
+}
+
 /// Featured bundle in the store.
 class FeaturedBundle {
   final String bundleUuid;
   final int durationRemainingSeconds;
   final List<String> itemIds;
+  final List<BundleItem> items;
+  final Map<String, int> itemPrices;
   final int totalBaseCost;
   final int totalDiscountedCost;
   final double totalDiscountPercent;
@@ -18,6 +34,8 @@ class FeaturedBundle {
     required this.bundleUuid,
     required this.durationRemainingSeconds,
     required this.itemIds,
+    this.items = const [],
+    this.itemPrices = const {},
     required this.totalBaseCost,
     required this.totalDiscountedCost,
     required this.totalDiscountPercent,
@@ -35,6 +53,8 @@ class FeaturedBundle {
       bundleUuid: bundleUuid,
       durationRemainingSeconds: durationRemainingSeconds,
       itemIds: itemIds,
+      items: items,
+      itemPrices: itemPrices,
       totalBaseCost: totalBaseCost,
       totalDiscountedCost: totalDiscountedCost,
       totalDiscountPercent: totalDiscountPercent,
@@ -45,13 +65,31 @@ class FeaturedBundle {
   }
 
   factory FeaturedBundle.fromJson(Map<String, dynamic> json) {
-    final items = (json['Items'] as List<dynamic>?) ?? [];
+    final rawItems = (json['Items'] as List<dynamic>?) ?? [];
     final itemIds = <String>[];
-    for (final e in items) {
+    final bundleItems = <BundleItem>[];
+    final itemPrices = <String, int>{};
+
+    for (final e in rawItems) {
       if (e is Map) {
         final itemObj = e['Item'] as Map?;
         final id = itemObj?['ItemID']?.toString() ?? e['ItemID']?.toString() ?? '';
-        if (id.isNotEmpty) itemIds.add(id);
+        final baseCost = (e['BasePrice'] as num?)?.toInt() ??
+            (e['Cost']?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
+            0;
+        final discCost = (e['DiscountedPrice'] as num?)?.toInt() ?? baseCost;
+        final discPct = (e['DiscountPercent'] as num?)?.toInt() ?? 0;
+
+        if (id.isNotEmpty) {
+          itemIds.add(id);
+          itemPrices[id] = discCost > 0 ? discCost : baseCost;
+          bundleItems.add(BundleItem(
+            itemId: id,
+            basePrice: baseCost,
+            discountedPrice: discCost,
+            discountPercent: discPct,
+          ));
+        }
       }
     }
 
@@ -61,6 +99,8 @@ class FeaturedBundle {
           (json['DurationRemainingInSeconds'] as num?)?.toInt() ??
           (json['BundleRemainingDurationInSeconds'] as num?)?.toInt() ?? 0,
       itemIds: itemIds,
+      items: bundleItems,
+      itemPrices: itemPrices,
       totalBaseCost:
           (json['TotalBaseCost']?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
               0,
