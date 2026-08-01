@@ -9,6 +9,7 @@ import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/match_history.dart';
+import '../domain/models/match_details.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -34,20 +35,105 @@ final _matchHistoryProvider =
   final queue = ref.watch(_queueFilterProvider);
   final source = await ref.watch(matchRemoteSourceProvider.future);
   final cache = ref.watch(matchHistoryLocalCacheProvider);
+  final detailCache = ref.watch(matchDetailLocalCacheProvider);
+
+  MatchHistoryResult result;
+  bool fromCache = false;
+
   try {
     final raw = await source.fetchHistoryRaw(
       creds.shard,
       creds.puuid,
       queue: queue,
     );
-    final result = MatchHistoryResult.fromJson(raw);
+    result = MatchHistoryResult.fromJson(raw);
     await cache.saveHistory(result, queue: queue);
-    return CachedFetchResult(result);
   } catch (_) {
     final cached = await cache.loadHistory(queue: queue);
-    if (cached != null) return CachedFetchResult(cached, fromCache: true);
-    rethrow;
+    if (cached != null) {
+      result = cached;
+      fromCache = true;
+    } else {
+      rethrow;
+    }
   }
+
+  // ── Enrich each entry from cached match details ───────────────────────────
+  // The history endpoint gives us no stats — we pull them from detail cache.
+  final enriched = <MatchHistoryEntry>[];
+  for (final entry in result.matches) {
+    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
+    if (detailRaw == null) {
+      enriched.add(entry);
+      continue;
+    }
+    try {
+      final details = MatchDetails.fromJson(detailRaw);
+      final player = details.players
+          .cast<PlayerStats?>()
+          .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
+      if (player == null) {
+        enriched.add(entry);
+        continue;
+      }
+
+      // Determine result from round wins
+      MatchResult matchResult = MatchResult.unknown;
+      if (details.roundResults.isNotEmpty) {
+        final playerTeam = player.teamId.toLowerCase();
+        final teamWins = details.roundResults
+            .where((r) => r.winningTeam.toLowerCase() == playerTeam)
+            .length;
+        final opponentWins = details.roundResults.length - teamWins;
+        if (teamWins > opponentWins) {
+          matchResult = MatchResult.victory;
+        } else if (teamWins < opponentWins) {
+          matchResult = MatchResult.defeat;
+        } else {
+          matchResult = MatchResult.draw;
+        }
+      }
+
+      // Score string e.g. "13 – 8"
+      String? scoreStr;
+      if (details.roundResults.isNotEmpty) {
+        final playerTeam = player.teamId.toLowerCase();
+        final myWins = details.roundResults
+            .where((r) => r.winningTeam.toLowerCase() == playerTeam)
+            .length;
+        final oppWins = details.roundResults.length - myWins;
+        scoreStr = '$myWins – $oppWins';
+      }
+
+      // Is MVP — highest score on winning team, or overall
+      final sortedByScore = List<PlayerStats>.from(details.players)
+        ..sort((a, b) => b.score.compareTo(a.score));
+      final isMvp = sortedByScore.isNotEmpty &&
+          sortedByScore.first.puuid == creds.puuid;
+
+      enriched.add(entry.copyWithStats(
+        kills: player.kills,
+        deaths: player.deaths,
+        assists: player.assists,
+        isMvp: isMvp,
+        matchScore: scoreStr,
+        result: matchResult,
+        agentId: player.agentId,
+      ));
+    } catch (_) {
+      enriched.add(entry);
+    }
+  }
+
+  final enrichedResult = MatchHistoryResult(
+    puuid: result.puuid,
+    total: result.total,
+    start: result.start,
+    end: result.end,
+    matches: enriched,
+  );
+
+  return CachedFetchResult(enrichedResult, fromCache: fromCache);
 });
 
 // ── Queue filter config ───────────────────────────────────────────────────────
@@ -460,17 +546,21 @@ class _MatchTile extends ConsumerWidget {
         mapInfo?['splash'] as String?;
 
     final result = entry.result;
-    // Victory = green, Defeat = red, Draw = grey
+    // Victory = green, Defeat = red, Draw = grey, Unknown = show queue color
     final resultColor = result == MatchResult.victory
         ? AppColors.win
         : result == MatchResult.defeat
             ? AppColors.loss
-            : AppColors.draw;
+            : result == MatchResult.draw
+                ? AppColors.draw
+                : AppColors.textMuted;
     final resultLabel = result == MatchResult.victory
         ? 'VICTORY'
         : result == MatchResult.defeat
             ? 'DEFEAT'
-            : 'DRAW';
+            : result == MatchResult.draw
+                ? 'DRAW'
+                : '—';
 
     final score = entry.matchScore;
     final hasKda = entry.kills != null;

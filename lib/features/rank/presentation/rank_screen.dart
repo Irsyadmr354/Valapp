@@ -7,7 +7,6 @@ import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
-import '../../../shared/widgets/rank_badge.dart';
 import '../domain/models/player_mmr.dart';
 
 // Dynamic season provider
@@ -672,56 +671,74 @@ class _RankCard extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // Rank icon + name row
+          // Rank icon + stats row
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Icon
+              // Rank icon only — no text inside, prevents overflow
               SizedBox(
-                width: 90,
-                height: 90,
-                child: RankBadge(
-                  tierName: tierName,
-                  rankedRating: mmr.currentRankedRating,
-                  iconUrl: iconUrl,
-                  large: true,
-                ),
+                width: 80,
+                height: 80,
+                child: iconUrl != null && iconUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: iconUrl,
+                        fit: BoxFit.contain,
+                        placeholder: (_, __) => const SizedBox(),
+                        errorWidget: (_, __, ___) => const Icon(
+                            Icons.shield_outlined,
+                            color: AppColors.red, size: 56),
+                      )
+                    : const Icon(Icons.shield_outlined,
+                        color: AppColors.red, size: 56),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 16),
               // Stats column
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Tier name here — not inside the icon widget
+                    Text(
+                      tierName.toUpperCase(),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
                     const Text('RANK RATING',
                         style: TextStyle(
                             color: Colors.white54,
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.0)),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       '${mmr.currentRankedRating} RR',
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 26,
+                          fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          height: 1.0),
+                          height: 1.1),
                     ),
-                    const SizedBox(height: 10),
-                    const Text('LAST 10 GAMES',
+                    const SizedBox(height: 6),
+                    const Text('LAST MATCH',
                         style: TextStyle(
                             color: Colors.white54,
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.0)),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      '${isNetPos ? '▲' : '▼'} ${isNetPos ? '+' : ''}$latestRr RR',
+                      '${isNetPos ? '▲ +' : '▼ '}$latestRr RR',
                       style: TextStyle(
                           color: isNetPos
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFFF4655),
-                          fontSize: 16,
+                              ? AppColors.win
+                              : AppColors.loss,
+                          fontSize: 14,
                           fontWeight: FontWeight.w900),
                     ),
                   ],
@@ -731,36 +748,29 @@ class _RankCard extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           // RR progress bar
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${mmr.currentRankedRating} / 100 RR',
-                    style: const TextStyle(
-                        color: Colors.white54, fontSize: 11),
-                  ),
-                  if (mmr.gamesNeededForRating > 0)
-                    Text(
-                      '${mmr.gamesNeededForRating} games for rating',
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 10),
-                    ),
-                ],
+              Text(
+                '${mmr.currentRankedRating} / 100 RR',
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
               ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: rrProgress,
-                  backgroundColor: const Color(0xFF141F2D),
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.red),
-              minHeight: 8,
+              if (mmr.gamesNeededForRating > 0)
+                Text(
+                  '${mmr.gamesNeededForRating} games for rating',
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
-              ),
             ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: rrProgress,
+              backgroundColor: AppColors.bgCard2,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.red),
+              minHeight: 8,
+            ),
           ),
         ],
       ),

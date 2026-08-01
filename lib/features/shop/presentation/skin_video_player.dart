@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import '../../../shared/utils/app_colors.dart';
 
 /// Modal dialog for playing level upgrade VFX & finisher videos natively via WebView HTML5 Video.
 class SkinVideoDialog extends StatefulWidget {
@@ -216,6 +217,19 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
     _controller.loadHtmlString(html, baseUrl: 'https://valorant-api.com');
   }
 
+  /// Shortens a title like "Sentinels of Light Sheriff Level 4 - Video Preview"
+  /// to "Sentinels of Light Sheriff · Lv.4" for the dialog header.
+  String _shortTitle(String raw) {
+    // Strip everything from " - " onwards
+    var s = raw.contains(' - ') ? raw.substring(0, raw.indexOf(' - ')) : raw;
+    // Compress "Level N" → "· Lv.N"
+    s = s.replaceAllMapped(
+      RegExp(r'Level\s+(\d+)', caseSensitive: false),
+      (m) => '· Lv.${m[1]}',
+    );
+    return s.trim();
+  }
+
   @override
   void dispose() {
     // Explicitly pause video and clear source to stop background audio playback on dialog close
@@ -229,26 +243,29 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF0E1622),
+      backgroundColor: AppColors.bgCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: widget.tierColor, width: 1.5),
+        side: const BorderSide(color: AppColors.red, width: 1.5),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Dialog Header
+          // Dialog Header — title trimmed to skin name + level only
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
+                const Icon(Icons.play_circle_outline_rounded,
+                    color: AppColors.red, size: 18),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    widget.title,
+                    _shortTitle(widget.title),
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
                     maxLines: 1,

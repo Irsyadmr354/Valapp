@@ -14,29 +14,51 @@ class PlayerLoadout {
     required this.weapons,
   });
 
-  factory PlayerLoadout.fromJson(Map<String, dynamic> json) {
-    final identity = json['Identity'] as Map<String, dynamic>? ?? {};
-    final sprays = json['Sprays'] as Map<String, dynamic>? ?? {};
-    final spraySelections =
-        (sprays['SpraySelections'] as List<dynamic>?) ?? [];
+  /// Safely coerce any [value] to a `Map<String, dynamic>`, returning an
+  /// empty map if [value] is null, a List, a primitive, or otherwise uncastable.
+  static Map<String, dynamic> _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      try { return Map<String, dynamic>.from(value); } catch (_) {}
+    }
+    return {};
+  }
 
-    // Slot 0 = PreRound spray
+  /// Safely coerce [value] to a `List<dynamic>`, returning [] for anything else.
+  static List<dynamic> _asList(dynamic value) {
+    if (value is List<dynamic>) return value;
+    if (value is List) return List<dynamic>.from(value);
+    return [];
+  }
+
+  factory PlayerLoadout.fromJson(Map<String, dynamic> json) {
+    final identity = _asMap(json['Identity']);
+    final spraysBag = _asMap(json['Sprays']);
+    final spraySelections = _asList(spraysBag['SpraySelections']);
+
+    // Slot 0 = PreRound spray (SocketID ends with '01')
     String? preRoundSpray;
     for (final s in spraySelections) {
-      if (s is Map && (s['SocketID'] as String? ?? '').contains('01')) {
-        preRoundSpray = s['SprayID'] as String?;
+      final sMap = _asMap(s);
+      if ((sMap['SocketID'] as String? ?? '').contains('01')) {
+        preRoundSpray = sMap['SprayID'] as String?;
         break;
       }
     }
+    // Fallback: first spray in the list
     if (preRoundSpray == null && spraySelections.isNotEmpty) {
-      preRoundSpray =
-          (spraySelections.first as Map<String, dynamic>)['SprayID']
-              as String?;
+      preRoundSpray = _asMap(spraySelections.first)['SprayID'] as String?;
     }
 
-    final guns = (json['Guns'] as List<dynamic>?) ?? [];
-    final weapons =
-        guns.map((g) => WeaponLoadout.fromJson(g as Map<String, dynamic>)).toList();
+    final rawGuns = _asList(json['Guns']);
+    final weapons = rawGuns
+        .map((g) {
+          final gMap = _asMap(g);
+          if (gMap.isEmpty) return null;
+          return WeaponLoadout.fromJson(gMap);
+        })
+        .whereType<WeaponLoadout>()
+        .toList();
 
     return PlayerLoadout(
       puuid: json['Subject'] as String? ?? '',
@@ -50,7 +72,7 @@ class PlayerLoadout {
 
 /// A single weapon slot in the loadout.
 class WeaponLoadout {
-  final String weaponId; // e.g. the weapon type UUID
+  final String weaponId;
   final String? skinLevelId;
   final String? chromaId;
   final String? buddyId; // gun buddy level UUID (nullable)
@@ -63,13 +85,24 @@ class WeaponLoadout {
   });
 
   factory WeaponLoadout.fromJson(Map<String, dynamic> json) {
-    final attachments = json['Attachments'] as List<dynamic>? ?? [];
+    // Attachments can be a List OR a Map depending on Riot API version
     String? buddyId;
-    for (final a in attachments) {
-      if (a is Map) {
-        buddyId ??= a['CharmLevelID'] as String?;
+    final rawAttachments = json['Attachments'];
+    if (rawAttachments is List) {
+      for (final a in rawAttachments) {
+        if (a is Map) {
+          buddyId ??= a['CharmLevelID'] as String?;
+        }
+      }
+    } else if (rawAttachments is Map) {
+      // Some responses embed attachments as a Map keyed by socket UUID
+      for (final v in rawAttachments.values) {
+        if (v is Map) {
+          buddyId ??= v['CharmLevelID'] as String?;
+        }
       }
     }
+
     return WeaponLoadout(
       weaponId: json['ID'] as String? ?? '',
       skinLevelId: json['SkinLevelID'] as String?,
