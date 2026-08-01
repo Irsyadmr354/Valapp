@@ -46,6 +46,10 @@ import '../../features/profile/data/account_local_cache.dart';
 import '../../features/loadout/data/loadout_remote_source.dart';
 import '../../features/loadout/data/loadout_local_cache.dart';
 
+// ── News ──────────────────────────────────────────────────────────────────
+
+import '../../features/news/data/news_remote_source.dart';
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Core singletons
 // ═════════════════════════════════════════════════════════════════════════════
@@ -203,4 +207,11 @@ final loadoutRemoteSourceProvider =
 
 final loadoutLocalCacheProvider = Provider<LoadoutLocalCache>((ref) {
   return LoadoutLocalCache(ref.watch(cacheStorageProvider));
+});
+
+// ── News ───────────────────────────────────────────────────────────────────
+
+final newsRemoteSourceProvider = FutureProvider<NewsRemoteSource>((ref) async {
+  final dio = await ref.watch(apiDioProvider.future);
+  return NewsRemoteSource(dio);
 });

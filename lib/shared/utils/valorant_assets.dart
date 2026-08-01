@@ -201,9 +201,13 @@ class ValorantAssets {
     final cache = CacheStorage.instance;
     const keyMaps = 'maps_metadata';
     const keyMapsFetchedAt = 'maps_metadata_fetched_at';
+    // Version bump — forces re-fetch when map indexing logic changes
+    const mapsVersion = 'v2';
+    const keyMapsVersion = 'maps_metadata_version';
 
+    final storedVersion = await cache.getString(keyMapsVersion);
     final isStale = await cache.isStale(keyMapsFetchedAt, _cacheDuration);
-    if (!isStale) {
+    if (!isStale && storedVersion == mapsVersion) {
       final cached = await cache.getJson(keyMaps);
       if (cached != null) return cached;
     }
@@ -243,16 +247,36 @@ class ValorantAssets {
           'listViewIcon': m['listViewIcon']?.toString() ?? splash,
         };
 
+        // Index by display name (e.g. "bind")
         if (displayName.isNotEmpty) {
           map[displayName.toLowerCase()] = info;
         }
+
         if (mapUrl.isNotEmpty) {
           final lowerUrl = mapUrl.toLowerCase();
+
+          // Index by full URL
           map[lowerUrl] = info;
 
-          final lastSeg = lowerUrl.split('/').last;
-          if (lastSeg.isNotEmpty) {
-            map[lastSeg] = info;
+          // Index by every path segment (handles /Game/Maps/Duality/Duality)
+          final segments = lowerUrl.split('/').where((s) => s.isNotEmpty).toList();
+          for (final seg in segments) {
+            if (seg.isEmpty) continue;
+            map[seg] = info;
+
+            // Strip common Riot suffix variants:
+            // _wp (WorldPartition), _wip, _p, _p0, _test, _playtest, _dev, numeric suffix
+            final cleaned = seg
+                .replaceAll(RegExp(r'_wp$'), '')
+                .replaceAll(RegExp(r'_wip$'), '')
+                .replaceAll(RegExp(r'_p\d*$'), '')
+                .replaceAll(RegExp(r'_test$'), '')
+                .replaceAll(RegExp(r'_playtest$'), '')
+                .replaceAll(RegExp(r'_dev$'), '')
+                .replaceAll(RegExp(r'_\d+$'), '');
+            if (cleaned.isNotEmpty && cleaned != seg) {
+              map[cleaned] = info;
+            }
           }
         }
       }
@@ -267,6 +291,7 @@ class ValorantAssets {
 
       await cache.setJson(keyMaps, map);
       await cache.setTimestamp(keyMapsFetchedAt);
+      await cache.setString(keyMapsVersion, mapsVersion);
       return map;
     } catch (_) {
       final cached = await cache.getJson(keyMaps);
@@ -655,7 +680,50 @@ class ValorantAssets {
     }
   }
 
-  // ── Gun Buddies ────────────────────────────────────────────────────────────
+  // ── Level Borders ──────────────────────────────────────────────────────────
+
+  /// Returns a list of level border entries sorted by startingLevel ascending:
+  /// [{ 'uuid', 'displayName', 'startingLevel', 'displayIcon', 'smallPlayerCardAppearance' }]
+  Future<List<Map<String, dynamic>>> getLevelBordersList() async {
+    final cache = CacheStorage.instance;
+    const keyBorders = 'level_borders_metadata';
+    const keyBordersFetchedAt = 'level_borders_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyBordersFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJsonList(keyBorders);
+      if (cached != null) {
+        return cached.whereType<Map<String, dynamic>>().toList();
+      }
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/levelborders');
+      final borders = (response.data?['data'] as List<dynamic>?) ?? [];
+      final list = borders
+          .whereType<Map<String, dynamic>>()
+          .map((b) => {
+                'uuid': b['uuid'],
+                'displayName': b['displayName'],
+                'startingLevel': b['startingLevel'] ?? 0,
+                'levelNumberAppearance': b['levelNumberAppearance'],
+                'smallPlayerCardAppearance': b['smallPlayerCardAppearance'],
+                'displayIcon': b['displayIcon'],
+              })
+          .toList()
+        ..sort((a, b) => ((a['startingLevel'] as int?) ?? 0)
+            .compareTo((b['startingLevel'] as int?) ?? 0));
+      await cache.setJson(keyBorders, list);
+      await cache.setTimestamp(keyBordersFetchedAt);
+      return list;
+    } catch (_) {
+      final cached = await cache.getJsonList(keyBorders);
+      if (cached != null) {
+        return cached.whereType<Map<String, dynamic>>().toList();
+      }
+      return [];
+    }
+  }
 
   Future<Map<String, dynamic>> getBuddiesMap() async {
     final cache = CacheStorage.instance;

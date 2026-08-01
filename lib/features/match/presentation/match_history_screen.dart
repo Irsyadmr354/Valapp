@@ -35,8 +35,8 @@ final _matchHistoryProvider =
   final queue = ref.watch(_queueFilterProvider);
   final source = await ref.watch(matchRemoteSourceProvider.future);
   final cache = ref.watch(matchHistoryLocalCacheProvider);
-  final detailCache = ref.watch(matchDetailLocalCacheProvider);
 
+  // ── Step 1: fetch/load history quickly (no detail calls here) ────────────
   MatchHistoryResult result;
   bool fromCache = false;
 
@@ -58,94 +58,110 @@ final _matchHistoryProvider =
     }
   }
 
-  // ── Autonomous enrichment: parallel fetch + cache ────────────────────────
-  // For every match in the list:
-  //   1. Check the detail cache (no network call needed)
-  //   2. If not cached, fetch from network (fire in batches of 5)
-  //   3. Enrich the entry with result / KDA / agentId
-  Future<MatchHistoryEntry> enrichEntry(MatchHistoryEntry entry) async {
-    Map<String, dynamic>? detailRaw =
-        await detailCache.loadMatchDetailRaw(entry.matchId);
-
-    // Not cached → fetch from network
+  // ── Step 2: enrich only from CACHE (no network here — zero lag) ──────────
+  // Entries that already have a cached detail get enriched immediately.
+  // Missing details are fetched by _enrichmentProvider in the background.
+  final detailCache = ref.watch(matchDetailLocalCacheProvider);
+  final quickEnriched = <MatchHistoryEntry>[];
+  for (final entry in result.matches) {
+    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
     if (detailRaw == null) {
-      try {
-        detailRaw =
-            await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
-        await detailCache.saveMatchDetail(entry.matchId, detailRaw);
-      } catch (_) {
-        return entry; // network failed, return as-is
-      }
+      quickEnriched.add(entry);
+      continue;
     }
-
     try {
       final details = MatchDetails.fromJson(detailRaw);
       final player = details.players
           .cast<PlayerStats?>()
           .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
-      if (player == null) return entry;
+      if (player == null) { quickEnriched.add(entry); continue; }
 
-      // Result from round wins
       MatchResult matchResult = MatchResult.unknown;
       if (details.roundResults.isNotEmpty) {
         final pt = player.teamId.toLowerCase();
         final myWins = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == pt)
-            .length;
+            .where((r) => r.winningTeam.toLowerCase() == pt).length;
         final oppWins = details.roundResults.length - myWins;
         matchResult = myWins > oppWins
             ? MatchResult.victory
-            : myWins < oppWins
-                ? MatchResult.defeat
-                : MatchResult.draw;
+            : myWins < oppWins ? MatchResult.defeat : MatchResult.draw;
       }
 
-      // Score string
       String? scoreStr;
       if (details.roundResults.isNotEmpty) {
         final pt = player.teamId.toLowerCase();
-        final my =
-            details.roundResults.where((r) => r.winningTeam.toLowerCase() == pt).length;
+        final my = details.roundResults
+            .where((r) => r.winningTeam.toLowerCase() == pt).length;
         scoreStr = '$my – ${details.roundResults.length - my}';
       }
 
-      // MVP = top scorer overall
       final sorted = List<PlayerStats>.from(details.players)
         ..sort((a, b) => b.score.compareTo(a.score));
       final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
 
-      return entry.copyWithStats(
-        kills: player.kills,
-        deaths: player.deaths,
-        assists: player.assists,
-        isMvp: isMvp,
-        matchScore: scoreStr,
-        result: matchResult,
+      quickEnriched.add(entry.copyWithStats(
+        kills: player.kills, deaths: player.deaths, assists: player.assists,
+        isMvp: isMvp, matchScore: scoreStr, result: matchResult,
         agentId: player.agentId,
-      );
+      ));
     } catch (_) {
-      return entry;
+      quickEnriched.add(entry);
     }
   }
 
-  // Process in batches of 5 to avoid flooding the API
+  return CachedFetchResult(
+    MatchHistoryResult(
+      puuid: result.puuid, total: result.total,
+      start: result.start, end: result.end,
+      matches: quickEnriched,
+    ),
+    fromCache: fromCache,
+  );
+});
+
+/// Background enrichment provider — fetches missing match details from
+/// network without blocking the UI. Invalidates [_matchHistoryProvider]
+/// when done so the list rebuilds with full KDA/result data.
+final _backgroundEnrichmentProvider =
+    FutureProvider.autoDispose<void>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return;
+  // Watch queue filter so this provider re-runs when the filter changes
+  ref.watch(_queueFilterProvider);
+  final historyResult = await ref.watch(_matchHistoryProvider.future);
+  if (historyResult == null) return;
+
+  final source = await ref.watch(matchRemoteSourceProvider.future);
+  final detailCache = ref.watch(matchDetailLocalCacheProvider);
+
+  // Only fetch details that are NOT already cached
+  final missing = historyResult.data.matches
+      .where((e) => e.result == MatchResult.unknown || e.kills == null)
+      .toList();
+  if (missing.isEmpty) return;
+
+  bool anyNewData = false;
   const batchSize = 5;
-  final enriched = <MatchHistoryEntry>[];
-  for (var i = 0; i < result.matches.length; i += batchSize) {
-    final batch = result.matches.skip(i).take(batchSize).toList();
-    final results = await Future.wait(batch.map(enrichEntry));
-    enriched.addAll(results);
+  for (var i = 0; i < missing.length; i += batchSize) {
+    final batch = missing.skip(i).take(batchSize).toList();
+    await Future.wait(batch.map((entry) async {
+      // Skip if already cached (race-free check)
+      final existing = await detailCache.loadMatchDetailRaw(entry.matchId);
+      if (existing != null) return;
+      try {
+        final raw =
+            await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
+        await detailCache.saveMatchDetail(entry.matchId, raw);
+        anyNewData = true;
+      } catch (_) {}
+    }));
   }
 
-  final enrichedResult = MatchHistoryResult(
-    puuid: result.puuid,
-    total: result.total,
-    start: result.start,
-    end: result.end,
-    matches: enriched,
-  );
-
-  return CachedFetchResult(enrichedResult, fromCache: fromCache);
+  // Trigger re-render only if we actually fetched new data
+  if (anyNewData) {
+    ref.invalidateSelf();
+    ref.invalidate(_matchHistoryProvider);
+  }
 });
 
 // ── Queue filter config ───────────────────────────────────────────────────────
@@ -169,6 +185,9 @@ class MatchHistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(_matchHistoryProvider);
     final selectedQueue = ref.watch(_queueFilterProvider);
+
+    // Kick off background enrichment — non-blocking, updates list when done
+    ref.watch(_backgroundEnrichmentProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -549,13 +568,34 @@ class _MatchTile extends ConsumerWidget {
     final mapName = entry.getMapDisplayName(mapsMap);
 
     final rawKey = entry.mapId.toLowerCase();
-    final lastSeg = rawKey.split('/').last.split('.').first;
-    final mapInfo = mapsMap[rawKey] as Map<String, dynamic>? ??
-        mapsMap[lastSeg] as Map<String, dynamic>? ??
-        mapsMap[mapName.toLowerCase()] as Map<String, dynamic>?;
+    // Try: full path, each segment, segment without _wp/_wip suffixes, and resolved display name
+    final segments = rawKey.split('/').where((s) => s.isNotEmpty).toList();
+    Map<String, dynamic>? mapInfo;
+    // 1. Full raw path
+    mapInfo = mapsMap[rawKey] as Map<String, dynamic>?;
+    // 2. Each path segment and cleaned variants
+    if (mapInfo == null) {
+      for (final seg in segments.reversed) {
+        mapInfo = mapsMap[seg] as Map<String, dynamic>?;
+        if (mapInfo != null) break;
+        final cleaned = seg
+            .replaceAll(RegExp(r'_wp$'), '')
+            .replaceAll(RegExp(r'_wip$'), '')
+            .replaceAll(RegExp(r'_p\d*$'), '')
+            .replaceAll(RegExp(r'_\d+$'), '');
+        if (cleaned != seg) {
+          mapInfo = mapsMap[cleaned] as Map<String, dynamic>?;
+          if (mapInfo != null) break;
+        }
+      }
+    }
+    // 3. Display name from model fallback
+    if (mapInfo == null && mapName.isNotEmpty) {
+      mapInfo = mapsMap[mapName.toLowerCase()] as Map<String, dynamic>?;
+    }
     final mapSplashUrl = mapInfo?['listViewIcon'] as String? ??
-        mapInfo?['displayIcon'] as String? ??
-        mapInfo?['splash'] as String?;
+        mapInfo?['splash'] as String? ??
+        mapInfo?['displayIcon'] as String?;
 
     final result = entry.result;
     // Victory = green, Defeat = red, Draw = grey, Unknown = show queue color

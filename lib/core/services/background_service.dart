@@ -8,18 +8,17 @@ import 'notification_service.dart';
 
 const String taskWishlistBackgroundCheck = 'valapp_background_wishlist_check';
 
-/// Top-level entry point required by Workmanager for background execution.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    debugPrint('[BackgroundService] Running background task: $task');
-    if (task == taskWishlistBackgroundCheck || task == Workmanager.iOSBackgroundTask) {
+    debugPrint('[BackgroundService] task: $task');
+    if (task == taskWishlistBackgroundCheck ||
+        task == Workmanager.iOSBackgroundTask) {
       try {
-        final service = BackgroundWishlistChecker();
-        await service.runCheck();
+        await BackgroundShopChecker().runCheck();
         return true;
       } catch (e) {
-        debugPrint('[BackgroundService] Error during background check: $e');
+        debugPrint('[BackgroundService] error: $e');
         return false;
       }
     }
@@ -27,123 +26,181 @@ void callbackDispatcher() {
   });
 }
 
-/// Helper to initialize and manage Workmanager background monitoring.
 class BackgroundService {
   BackgroundService._();
   static final instance = BackgroundService._();
-
   bool _isInitialized = false;
 
   Future<void> init() async {
     if (_isInitialized) return;
-
     try {
       await Workmanager().initialize(
         callbackDispatcher,
         isInDebugMode: kDebugMode,
       );
-
-      // Register periodic background task running every 3 hours (minimum interval enforced by OS)
       await Workmanager().registerPeriodicTask(
         'valapp_wishlist_periodic_task',
         taskWishlistBackgroundCheck,
         frequency: const Duration(hours: 3),
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-        ),
+        constraints: Constraints(networkType: NetworkType.connected),
         existingWorkPolicy: ExistingWorkPolicy.replace,
       );
-
       _isInitialized = true;
-      debugPrint('[BackgroundService] Background task registered successfully');
     } catch (e) {
-      debugPrint('[BackgroundService] Failed to initialize Workmanager: $e');
+      debugPrint('[BackgroundService] init error: $e');
     }
   }
 }
 
-/// Performs silent background shop check and triggers wishlist notification.
-class BackgroundWishlistChecker {
+/// Performs the background shop check:
+/// 1. Fetches the live storefront
+/// 2. Resolves skin names + actual prices
+/// 3. Fires wishlist match notification if any matched
+/// 4. Fires shop reset notification when the shop changes
+class BackgroundShopChecker {
   final Dio _dio = Dio();
+
+  static const _vpCurrencyId = '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741';
+  static const _lastShopKey = 'background_last_shop_ids';
 
   Future<void> runCheck() async {
     final storage = SecureStorage.instance;
     final cache = CacheStorage.instance;
 
     final accessToken = await storage.read(SecureStorage.keyAccessToken);
-    final entitlementToken = await storage.read(SecureStorage.keyEntitlementToken);
+    final entitlementToken =
+        await storage.read(SecureStorage.keyEntitlementToken);
     final puuid = await storage.read(SecureStorage.keyPuuid);
     final shard = await storage.read(SecureStorage.keyShard);
 
-    if (accessToken == null || entitlementToken == null || puuid == null || shard == null) {
-      debugPrint('[BackgroundChecker] Missing credentials, skipping check');
+    if (accessToken == null ||
+        entitlementToken == null ||
+        puuid == null ||
+        shard == null) {
       return;
     }
 
-    final wishlist = await cache.getWishlist();
-    if (wishlist.isEmpty) {
-      debugPrint('[BackgroundChecker] Wishlist is empty, skipping check');
-      return;
-    }
-
-    // 1. Fetch storefront directly
-    final storefrontResponse = await _dio.post<dynamic>(
-      'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
-      options: Options(
-        headers: {
+    // ── Fetch storefront ────────────────────────────────────────────────────
+    final Map<String, dynamic> storefront;
+    try {
+      final resp = await _dio.post<dynamic>(
+        'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
+        options: Options(headers: {
           'Authorization': 'Bearer $accessToken',
           'X-Riot-Entitlements-JWT': entitlementToken,
           'Content-Type': 'application/json',
-        },
-      ),
-      data: {},
-    );
-
-    final rawData = storefrontResponse.data;
-    Map<String, dynamic> storefrontMap = {};
-    if (rawData is Map<String, dynamic>) {
-      storefrontMap = rawData;
-    } else if (rawData is String) {
-      try {
-        storefrontMap = jsonDecode(rawData) as Map<String, dynamic>;
-      } catch (_) {}
-    }
-
-    final singleItemStore =
-        storefrontMap['SkinsPanelLayout']?['SingleItemOffers'] as List<dynamic>? ?? [];
-    final dailyOfferUuids = singleItemStore.map((e) => e.toString()).toList();
-
-    // Check matches
-    final matchedUuids = dailyOfferUuids.where((id) => wishlist.contains(id)).toList();
-    if (matchedUuids.isEmpty) {
-      debugPrint('[BackgroundChecker] No wishlist matches found today');
+        }),
+        data: {},
+      );
+      final raw = resp.data;
+      if (raw is Map<String, dynamic>) {
+        storefront = raw;
+      } else if (raw is String) {
+        storefront = jsonDecode(raw) as Map<String, dynamic>;
+      } else {
+        return;
+      }
+    } catch (_) {
       return;
     }
 
-    // 2. Fetch skin metadata for matched names
-    final skinsResponse =
-        await _dio.get<Map<String, dynamic>>('https://valorant-api.com/v1/weapons/skins');
-    final skinsData = skinsResponse.data?['data'] as List<dynamic>? ?? [];
+    // ── Extract offers with prices ──────────────────────────────────────────
+    final skinPanel =
+        storefront['SkinsPanelLayout'] as Map<String, dynamic>? ?? {};
+    final offerIds =
+        (skinPanel['SingleItemOffers'] as List<dynamic>?)
+            ?.cast<String>() ?? [];
+    final storeOffers =
+        skinPanel['SingleItemStoreOffers'] as List<dynamic>? ?? [];
 
-    final skinNameMap = <String, String>{};
-    for (final skin in skinsData) {
-      final levels = skin['levels'] as List<dynamic>? ?? [];
-      for (final lvl in levels) {
-        final uuid = lvl['uuid'] as String?;
-        if (uuid != null) {
-          skinNameMap[uuid] = skin['displayName'] as String? ?? 'Skin';
-        }
-      }
+    // Build price map: offerId → price
+    final priceMap = <String, int>{};
+    for (final o in storeOffers) {
+      if (o is! Map) continue;
+      final oid = o['OfferID'] as String?;
+      if (oid == null) continue;
+      final cost = o['Cost'] as Map<String, dynamic>? ?? {};
+      final price = (cost[_vpCurrencyId] as num?)?.toInt() ?? 0;
+      priceMap[oid] = price;
     }
 
-    // 3. Trigger native notification for each match
-    for (final matchedUuid in matchedUuids) {
-      final skinName = skinNameMap[matchedUuid] ?? 'Wishlist Skin';
-      debugPrint('[BackgroundChecker] Wishlist MATCH FOUND: $skinName ($matchedUuid)');
+    if (offerIds.isEmpty) return;
+
+    // ── Detect shop reset ───────────────────────────────────────────────────
+    final lastShopRaw = await cache.getJson(_lastShopKey);
+    final lastOffers =
+        (lastShopRaw?['ids'] as List<dynamic>?)?.cast<String>() ?? [];
+    final isNewShop = !_setsEqual(offerIds.toSet(), lastOffers.toSet());
+
+    // ── Resolve skin names from valorant-api.com ────────────────────────────
+    final skinNameMap = await _buildSkinNameMap(cache);
+
+    final wishlist = await cache.getWishlist();
+
+    // ── Fire notifications ─────────────────────────────────────────────────
+
+    // Wishlist matches
+    final matchedOffers = offerIds
+        .where((id) => wishlist.contains(id))
+        .toList();
+    for (final id in matchedOffers) {
+      final name = skinNameMap[id] ?? 'Wishlist Skin';
+      final price = priceMap[id] ?? 0;
       await NotificationService.instance.showWishlistAlert(
-        skinName: skinName,
-        price: 1775, // Standard VP estimate for notification payload
+        skinName: name,
+        price: price,
       );
+    }
+
+    // Shop reset — fire once per new rotation
+    if (isNewShop) {
+      final skinNames = offerIds
+          .map((id) => skinNameMap[id] ?? id.substring(0, 8))
+          .toList();
+      await NotificationService.instance.showShopResetAlert(
+        skinNames: skinNames,
+        wishlistMatchCount: matchedOffers.length,
+      );
+      // Save current offer IDs so we don't re-notify for same shop
+      await cache.setJson(_lastShopKey, {'ids': offerIds});
+    }
+  }
+
+  bool _setsEqual(Set<String> a, Set<String> b) {
+    if (a.length != b.length) return false;
+    return a.containsAll(b);
+  }
+
+  Future<Map<String, String>> _buildSkinNameMap(CacheStorage cache) async {
+    // Try local cache first
+    const keyNames = 'skin_name_map_bg';
+    const keyNamesFetchedAt = 'skin_name_map_bg_fetched_at';
+    final isStale =
+        await cache.isStale(keyNamesFetchedAt, const Duration(hours: 24));
+    if (!isStale) {
+      final cached = await cache.getJson(keyNames);
+      if (cached != null) {
+        return cached.map((k, v) => MapEntry(k, v.toString()));
+      }
+    }
+    try {
+      final resp = await _dio
+          .get<Map<String, dynamic>>('https://valorant-api.com/v1/weapons/skins');
+      final skins = resp.data?['data'] as List<dynamic>? ?? [];
+      final map = <String, String>{};
+      for (final skin in skins) {
+        final name = skin['displayName'] as String? ?? '';
+        final levels = skin['levels'] as List<dynamic>? ?? [];
+        for (final lvl in levels) {
+          final uuid = lvl['uuid'] as String?;
+          if (uuid != null) map[uuid] = name;
+        }
+      }
+      await cache.setJson(keyNames, map);
+      await cache.setTimestamp(keyNamesFetchedAt);
+      return map;
+    } catch (_) {
+      return {};
     }
   }
 }

@@ -7,6 +7,7 @@ import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
+import '../../news/domain/models/news_article.dart';
 import '../../../shared/widgets/skin_card.dart';
 import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
@@ -124,6 +125,11 @@ final _skinLevelsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
   return assets.getSkinLevelsMap();
+});
+
+final _newsFeedProvider = FutureProvider.autoDispose((ref) async {
+  final source = await ref.watch(newsRemoteSourceProvider.future);
+  return source.fetchNews();
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -439,6 +445,11 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
 
         // Quick cards
         const _HomeQuickCardsRow(),
+        const SizedBox(height: 24),
+
+        // Valorant News Feed
+        const _SectionHeader(title: 'Valorant News'),
+        const _NewsFeedSection(),
         const SizedBox(height: 80),
       ]),
     );
@@ -1510,5 +1521,223 @@ class _MatchMiniTile extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── News Feed Section ─────────────────────────────────────────────────────────
+
+class _NewsFeedSection extends ConsumerWidget {
+  const _NewsFeedSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final newsAsync = ref.watch(_newsFeedProvider);
+
+    return newsAsync.when(
+      data: (articles) {
+        if (articles.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.wifi_off_rounded, color: AppColors.textMuted, size: 18),
+                  SizedBox(width: 10),
+                  Text('News unavailable — check your connection.',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                ],
+              ),
+            ),
+          );
+        }
+        return SizedBox(
+          height: 196,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: articles.length,
+            itemBuilder: (context, i) => _NewsCard(article: articles[i]),
+          ),
+        );
+      },
+      loading: () => SizedBox(
+        height: 196,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: 3,
+          itemBuilder: (_, __) => Container(
+            width: 240,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: AppColors.bgCard,
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ),
+      error: (_, __) => const SizedBox(),
+    );
+  }
+}
+
+class _NewsCard extends StatelessWidget {
+  const _NewsCard({required this.article});
+  final NewsArticle article;
+
+  static const _categoryColors = <String, Color>{
+    'PATCH NOTES': Color(0xFF10B981),
+    'ESPORTS': AppColors.vpCyan,
+    'ANNOUNCEMENT': AppColors.red,
+    'DEV DIARY': AppColors.rpAmber,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final label = article.categoryLabel;
+    final color = _categoryColors[label] ?? AppColors.textSecondary;
+
+    return GestureDetector(
+      onTap: () {
+        // Open article URL in the webview or external browser
+        // Using the existing webview infrastructure if available
+      },
+      child: Container(
+        width: 240,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border, width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(50),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(13),
+          child: Stack(
+            children: [
+              // Banner image
+              Positioned(
+                top: 0, left: 0, right: 0,
+                height: 108,
+                child: article.bannerUrl != null &&
+                        article.bannerUrl!.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: article.bannerUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                            color: AppColors.bgCard2),
+                        errorWidget: (_, __, ___) =>
+                            Container(color: AppColors.bgCard2,
+                              child: const Center(
+                                child: Icon(Icons.newspaper_outlined,
+                                    color: AppColors.textMuted, size: 32),
+                              ),
+                            ),
+                      )
+                    : Container(
+                        color: AppColors.bgCard2,
+                        child: const Center(
+                          child: Icon(Icons.newspaper_outlined,
+                              color: AppColors.textMuted, size: 32),
+                        ),
+                      ),
+              ),
+              // Gradient overlay at bottom of image
+              Positioned(
+                top: 60, left: 0, right: 0, height: 48,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        AppColors.bgCard.withAlpha(220),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Category badge top-left
+              Positioned(
+                top: 8, left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(40),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                        color: color.withAlpha(120), width: 0.8),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+              // Text content below banner
+              Positioned(
+                top: 108, left: 0, right: 0, bottom: 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        article.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Spacer(),
+                      if (article.publishedAt != null)
+                        Text(
+                          _formatDate(article.publishedAt!),
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    const months = [
+      'Jan','Feb','Mar','Apr','May','Jun',
+      'Jul','Aug','Sep','Oct','Nov','Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 }

@@ -115,11 +115,64 @@ final _profileCardProvider =
     final cardsMap =
         await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
     final cardInfo = cardsMap[cardId] as Map<String, dynamic>?;
+    // Use largeArt for header background (best quality), fallback chain
+    final wideArt = cardInfo?['largeArt'] as String? ??
+        cardInfo?['wideArt'] as String? ??
+        cardInfo?['displayIcon'] as String?;
+    final smallArt = cardInfo?['smallArt'] as String? ??
+        cardInfo?['displayIcon'] as String?;
     return _PlayerCardInfo(
       cardId: cardId,
-      wideArt: cardInfo?['wideArt'] as String?,
-      smallArt: cardInfo?['smallArt'] as String? ??
-          cardInfo?['displayIcon'] as String?,
+      wideArt: wideArt,
+      smallArt: smallArt,
+    );
+  } catch (_) {
+    return null;
+  }
+});
+
+// ── Level Border provider ─────────────────────────────────────────────────────
+
+class _LevelBorderInfo {
+  final Map<String, dynamic>? currentBorder;
+  final Map<String, dynamic>? nextBorder;
+  final int currentLevel;
+  const _LevelBorderInfo({
+    this.currentBorder,
+    this.nextBorder,
+    required this.currentLevel,
+  });
+}
+
+final _levelBorderProvider =
+    FutureProvider.autoDispose<_LevelBorderInfo?>((ref) async {
+  try {
+    final xpResult = await ref.watch(_accountXpProvider.future);
+    if (xpResult == null) return null;
+    final level = xpResult.data.level;
+
+    final borders =
+        await ref.watch(valorantAssetsProvider).getLevelBordersList();
+    if (borders.isEmpty) return _LevelBorderInfo(currentLevel: level);
+
+    // Find the current border = highest border whose startingLevel <= current level
+    Map<String, dynamic>? current;
+    Map<String, dynamic>? next;
+
+    for (var i = 0; i < borders.length; i++) {
+      final startLevel =
+          (borders[i]['startingLevel'] as num?)?.toInt() ?? 0;
+      if (startLevel <= level) {
+        current = borders[i];
+        // Next border = the following entry
+        next = i + 1 < borders.length ? borders[i + 1] : null;
+      }
+    }
+
+    return _LevelBorderInfo(
+      currentBorder: current,
+      nextBorder: next,
+      currentLevel: level,
     );
   } catch (_) {
     return null;
@@ -180,7 +233,7 @@ class ProfileScreen extends ConsumerWidget {
 
               const SizedBox(height: 16),
 
-              // 2. Account Level & XP Card (Matching Mockup Container)
+              // 2. Account Level & XP Card
               if (xpData != null)
                 _AccountLevelXpCard(xp: xpData, mmr: mmrData)
               else
@@ -188,7 +241,12 @@ class ProfileScreen extends ConsumerWidget {
 
               const SizedBox(height: 16),
 
-              // 3. 3 Quick Stat Cards Row (Matches Played, Wins, K/D Ratio)
+              // 3. Level Border Showcase
+              const _LevelBorderCard(),
+
+              const SizedBox(height: 16),
+
+              // 4. 3 Quick Stat Cards Row (Matches Played, Wins, K/D Ratio)
               _ProfileQuickStatsRow(historyResult: matchesData),
 
               const SizedBox(height: 20),
@@ -1075,6 +1133,260 @@ class _LoadoutQuickLink extends StatelessWidget {
                 color: AppColors.red, size: 20),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Level Border Showcase Card ────────────────────────────────────────────────
+
+class _LevelBorderCard extends ConsumerWidget {
+  const _LevelBorderCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final borderAsync = ref.watch(_levelBorderProvider);
+
+    return borderAsync.when(
+      data: (info) {
+        if (info == null || info.currentBorder == null) return const SizedBox();
+        return _LevelBorderContent(info: info);
+      },
+      loading: () => const SizedBox(),
+      error: (_, __) => const SizedBox(),
+    );
+  }
+}
+
+class _LevelBorderContent extends StatelessWidget {
+  const _LevelBorderContent({required this.info});
+  final _LevelBorderInfo info;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = info.currentBorder!;
+    final next = info.nextBorder;
+
+    final currentName = current['displayName'] as String? ?? 'Level Border';
+    final currentIcon = current['smallPlayerCardAppearance'] as String? ??
+        current['displayIcon'] as String?;
+
+    final nextName = next?['displayName'] as String?;
+    final nextStartLevel =
+        (next?['startingLevel'] as num?)?.toInt();
+    final nextIcon = next?['smallPlayerCardAppearance'] as String? ??
+        next?['displayIcon'] as String?;
+
+    // Progress to next border
+    final currentStart =
+        (current['startingLevel'] as num?)?.toInt() ?? 0;
+    final levelsInRange =
+        nextStartLevel != null ? (nextStartLevel - currentStart) : null;
+    final levelsGained = info.currentLevel - currentStart;
+    final progress = levelsInRange != null && levelsInRange > 0
+        ? (levelsGained / levelsInRange).clamp(0.0, 1.0)
+        : 1.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard2,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
+        boxShadow: AppColors.redGlow(alpha: 0.06),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                width: 3, height: 14,
+                color: AppColors.red,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'LEVEL BORDER',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              // Current border icon
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.bgCard,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
+                ),
+                child: currentIcon != null && currentIcon.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: CachedNetworkImage(
+                          imageUrl: currentIcon,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) =>
+                              Container(color: AppColors.bgCard),
+                          errorWidget: (_, __, ___) => const Icon(
+                              Icons.shield_outlined,
+                              color: AppColors.red, size: 32),
+                        ),
+                      )
+                    : const Icon(Icons.shield_outlined,
+                        color: AppColors.red, size: 32),
+              ),
+              const SizedBox(width: 14),
+
+              // Border info + progress
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      currentName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Level ${info.currentLevel}',
+                      style: const TextStyle(
+                        color: AppColors.red,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+
+                    if (next != null && nextStartLevel != null) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'NEXT BORDER',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          Text(
+                            'Lv. $nextStartLevel',
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: AppColors.bgCard,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.red),
+                          minHeight: 6,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$levelsGained / ${levelsInRange ?? '?'} levels',
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD700).withAlpha(30),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                              color: const Color(0xFFFFD700).withAlpha(100),
+                              width: 0.8),
+                        ),
+                        child: const Text(
+                          'MAX LEVEL BORDER',
+                          style: TextStyle(
+                            color: Color(0xFFFFD700),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Next border preview (if available)
+              if (next != null && nextIcon != null && nextIcon.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Column(
+                    children: [
+                      Opacity(
+                        opacity: 0.45,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.bgCard,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: AppColors.border, width: 0.8),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(7),
+                            child: CachedNetworkImage(
+                              imageUrl: nextIcon,
+                              fit: BoxFit.contain,
+                              errorWidget: (_, __, ___) => const SizedBox(),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        nextName ?? '',
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

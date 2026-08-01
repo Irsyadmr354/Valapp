@@ -9,7 +9,10 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
 
-  /// Initializes local notifications for Android & iOS.
+  static const _wishlistChannelId = 'valapp_wishlist_channel';
+  static const _shopChannelId = 'valapp_shop_channel';
+  static const _newsChannelId = 'valapp_news_channel';
+
   Future<void> init() async {
     if (_isInitialized) return;
 
@@ -21,71 +24,113 @@ class NotificationService {
       requestSoundPermission: true,
     );
 
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
+    await _notifications.initialize(
+      const InitializationSettings(android: androidSettings, iOS: iosSettings),
     );
-
-    await _notifications.initialize(initSettings);
     _isInitialized = true;
   }
 
-  /// Request permissions on Android / iOS
   Future<void> requestPermissions() async {
     await init();
     final androidImpl = _notifications
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    if (androidImpl != null) {
-      await androidImpl.requestNotificationsPermission();
-    }
+    await androidImpl?.requestNotificationsPermission();
 
     final iosImpl = _notifications
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>();
-    if (iosImpl != null) {
-      await iosImpl.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-    }
+    await iosImpl?.requestPermissions(
+        alert: true, badge: true, sound: true);
   }
 
-  /// Trigger native notification when a wishlisted skin appears in shop
+  // ── Wishlist match alert ───────────────────────────────────────────────────
+
   Future<void> showWishlistAlert({
     required String skinName,
     required int price,
   }) async {
     await init();
-
-    const androidDetails = AndroidNotificationDetails(
-      'valapp_wishlist_channel',
-      'Wishlist Alerts',
-      channelDescription:
-          'Notifications when your wishlisted Valorant skin appears in shop',
-      importance: Importance.high,
-      priority: Priority.high,
-      ticker: 'Wishlist Match!',
-      icon: '@mipmap/ic_launcher',
+    await _notifications.show(
+      skinName.hashCode & 0x7FFFFFFF,
+      '🌟 WISHLIST SKIN IN SHOP!',
+      '$skinName is available today for ${price > 0 ? '$price VP' : 'an unknown price'}!',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _wishlistChannelId, 'Wishlist Alerts',
+          channelDescription:
+              'Alerts when your wishlisted skin appears in the shop',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(
+            presentAlert: true, presentBadge: true, presentSound: true),
+      ),
     );
+  }
 
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
+  // ── Daily shop reset notification ─────────────────────────────────────────
 
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+  /// Show a notification when the daily shop resets listing the new skins.
+  Future<void> showShopResetAlert({
+    required List<String> skinNames,
+    int wishlistMatchCount = 0,
+  }) async {
+    await init();
+
+    final title = wishlistMatchCount > 0
+        ? '🌟 YOUR SHOP IS LIVE — $wishlistMatchCount WISHLIST MATCH!'
+        : '🛒 YOUR DAILY SHOP IS LIVE';
+
+    final body = skinNames.isNotEmpty
+        ? skinNames.take(4).join(' · ')
+        : 'Open the app to check your new skins.';
 
     await _notifications.show(
-      skinName.hashCode,
-      '🌟 WISHLIST SKIN IN SHOP!',
-      '$skinName is available in your shop today for $price VP!',
-      details,
+      20250101, // fixed ID so repeated calls replace the same notification
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _shopChannelId, 'Shop Reset',
+          channelDescription: 'Notification when your daily shop resets',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          icon: '@mipmap/ic_launcher',
+          styleInformation: BigTextStyleInformation(
+            skinNames.join('\n'),
+            contentTitle: title,
+          ),
+        ),
+        iOS: const DarwinNotificationDetails(
+            presentAlert: true, presentBadge: false, presentSound: false),
+      ),
+    );
+  }
+
+  // ── News alert ────────────────────────────────────────────────────────────
+
+  Future<void> showNewsAlert({
+    required String headline,
+    required String category,
+  }) async {
+    await init();
+    await _notifications.show(
+      headline.hashCode & 0x7FFFFFFF,
+      '📰 VALORANT — ${category.toUpperCase()}',
+      headline,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _newsChannelId, 'Valorant News',
+          channelDescription: 'Latest Valorant patch notes and news',
+          importance: Importance.low,
+          priority: Priority.low,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(
+            presentAlert: true, presentBadge: false, presentSound: false),
+      ),
     );
   }
 }
