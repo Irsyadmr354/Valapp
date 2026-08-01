@@ -19,7 +19,7 @@ final accountHealthProvider =
 });
 
 class AccountHealthModal extends ConsumerWidget {
-  const AccountHealthModal({super.super});
+  const AccountHealthModal({super.key});
 
   static Future<void> show(BuildContext context) {
     return showModalBottomSheet(

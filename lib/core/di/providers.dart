@@ -40,6 +40,7 @@ import '../../features/contracts/data/contracts_local_cache.dart';
 
 import '../../features/profile/data/account_remote_source.dart';
 import '../../features/profile/data/account_local_cache.dart';
+import '../../features/profile/data/restrictions_remote_source.dart';
 
 // ── Loadout ───────────────────────────────────────────────────────────────
 
