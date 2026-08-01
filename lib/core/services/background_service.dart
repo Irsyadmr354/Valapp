@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import '../../features/shop/domain/models/wallet.dart';
-import '../../features/shop/presentation/notification_rule_service.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
 import 'notification_service.dart';
@@ -166,89 +165,8 @@ class BackgroundShopChecker {
       );
     }
 
-    // Evaluate smart notification category rules for new shop
+    // Evaluate new shop notification summary
     if (isNewShop) {
-      final rulesList = await cache.getJsonList(keyNotificationRules);
-      final activeRules = rulesList != null
-          ? rulesList.map((e) => e.toString()).toSet()
-          : <String>{
-              NotificationCategory.wishlist,
-              NotificationCategory.melee,
-              NotificationCategory.vandal,
-              NotificationCategory.phantom,
-            };
-
-      final dailySkinNames = offerIds
-          .map((id) => skinNameMap[id] ?? '')
-          .where((n) => n.isNotEmpty)
-          .toList();
-
-      final categoryAlerts = <String>[];
-
-      if (activeRules.contains(NotificationCategory.melee)) {
-        final melees = dailySkinNames.where((n) {
-          final l = n.toLowerCase();
-          return l.contains('knife') ||
-              l.contains('karambit') ||
-              l.contains('blade') ||
-              l.contains('dagger') ||
-              l.contains('axe') ||
-              l.contains('sword') ||
-              l.contains('scythe') ||
-              l.contains('hammer') ||
-              l.contains('mace') ||
-              l.contains('butterfly') ||
-              l.contains('onimaru') ||
-              l.contains('fan');
-        }).toList();
-        if (melees.isNotEmpty) {
-          categoryAlerts.add('🔪 Melee in shop: ${melees.join(', ')}');
-        }
-      }
-
-      if (activeRules.contains(NotificationCategory.vandal)) {
-        final vandals = dailySkinNames
-            .where((n) => n.toLowerCase().contains('vandal'))
-            .toList();
-        if (vandals.isNotEmpty) {
-          categoryAlerts.add('🔫 Vandal in shop: ${vandals.join(', ')}');
-        }
-      }
-
-      if (activeRules.contains(NotificationCategory.phantom)) {
-        final phantoms = dailySkinNames
-            .where((n) => n.toLowerCase().contains('phantom'))
-            .toList();
-        if (phantoms.isNotEmpty) {
-          categoryAlerts.add('👻 Phantom in shop: ${phantoms.join(', ')}');
-        }
-      }
-
-      if (activeRules.contains(NotificationCategory.operator)) {
-        final ops = dailySkinNames
-            .where((n) => n.toLowerCase().contains('operator'))
-            .toList();
-        if (ops.isNotEmpty) {
-          categoryAlerts.add('🎯 Operator in shop: ${ops.join(', ')}');
-        }
-      }
-
-      if (activeRules.contains(NotificationCategory.sheriff)) {
-        final sheriffs = dailySkinNames
-            .where((n) => n.toLowerCase().contains('sheriff'))
-            .toList();
-        if (sheriffs.isNotEmpty) {
-          categoryAlerts.add('🤠 Sheriff in shop: ${sheriffs.join(', ')}');
-        }
-      }
-
-      for (final alertMsg in categoryAlerts) {
-        await NotificationService.instance.showCategoryAlert(
-          title: '🛒 SHOP ALERT',
-          body: alertMsg,
-        );
-      }
-
       final skinNames = offerIds
           .map((id) => skinNameMap[id] ?? id.substring(0, 8))
           .toList();
