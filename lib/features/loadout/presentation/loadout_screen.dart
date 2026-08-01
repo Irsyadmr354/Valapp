@@ -133,7 +133,7 @@ class LoadoutScreen extends ConsumerWidget {
 // ── Weapon category grouping ──────────────────────────────────────────────────
 
 const _weaponCategories = <String, List<String>>{
-  'SIDEARMS':  ['Classic', 'Shorty', 'Frenzy', 'Ghost', 'Sheriff'],
+  'PISTOLS':   ['Classic', 'Shorty', 'Frenzy', 'Ghost', 'Sheriff'],
   'SMGs':      ['Stinger', 'Spectre'],
   'RIFLES':    ['Bulldog', 'Guardian', 'Phantom', 'Vandal'],
   'SHOTGUNS':  ['Bucky', 'Judge'],

@@ -24,9 +24,11 @@ final _allSkinsListProvider =
           skinData['skinName']?.toString() ?? skinData['displayName']?.toString() ?? '';
       final displayIcon = skinData['displayIcon']?.toString();
 
-      // Filter out base 'Standard' default skins
+      // Filter out base 'Standard' default skins & unskinned generic 'Melee'
+      final lowerName = skinName.toLowerCase().trim();
       if (skinName.isNotEmpty &&
-          !skinName.toLowerCase().startsWith('standard') &&
+          !lowerName.startsWith('standard') &&
+          lowerName != 'melee' &&
           displayIcon != null &&
           displayIcon.isNotEmpty) {
         final skinUuid = skinData['skinUuid']?.toString() ?? levelUuid;
@@ -54,7 +56,7 @@ String _getWeaponCategory(String skinName) {
       name.contains('sheriff') ||
       name.contains('frenzy') ||
       name.contains('shorty')) {
-    return 'SIDEARMS';
+    return 'PISTOLS';
   }
   if (name.contains('spectre') || name.contains('stinger')) {
     return 'SMGS';
@@ -73,6 +75,9 @@ String _getWeaponCategory(String skinName) {
   if (name.contains('judge') || name.contains('bucky')) {
     return 'SHOTGUNS';
   }
+  if (name.contains('ares') || name.contains('odin')) {
+    return 'HEAVY';
+  }
   if (name.contains('melee') ||
       name.contains('knife') ||
       name.contains('axe') ||
@@ -83,10 +88,28 @@ String _getWeaponCategory(String skinName) {
       name.contains('scythe') ||
       name.contains('staff') ||
       name.contains('mace') ||
-      name.contains('katana')) {
+      name.contains('katana') ||
+      name.contains('hammer') ||
+      name.contains('baton') ||
+      name.contains('fan') ||
+      name.contains('comb') ||
+      name.contains('claw') ||
+      name.contains('cleaver') ||
+      name.contains('misericórdia') ||
+      name.contains('misericordia') ||
+      name.contains('kunai') ||
+      name.contains('bident') ||
+      name.contains('anchor') ||
+      name.contains('firefly') ||
+      name.contains('podium') ||
+      name.contains('relic') ||
+      name.contains('tethered') ||
+      name.contains('bio-harness') ||
+      name.contains('hack') ||
+      name.contains('onimaru')) {
     return 'MELEE';
   }
-  return 'RIFLES';
+  return 'MELEE';
 }
 
 String _getTierLabel(String? tierUuid) {
@@ -143,7 +166,7 @@ class _WishlistCatalogScreenState
 
   final List<Map<String, dynamic>> _sidebarCategories = [
     {'id': 'ALL', 'label': 'ALL', 'icon': Icons.grid_view_rounded},
-    {'id': 'SIDEARMS', 'label': 'SIDEARMS', 'icon': Icons.shield_outlined},
+    {'id': 'PISTOLS', 'label': 'PISTOLS', 'icon': Icons.shield_outlined},
     {'id': 'SMGS', 'label': 'SMGS', 'icon': Icons.speed_rounded},
     {'id': 'RIFLES', 'label': 'RIFLES', 'icon': Icons.military_tech_outlined},
     {'id': 'SNIPER', 'label': 'SNIPER', 'icon': Icons.center_focus_strong_outlined},
@@ -566,7 +589,18 @@ class _WishlistCatalogScreenState
 
                           // Quick Weapon Filter
                           if (_selectedQuickFilter != 'ALL') {
-                            if (!name.contains(_selectedQuickFilter.toLowerCase())) return false;
+                            final qf = _selectedQuickFilter.toUpperCase();
+                            if (qf == 'MELEE') {
+                              if (category != 'MELEE') return false;
+                            } else if (qf == 'PISTOLS') {
+                              if (category != 'PISTOLS') return false;
+                            } else if (qf == 'SNIPER') {
+                              if (category != 'SNIPER') return false;
+                            } else if (qf == 'SHOTGUNS') {
+                              if (category != 'SHOTGUNS') return false;
+                            } else {
+                              if (!name.contains(qf.toLowerCase())) return false;
+                            }
                           }
 
                           // Edition Tier Filter
@@ -890,7 +924,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
                         imageUrl: iconUrl,
                         fit: BoxFit.contain,
                         placeholder: (_, __) => const LoadingShimmer(height: 60),
-                        errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white24),
+                        errorWidget: (_, __, ___) => const Icon(Icons.military_tech_outlined, color: Colors.white24, size: 28),
                       ),
                     ),
                   ),
@@ -1036,7 +1070,7 @@ class _WishlistPreviewBottomDock extends StatelessWidget {
                             imageUrl: iconUrl,
                             fit: BoxFit.contain,
                             placeholder: (_, __) => const LoadingShimmer(height: 30),
-                            errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white24, size: 16),
+                            errorWidget: (_, __, ___) => const Icon(Icons.military_tech_outlined, color: Colors.white24, size: 16),
                           ),
                         ),
                       ),

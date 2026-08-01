@@ -240,6 +240,19 @@ class Storefront {
 
   bool get hasNightMarket => nightMarket.isNotEmpty;
 
+  /// Dynamically computes remaining seconds for daily shop reset,
+  /// accounting for elapsed time since fetch and falling back to 00:00 UTC (07:00 AM WIB).
+  int get currentDailyOffersRemainingSeconds {
+    final elapsed = DateTime.now().difference(fetchedAt).inSeconds;
+    final remaining = dailyOffersRemainingSeconds - elapsed;
+    if (remaining > 0 && remaining <= 86400) {
+      return remaining;
+    }
+    final nowUtc = DateTime.now().toUtc();
+    final nextResetUtc = DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day + 1, 0, 0, 0);
+    return nextResetUtc.difference(nowUtc).inSeconds;
+  }
+
   factory Storefront.fromJson(Map<String, dynamic> json) {
     final skinPanel =
         json['SkinsPanelLayout'] as Map<String, dynamic>? ?? {};

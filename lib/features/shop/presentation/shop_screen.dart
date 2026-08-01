@@ -375,7 +375,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.8)),
                 CountdownTimer(
-                  remainingSeconds: storefront.dailyOffersRemainingSeconds,
+                  remainingSeconds: storefront.currentDailyOffersRemainingSeconds,
                   onExpired: _refresh,
                   style: const TextStyle(
                       color: Colors.white,
@@ -432,7 +432,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
           offers: storefront.dailyOffers,
           wishlist: wishlist,
           onWishlistToggle: _toggleWishlist,
-          dailyResetSeconds: storefront.dailyOffersRemainingSeconds,
+          dailyResetSeconds: storefront.currentDailyOffersRemainingSeconds,
         ),
         const SizedBox(height: 24),
 
