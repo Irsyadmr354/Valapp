@@ -10,7 +10,10 @@ class ValorantAssets {
   static const _base = 'https://valorant-api.com/v1';
   static const _cacheDuration = Duration(hours: 24);
 
-  final _dio = Dio();
+  final _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 20),
+  ));
 
   // ── Skin Levels ────────────────────────────────────────────────────────────
 

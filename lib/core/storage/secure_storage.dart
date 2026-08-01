@@ -27,7 +27,7 @@ class SecureStorage {
 
   /// Conservative estimate — Riot does not expose entitlement token TTL.
   /// Tune here if stale-400 errors persist after proactive refresh.
-  static const entitlementTokenLifetime = Duration(minutes: 15);
+  static const entitlementTokenLifetime = Duration(minutes: 55);
 
   static const proactiveRefreshWindow = Duration(minutes: 5);
 

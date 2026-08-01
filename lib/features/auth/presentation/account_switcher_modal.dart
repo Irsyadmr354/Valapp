@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../data/credentials_local_source.dart';
-import 'webview_login_screen.dart';
 
 /// Modal dialog for managing and switching between multiple saved Valorant accounts.
 class AccountSwitcherModal extends ConsumerStatefulWidget {
@@ -141,7 +142,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                     SnackBar(
                                       content: Text(
                                           'Switched to ${acc.displayName}'),
-                                      backgroundColor: const Color(0xFF00F0FF),
+                                      backgroundColor: AppColors.red,
                                     ),
                                   );
                                 }
@@ -153,12 +154,12 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
                                 color: isActive
-                                    ? const Color(0xFF00F0FF).withAlpha(20)
-                                    : const Color(0xFF141F2D),
+                                    ? AppColors.red.withAlpha(20)
+                                    : AppColors.bgCard2,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: isActive
-                                      ? const Color(0xFF00F0FF)
+                                      ? AppColors.red
                                       : Colors.white10,
                                   width: isActive ? 1.8 : 1,
                                 ),
@@ -171,7 +172,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                     height: 42,
                                     decoration: BoxDecoration(
                                       color: isActive
-                                          ? const Color(0xFF00F0FF).withAlpha(40)
+                                          ? AppColors.red.withAlpha(40)
                                           : const Color(0xFF070A10),
                                       shape: BoxShape.circle,
                                     ),
@@ -179,7 +180,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                       child: Icon(
                                         Icons.person,
                                         color: isActive
-                                            ? const Color(0xFF00F0FF)
+                                            ? AppColors.red
                                             : Colors.white54,
                                         size: 20,
                                       ),
@@ -219,13 +220,13 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF00F0FF).withAlpha(40),
+                                        color: AppColors.red.withAlpha(40),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Text(
                                         'ACTIVE',
                                         style: TextStyle(
-                                          color: Color(0xFF00F0FF),
+                                          color: AppColors.red,
                                           fontSize: 10,
                                           fontWeight: FontWeight.w900,
                                         ),
@@ -257,7 +258,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
               width: double.infinity,
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF4655),
+                  backgroundColor: AppColors.red,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -265,11 +266,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                 ),
                 onPressed: () {
                   Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const WebViewLoginScreen(),
-                    ),
-                  );
+                  context.push('/login/webview');
                 },
                 icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
                 label: const Text(

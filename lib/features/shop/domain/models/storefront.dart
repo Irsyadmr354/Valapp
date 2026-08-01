@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'skin_offer.dart';
+import 'wallet.dart';
 
 /// Featured bundle in the store.
 class FeaturedBundle {
@@ -61,13 +62,11 @@ class FeaturedBundle {
           (json['BundleRemainingDurationInSeconds'] as num?)?.toInt() ?? 0,
       itemIds: itemIds,
       totalBaseCost:
-          (json['TotalBaseCost']?['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
-                  as num?)
-              ?.toInt() ??
+          (json['TotalBaseCost']?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
               0,
-      totalDiscountedCost: (json['TotalDiscountedCost']
-                  ?['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)
-              ?.toInt() ??
+      totalDiscountedCost:
+          (json['TotalDiscountedCost']?[ValorantCurrency.vpUuid] as num?)
+                  ?.toInt() ??
               0,
       totalDiscountPercent:
           (json['TotalDiscountPercent'] as num?)?.toDouble() ?? 0.0,
@@ -135,11 +134,11 @@ class NightMarketOffer {
 
     final rawCost = offer['Cost'] as Map<String, dynamic>? ?? {};
     final basePrice =
-        (rawCost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ?? 0;
+        (rawCost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
 
     final discCost = json['DiscountCosts'] as Map<String, dynamic>? ?? {};
     final discountedPrice =
-        (discCost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ?? 0;
+        (discCost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
 
     final rawDiscount = (json['DiscountPercent'] as num?)?.toDouble() ?? 0.0;
     final discountPercent = rawDiscount > 1
@@ -224,8 +223,7 @@ class Storefront {
       if (offerId == null || offerId.isEmpty) continue;
       final cost = storeOffer['Cost'] as Map<String, dynamic>? ?? {};
       final price =
-          (cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt() ??
-              0;
+          (cost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
       offerPrices[offerId] = price;
     }
 

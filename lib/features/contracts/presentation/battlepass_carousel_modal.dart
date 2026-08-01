@@ -248,13 +248,22 @@ class _BattlepassCarouselModalState
                                           as Map<String, dynamic>;
                                       final reward = level['reward']
                                           as Map<String, dynamic>?;
-                                      final isFree =
-                                          level['isFreeItem'] == true;
-                                      final tierNum =
-                                          (chIdx * 5) + (lvlIdx + 1);
-                                      final isUnlocked = widget.contract
-                                              .progressionLevelReached >=
-                                          tierNum;
+                                       final isFree =
+                                           level['isFreeItem'] == true;
+                                       int tierOffset = 0;
+                                       for (int ci = 0; ci < chIdx; ci++) {
+                                         final prevChapter =
+                                             chapters[ci] as Map<String, dynamic>;
+                                         tierOffset += ((prevChapter['levels']
+                                                     as List<dynamic>?) ??
+                                                 [])
+                                             .length;
+                                       }
+                                       final tierNum =
+                                           tierOffset + (lvlIdx + 1);
+                                       final isUnlocked = widget.contract
+                                               .progressionLevelReached >=
+                                           tierNum;
 
                                       // Try to resolve reward display icon
                                       final rewardUuid =

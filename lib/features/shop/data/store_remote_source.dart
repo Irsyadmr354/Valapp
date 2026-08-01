@@ -55,7 +55,7 @@ class StoreRemoteSource {
         final id = offer['OfferID'] as String?;
         final costs = offer['Cost'] as Map<String, dynamic>?;
         if (id != null && costs != null) {
-          final vp = (costs['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741'] as num?)?.toInt();
+          final vp = (costs[ValorantCurrency.vpUuid] as num?)?.toInt();
           if (vp != null) map[id] = vp;
         }
       }

@@ -25,6 +25,4 @@ class WishlistNotifier extends StateNotifier<List<String>> {
       state = [...state, skinId];
     }
   }
-
-  bool isWishlisted(String skinId) => state.contains(skinId);
 }

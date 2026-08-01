@@ -6,13 +6,11 @@ class RankBadge extends StatelessWidget {
   const RankBadge({
     super.key,
     required this.tierName,
-    required this.rankedRating,
     this.iconUrl,
     this.large = false,
   });
 
   final String tierName;
-  final int rankedRating;
   final String? iconUrl;
   final bool large;
 

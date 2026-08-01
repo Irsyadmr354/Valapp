@@ -83,7 +83,13 @@ final credentialsLocalSourceProvider = Provider<CredentialsLocalSource>((ref) {
 
 final authRemoteSourceProvider = FutureProvider<AuthRemoteSource>((ref) async {
   final authDio = await ref.watch(authDioProvider.future);
-  return AuthRemoteSource(authDio, Dio());
+  return AuthRemoteSource(
+    authDio,
+    Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+    )),
+  );
 });
 
 // ── Auth repository ────────────────────────────────────────────────────────
@@ -191,8 +197,7 @@ final accountLocalCacheProvider = Provider<AccountLocalCache>((ref) {
 
 // ── Current credentials (reactive) ────────────────────────────────────────
 
-final currentCredentialsProvider =
-    FutureProvider.autoDispose((ref) async {
+final currentCredentialsProvider = FutureProvider((ref) async {
   final local = ref.watch(credentialsLocalSourceProvider);
   return local.load();
 });
@@ -211,7 +216,10 @@ final loadoutLocalCacheProvider = Provider<LoadoutLocalCache>((ref) {
 
 // ── News ───────────────────────────────────────────────────────────────────
 
-final newsRemoteSourceProvider = FutureProvider<NewsRemoteSource>((ref) async {
-  final dio = await ref.watch(apiDioProvider.future);
+final newsRemoteSourceProvider = Provider<NewsRemoteSource>((ref) {
+  final dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 20),
+  ));
   return NewsRemoteSource(dio);
 });

@@ -29,7 +29,11 @@ class CompetitiveUpdate {
 
   bool get isLoss => rankedRatingEarned < 0;
 
-  bool get isDraw => rankedRatingEarned == 0 && afkPenalty == 0;
+  bool get isDraw =>
+      rankedRatingEarned == 0 &&
+      afkPenalty == 0 &&
+      tierAfterUpdate == tierBeforeUpdate &&
+      rankedRatingAfterUpdate == rankedRatingBeforeUpdate;
 
   factory CompetitiveUpdate.fromJson(Map<String, dynamic> json) {
     return CompetitiveUpdate(

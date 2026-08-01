@@ -9,7 +9,7 @@ class VersionService {
 
   static const _versionUrl = 'https://valorant-api.com/v1/version';
   static const _cacheDuration = Duration(hours: 24);
-  static const _fallback = 'release-13.01-shipping-11-5090349';
+  static const _fallback = 'release-13.02-shipping-7-5092570';
 
   /// Invalidate version cache so fresh version is fetched next time.
   Future<void> invalidate() async {

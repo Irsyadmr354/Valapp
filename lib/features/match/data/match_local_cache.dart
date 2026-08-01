@@ -16,6 +16,8 @@ class MatchHistoryLocalCache {
                 'MatchID': e.matchId,
                 'GameStartTime': e.gameStartMillis,
                 'QueueID': e.queueId,
+                'TeamID': e.teamId,
+                'IsRanked': e.isRanked,
                 'MapID': e.mapId,
               })
           .toList(),
@@ -41,6 +43,13 @@ class MatchDetailLocalCache {
       String matchId, Map<String, dynamic> raw) async {
     final all = await _cache.getJson(CacheStorage.keyMatchDetailCache) ?? {};
     all[matchId] = raw;
+    const maxEntries = 30;
+    if (all.length > maxEntries) {
+      final sortedKeys = all.keys.toList();
+      for (final k in sortedKeys.take(all.length - maxEntries)) {
+        all.remove(k);
+      }
+    }
     await _cache.setJson(CacheStorage.keyMatchDetailCache, all);
   }
 

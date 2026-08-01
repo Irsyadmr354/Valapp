@@ -128,7 +128,7 @@ final _skinLevelsMapProvider =
 });
 
 final _newsFeedProvider = FutureProvider.autoDispose((ref) async {
-  final source = await ref.watch(newsRemoteSourceProvider.future);
+  final source = ref.watch(newsRemoteSourceProvider);
   return source.fetchNews();
 });
 

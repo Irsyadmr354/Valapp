@@ -5,9 +5,9 @@ import 'package:dio/dio.dart';
 /// to avoid hitting Riot's rate limits. Uses a Completer-based lock
 /// to properly handle concurrent requests.
 class RateLimitInterceptor extends Interceptor {
-  static DateTime? _lastRequestTime;
+  DateTime? _lastRequestTime;
   static const _minInterval = Duration(milliseconds: 500);
-  static Completer<void>? _lock;
+  Completer<void>? _lock;
 
   @override
   void onRequest(

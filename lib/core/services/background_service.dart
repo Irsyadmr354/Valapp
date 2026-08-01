@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
+import '../../features/shop/domain/models/wallet.dart';
+import '../../features/shop/presentation/notification_rule_service.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
 import 'notification_service.dart';
@@ -56,11 +58,11 @@ class BackgroundService {
 /// 1. Fetches the live storefront
 /// 2. Resolves skin names + actual prices
 /// 3. Fires wishlist match notification if any matched
-/// 4. Fires shop reset notification when the shop changes
+/// 4. Evaluates smart category rules (melee, vandal, phantom, operator, sheriff)
+/// 5. Fires shop reset notification when the shop changes
 class BackgroundShopChecker {
   final Dio _dio = Dio();
 
-  static const _vpCurrencyId = '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741';
   static const _lastShopKey = 'background_last_shop_ids';
 
   Future<void> runCheck() async {
@@ -120,7 +122,7 @@ class BackgroundShopChecker {
       final oid = o['OfferID'] as String?;
       if (oid == null) continue;
       final cost = o['Cost'] as Map<String, dynamic>? ?? {};
-      final price = (cost[_vpCurrencyId] as num?)?.toInt() ?? 0;
+      final price = (cost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
       priceMap[oid] = price;
     }
 
@@ -152,8 +154,89 @@ class BackgroundShopChecker {
       );
     }
 
-    // Shop reset — fire once per new rotation
+    // Evaluate smart notification category rules for new shop
     if (isNewShop) {
+      final rulesList = await cache.getJsonList(keyNotificationRules);
+      final activeRules = rulesList != null
+          ? rulesList.map((e) => e.toString()).toSet()
+          : <String>{
+              NotificationCategory.wishlist,
+              NotificationCategory.melee,
+              NotificationCategory.vandal,
+              NotificationCategory.phantom,
+            };
+
+      final dailySkinNames = offerIds
+          .map((id) => skinNameMap[id] ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList();
+
+      final categoryAlerts = <String>[];
+
+      if (activeRules.contains(NotificationCategory.melee)) {
+        final melees = dailySkinNames.where((n) {
+          final l = n.toLowerCase();
+          return l.contains('knife') ||
+              l.contains('karambit') ||
+              l.contains('blade') ||
+              l.contains('dagger') ||
+              l.contains('axe') ||
+              l.contains('sword') ||
+              l.contains('scythe') ||
+              l.contains('hammer') ||
+              l.contains('mace') ||
+              l.contains('butterfly') ||
+              l.contains('onimaru') ||
+              l.contains('fan');
+        }).toList();
+        if (melees.isNotEmpty) {
+          categoryAlerts.add('🔪 Melee in shop: ${melees.join(', ')}');
+        }
+      }
+
+      if (activeRules.contains(NotificationCategory.vandal)) {
+        final vandals = dailySkinNames
+            .where((n) => n.toLowerCase().contains('vandal'))
+            .toList();
+        if (vandals.isNotEmpty) {
+          categoryAlerts.add('🔫 Vandal in shop: ${vandals.join(', ')}');
+        }
+      }
+
+      if (activeRules.contains(NotificationCategory.phantom)) {
+        final phantoms = dailySkinNames
+            .where((n) => n.toLowerCase().contains('phantom'))
+            .toList();
+        if (phantoms.isNotEmpty) {
+          categoryAlerts.add('👻 Phantom in shop: ${phantoms.join(', ')}');
+        }
+      }
+
+      if (activeRules.contains(NotificationCategory.operator)) {
+        final ops = dailySkinNames
+            .where((n) => n.toLowerCase().contains('operator'))
+            .toList();
+        if (ops.isNotEmpty) {
+          categoryAlerts.add('🎯 Operator in shop: ${ops.join(', ')}');
+        }
+      }
+
+      if (activeRules.contains(NotificationCategory.sheriff)) {
+        final sheriffs = dailySkinNames
+            .where((n) => n.toLowerCase().contains('sheriff'))
+            .toList();
+        if (sheriffs.isNotEmpty) {
+          categoryAlerts.add('🤠 Sheriff in shop: ${sheriffs.join(', ')}');
+        }
+      }
+
+      for (final alertMsg in categoryAlerts) {
+        await NotificationService.instance.showCategoryAlert(
+          title: '🛒 SHOP ALERT',
+          body: alertMsg,
+        );
+      }
+
       final skinNames = offerIds
           .map((id) => skinNameMap[id] ?? id.substring(0, 8))
           .toList();
