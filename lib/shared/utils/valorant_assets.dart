@@ -202,7 +202,7 @@ class ValorantAssets {
     const keyMaps = 'maps_metadata';
     const keyMapsFetchedAt = 'maps_metadata_fetched_at';
     // Version bump — forces re-fetch when map indexing logic changes
-    const mapsVersion = 'v2';
+    const mapsVersion = 'v3';
     const keyMapsVersion = 'maps_metadata_version';
 
     final storedVersion = await cache.getString(keyMapsVersion);
@@ -686,8 +686,8 @@ class ValorantAssets {
   /// [{ 'uuid', 'displayName', 'startingLevel', 'displayIcon', 'smallPlayerCardAppearance' }]
   Future<List<Map<String, dynamic>>> getLevelBordersList() async {
     final cache = CacheStorage.instance;
-    const keyBorders = 'level_borders_metadata';
-    const keyBordersFetchedAt = 'level_borders_metadata_fetched_at';
+    const keyBorders = 'level_borders_metadata_v2'; // v2 — fixes displayIcon field
+    const keyBordersFetchedAt = 'level_borders_metadata_v2_fetched_at';
 
     final isStale = await cache.isStale(keyBordersFetchedAt, _cacheDuration);
     if (!isStale) {
@@ -706,9 +706,12 @@ class ValorantAssets {
                 'uuid': b['uuid'],
                 'displayName': b['displayName'],
                 'startingLevel': b['startingLevel'] ?? 0,
+                // levelNumberAppearance = the glowing border ring icon (best for display)
+                // smallPlayerCardAppearance = transparent frame overlay (for card UI)
                 'levelNumberAppearance': b['levelNumberAppearance'],
                 'smallPlayerCardAppearance': b['smallPlayerCardAppearance'],
-                'displayIcon': b['displayIcon'],
+                'displayIcon': b['levelNumberAppearance'] ??
+                    b['smallPlayerCardAppearance'],
               })
           .toList()
         ..sort((a, b) => ((a['startingLevel'] as int?) ?? 0)

@@ -26,8 +26,9 @@ class LoadoutRemoteSource {
       String shard, String puuid) async {
     final cleanShard = shard.toLowerCase();
     // Riot's personalization endpoint returns the active loadout
+    // v3 is the current endpoint as confirmed from ShooterGame.log
     final response = await _dio.get<dynamic>(
-      'https://pd.$cleanShard.a.pvp.net/personalization/v2/players/$puuid/playerloadout',
+      'https://pd.$cleanShard.a.pvp.net/personalization/v3/players/$puuid/playerloadout',
     );
     return _toMap(response.data);
   }

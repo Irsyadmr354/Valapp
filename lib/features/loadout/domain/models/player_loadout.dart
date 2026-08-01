@@ -32,8 +32,14 @@ class PlayerLoadout {
   }
 
   factory PlayerLoadout.fromJson(Map<String, dynamic> json) {
-    final identity = _asMap(json['Identity']);
-    final spraysBag = _asMap(json['Sprays']);
+    // v3 endpoint wraps everything under a "Loadout" key;
+    // v2 returns the fields at root — support both.
+    final root = json.containsKey('Loadout')
+        ? _asMap(json['Loadout'])
+        : json;
+
+    final identity = _asMap(root['Identity']);
+    final spraysBag = _asMap(root['Sprays']);
     final spraySelections = _asList(spraysBag['SpraySelections']);
 
     // Slot 0 = PreRound spray (SocketID ends with '01')
@@ -50,7 +56,7 @@ class PlayerLoadout {
       preRoundSpray = _asMap(spraySelections.first)['SprayID'] as String?;
     }
 
-    final rawGuns = _asList(json['Guns']);
+    final rawGuns = _asList(root['Guns']);
     final weapons = rawGuns
         .map((g) {
           final gMap = _asMap(g);
@@ -61,7 +67,7 @@ class PlayerLoadout {
         .toList();
 
     return PlayerLoadout(
-      puuid: json['Subject'] as String? ?? '',
+      puuid: root['Subject'] as String? ?? json['Subject'] as String? ?? '',
       playerCardId: identity['PlayerCardID'] as String?,
       playerTitleId: identity['PlayerTitleID'] as String?,
       sprayId: preRoundSpray,

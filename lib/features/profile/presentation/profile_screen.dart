@@ -12,6 +12,7 @@ import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/account_xp.dart';
 import '../../auth/presentation/account_switcher_modal.dart';
 import '../../match/domain/models/match_history.dart';
+import '../../match/domain/models/match_details.dart';
 import '../../rank/domain/models/player_mmr.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
@@ -80,15 +81,79 @@ final _profileMatchesProvider =
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(matchRemoteSourceProvider.future);
-  final cache = ref.watch(matchHistoryLocalCacheProvider);
+  final historyCache = ref.watch(matchHistoryLocalCacheProvider);
+  final detailCache = ref.watch(matchDetailLocalCacheProvider);
+
+  // ── Fetch raw history ───────────────────────────────────────────────────
+  MatchHistoryResult raw;
   try {
-    final raw = await source.fetchHistoryRaw(creds.shard, creds.puuid);
-    final history = MatchHistoryResult.fromJson(raw);
-    await cache.saveHistory(history);
-    return history;
+    final rawJson = await source.fetchHistoryRaw(creds.shard, creds.puuid);
+    raw = MatchHistoryResult.fromJson(rawJson);
+    await historyCache.saveHistory(raw);
   } catch (_) {
-    return cache.loadHistory();
+    final cached = await historyCache.loadHistory();
+    if (cached != null) {
+      raw = cached;
+    } else {
+      return null;
+    }
   }
+
+  // ── Enrich from detail cache (cache-only, zero network calls here) ──────
+  final enriched = <MatchHistoryEntry>[];
+  for (final entry in raw.matches) {
+    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
+    if (detailRaw == null) {
+      enriched.add(entry);
+      continue;
+    }
+    try {
+      final details = MatchDetails.fromJson(detailRaw);
+      final player = details.players
+          .cast<PlayerStats?>()
+          .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
+      if (player == null) {
+        enriched.add(entry);
+        continue;
+      }
+
+      MatchResult matchResult = MatchResult.unknown;
+      if (details.roundResults.isNotEmpty) {
+        final pt = player.teamId.toLowerCase();
+        final myWins = details.roundResults
+            .where((r) => r.winningTeam.toLowerCase() == pt).length;
+        final oppWins = details.roundResults.length - myWins;
+        matchResult = myWins > oppWins
+            ? MatchResult.victory
+            : myWins < oppWins
+                ? MatchResult.defeat
+                : MatchResult.draw;
+      }
+
+      final sorted = List<PlayerStats>.from(details.players)
+        ..sort((a, b) => b.score.compareTo(a.score));
+      final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
+
+      enriched.add(entry.copyWithStats(
+        kills: player.kills,
+        deaths: player.deaths,
+        assists: player.assists,
+        isMvp: isMvp,
+        result: matchResult,
+        agentId: player.agentId,
+      ));
+    } catch (_) {
+      enriched.add(entry);
+    }
+  }
+
+  return MatchHistoryResult(
+    puuid: raw.puuid,
+    total: raw.total,
+    start: raw.start,
+    end: raw.end,
+    matches: enriched,
+  );
 });
 
 // Tier name resolution is delegated to TierNameUtil.
@@ -108,7 +173,11 @@ final _profileCardProvider =
     if (creds == null) return null;
     final source = await ref.watch(loadoutRemoteSourceProvider.future);
     final raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
-    final identity = raw['Identity'] as Map<String, dynamic>? ?? {};
+    // v3 wraps fields under 'Loadout' key; v2 exposes them at root
+    final loadoutRoot = raw.containsKey('Loadout')
+        ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
+        : raw;
+    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ?? {};
     final cardId = identity['PlayerCardID'] as String?;
     if (cardId == null) return const _PlayerCardInfo();
 
@@ -783,11 +852,14 @@ class _ProfileQuickStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final matches = historyResult?.matches ?? [];
+    // Use total match count (including unknown/unenriched) as denominator
     final matchesCount = historyResult?.total ?? matches.length;
     final winsCount =
         matches.where((m) => m.result == MatchResult.victory).length;
-    final winPct =
-        matches.isNotEmpty ? (winsCount / matches.length * 100) : 0.0;
+    final knownCount = matches
+        .where((m) => m.result != MatchResult.unknown).length;
+    // Win% over known results only — avoids 0% when most are unenriched
+    final winPct = knownCount > 0 ? (winsCount / knownCount * 100) : 0.0;
 
     // Compute real K/D from matches that carry stats
     final withStats = matches.where((m) => m.kills != null).toList();
@@ -1168,14 +1240,17 @@ class _LevelBorderContent extends StatelessWidget {
     final next = info.nextBorder;
 
     final currentName = current['displayName'] as String? ?? 'Level Border';
-    final currentIcon = current['smallPlayerCardAppearance'] as String? ??
-        current['displayIcon'] as String?;
+    // levelNumberAppearance = the glowing circular border ring (correct display icon)
+    // smallPlayerCardAppearance = transparent frame, use as secondary/next preview
+    final currentIcon = current['levelNumberAppearance'] as String? ??
+        current['displayIcon'] as String? ??
+        current['smallPlayerCardAppearance'] as String?;
 
     final nextName = next?['displayName'] as String?;
-    final nextStartLevel =
-        (next?['startingLevel'] as num?)?.toInt();
-    final nextIcon = next?['smallPlayerCardAppearance'] as String? ??
-        next?['displayIcon'] as String?;
+    final nextStartLevel = (next?['startingLevel'] as num?)?.toInt();
+    final nextIcon = next?['levelNumberAppearance'] as String? ??
+        next?['displayIcon'] as String? ??
+        next?['smallPlayerCardAppearance'] as String?;
 
     // Progress to next border
     final currentStart =

@@ -351,6 +351,7 @@ class _StatsSummaryBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use all matches as the total — include unknown (unenriched) entries
     final total = matches.length;
     final won =
         matches.where((m) => m.result == MatchResult.victory).length;
@@ -358,7 +359,11 @@ class _StatsSummaryBanner extends StatelessWidget {
         matches.where((m) => m.result == MatchResult.defeat).length;
     final draw =
         matches.where((m) => m.result == MatchResult.draw).length;
-    final winRate = total > 0 ? won / total : 0.0;
+    final unknown =
+        matches.where((m) => m.result == MatchResult.unknown).length;
+    // Win rate over matches with known results
+    final knownTotal = won + lost + draw;
+    final winRate = knownTotal > 0 ? won / knownTotal : 0.0;
 
     // K/D across matches that have stats
     final matchesWithStats =
@@ -389,9 +394,9 @@ class _StatsSummaryBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('LAST 20 MATCHES',
-                    style: TextStyle(
-                        color: Colors.white54,
+                Text('LAST $total MATCHES',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary,
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.8)),
@@ -406,6 +411,38 @@ class _StatsSummaryBanner extends StatelessWidget {
                     const SizedBox(width: 14),
                     _StatCount(value: draw, label: 'DRAW',
                         color: Colors.white38),
+                    if (unknown > 0) ...[
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(
+                                width: 10, height: 10,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text('$unknown',
+                                  style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.0)),
+                            ],
+                          ),
+                          const Text('LOADING',
+                              style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ],
