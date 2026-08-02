@@ -27,27 +27,26 @@ class SkinCard extends StatelessWidget {
         border: Border.all(
           color: isHighlighted
               ? const Color(0xFFFF4655)
-              : tierColor.withAlpha(160),
-          width: isHighlighted ? 2 : 1.2,
+              : tierColor.withAlpha(130),
+          width: isHighlighted ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: (isHighlighted ? const Color(0xFFFF4655) : tierColor)
-                .withAlpha(50),
-            blurRadius: 16,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
+                .withAlpha(30),
+            blurRadius: 12,
+            spreadRadius: 0,
+            offset: Offset.zero,
           ),
         ],
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            tierColor.withAlpha(70),
-            tierColor.withAlpha(20),
+            tierColor.withAlpha(35),
             const Color(0xFF070A10),
           ],
-          stops: const [0.0, 0.4, 1.0],
+          stops: const [0.0, 0.55],
         ),
       ),
       child: ClipRRect(

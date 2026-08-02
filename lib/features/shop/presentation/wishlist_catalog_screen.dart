@@ -24,9 +24,16 @@ final _allSkinsListProvider =
       final displayIcon = skinData['displayIcon']?.toString();
 
       final lowerName = skinName.toLowerCase().trim();
+      final weaponType = (skinData['weaponType'] as String? ?? '').toLowerCase();
+      // Exclude purely generic/unbranded entries:
+      //   - anything starting with "standard" (placeholder weapon skins)
+      //   - entries with no icon
+      // We intentionally keep names that ARE or END WITH "melee" — those are
+      // legitimate melee weapon skin names (e.g. ".SYS Melee", "Outpost Melee").
+      // The old `lowerName != 'melee'` guard was incorrectly dropping every
+      // melee skin whose Riot-API level name is exactly "Melee".
       if (skinName.isNotEmpty &&
           !lowerName.startsWith('standard') &&
-          lowerName != 'melee' &&
           displayIcon != null &&
           displayIcon.isNotEmpty) {
         final skinUuid = skinData['skinUuid']?.toString() ?? levelUuid;
@@ -36,6 +43,7 @@ final _allSkinsListProvider =
           'displayName': skinName,
           'displayIcon': displayIcon,
           'contentTierUuid': skinData['contentTierUuid']?.toString(),
+          'weaponType': weaponType,
         };
       }
     }
@@ -49,11 +57,17 @@ final _allSkinsListProvider =
 
 // ── Weapon category helpers ───────────────────────────────────────────────────
 
-/// Returns whether a skin name matches a specific individual weapon sidebar ID.
-bool _matchesWeaponId(String skinName, String weaponId) {
-  final name = skinName.toLowerCase();
+/// Returns whether a skin matches a specific weapon sidebar category.
+/// Checks [weaponType] (from Riot's /weapons endpoint) first — this correctly
+/// handles melee skins whose names do NOT contain the word "melee" (e.g.
+/// "Sovereign Sword", "Knife of the Last Khan"). Falls back to name-contains
+/// matching for any skin where weaponType is unavailable.
+bool _matchesWeaponId(String skinName, String weaponId, {String weaponType = ''}) {
   final id = weaponId.toLowerCase();
-  return name.contains(id);
+  if (weaponType.isNotEmpty) {
+    return weaponType == id;
+  }
+  return skinName.toLowerCase().contains(id);
 }
 
 Color _getTierColor(String? tierUuid) {
@@ -487,7 +501,8 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                             if (!wishlist.contains(levelUuid) &&
                                 !wishlist.contains(skinUuid)) { return false; }
                           } else if (_selectedCategory != 'ALL') {
-                            if (!_matchesWeaponId(name, _selectedCategory)) { return false; }
+                            final wt = skin['weaponType'] as String? ?? '';
+                            if (!_matchesWeaponId(name, _selectedCategory, weaponType: wt)) { return false; }
                           }
 
                           // Edition tier filter

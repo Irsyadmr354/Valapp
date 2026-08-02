@@ -34,15 +34,53 @@ class ValorantAssets {
         await _dio.get<Map<String, dynamic>>('$_base/weapons/skins');
     final skins = (response.data?['data'] as List<dynamic>?) ?? [];
 
+    // Also fetch /weapons to get weaponType (e.g. "Melee", "Vandal") per skin.
+    // This is stored as weaponType on every level entry so the catalog can
+    // filter by weapon category without relying solely on skin name matching.
+    final weaponTypeMap = <String, String>{}; // skinUuid → weaponType
+    try {
+      final weaponsResp =
+          await _dio.get<Map<String, dynamic>>('$_base/weapons');
+      final weapons = (weaponsResp.data?['data'] as List<dynamic>?) ?? [];
+      for (final weapon in weapons) {
+        final weaponType = weapon['displayName'] as String? ?? '';
+        final weaponSkins = weapon['skins'] as List<dynamic>? ?? [];
+        for (final ws in weaponSkins) {
+          final suuid = ws['uuid'] as String?;
+          if (suuid != null && weaponType.isNotEmpty) {
+            weaponTypeMap[suuid] = weaponType;
+          }
+        }
+      }
+    } catch (_) {
+      // Non-fatal — weaponType will be empty string, name-based fallback still works.
+    }
+
     final map = <String, dynamic>{};
     for (final skin in skins) {
       final levels = skin['levels'] as List<dynamic>? ?? [];
+      final skinUuid = skin['uuid'] as String?;
+      final weaponType = skinUuid != null ? (weaponTypeMap[skinUuid] ?? '') : '';
+
+      // Find the best icon: prefer level 1 (index 0), fall back to any level
+      // with a non-null icon. Melee skins sometimes have a null icon on level 1.
+      String? bestIcon;
+      for (final level in levels) {
+        final icon = level['displayIcon'] as String?;
+        if (icon != null && icon.isNotEmpty) {
+          bestIcon = icon;
+          break;
+        }
+      }
+
       for (final level in levels) {
         final uuid = level['uuid'] as String?;
         if (uuid != null) {
           map[uuid] = {
             'displayName': level['displayName'],
-            'displayIcon': level['displayIcon'],
+            'displayIcon': (level['displayIcon'] as String?)?.isNotEmpty == true
+                ? level['displayIcon']
+                : bestIcon,
             'skinName': skin['displayName'],
             'skinUuid': skin['uuid'],
             'themeUuid': skin['themeUuid'],
@@ -50,6 +88,7 @@ class ValorantAssets {
             'wallpaper': skin['wallpaper'],
             'chromas': skin['chromas'],
             'levels': skin['levels'],
+            'weaponType': weaponType,
           };
         }
       }
