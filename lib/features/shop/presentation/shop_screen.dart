@@ -29,10 +29,12 @@ final _storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async 
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final repo = await ref.watch(storeRepositoryProvider.future);
+  final cached = await repo.loadCachedStorefront();
   try {
     return await repo.fetchStorefront(creds.shard, creds.puuid);
-  } catch (_) {
-    return repo.loadCachedStorefront();
+  } catch (e) {
+    if (cached != null) return cached;
+    rethrow;
   }
 });
 
@@ -40,10 +42,12 @@ final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final repo = await ref.watch(storeRepositoryProvider.future);
+  final cached = await repo.loadCachedWallet();
   try {
     return await repo.fetchWallet(creds.shard, creds.puuid);
-  } catch (_) {
-    return repo.loadCachedWallet();
+  } catch (e) {
+    if (cached != null) return cached;
+    rethrow;
   }
 });
 
@@ -201,10 +205,36 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
             _buildAppBar(walletAsync),
             storefrontAsync.when(
               data: (storefront) => storefront == null
-                  ? const SliverFillRemaining(
+                  ? SliverFillRemaining(
                       child: Center(
-                        child: Text('Not logged in',
-                            style: TextStyle(color: Colors.white54)),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.storefront_outlined,
+                                color: Color(0xFFFF4655), size: 48),
+                            const SizedBox(height: 12),
+                            const Text('Unable to load shop catalog',
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15)),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Pull down or tap below to refresh your daily offers',
+                              style: TextStyle(
+                                  color: Colors.white38, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton.icon(
+                              onPressed: _refresh,
+                              style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF4655)),
+                              icon: const Icon(Icons.refresh, size: 18),
+                              label: const Text('RETRY SHOP'),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : _buildContent(storefront, wishlist.toSet()),
