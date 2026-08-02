@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/storage/cache_storage.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../data/credentials_local_source.dart';
 
@@ -42,29 +44,70 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
       });
     }
 
-    // Auto-resolve real Riot ID for any accounts still using generic fallback names
-    _resolveGenericNames(list);
+    // Auto-resolve real Riot ID and Player Card Avatar for saved accounts
+    _resolveAccountMetadata(list);
   }
 
-  Future<void> _resolveGenericNames(List<SavedAccountProfile> list) async {
+  Future<void> _resolveAccountMetadata(List<SavedAccountProfile> list) async {
     try {
       final remoteSource = await ref.read(accountRemoteSourceProvider.future);
+      final loadoutSource = await ref.read(loadoutRemoteSourceProvider.future);
+      final assets = ref.read(valorantAssetsProvider);
       final localSource = ref.read(credentialsLocalSourceProvider);
+      final cardsMap = await assets.getPlayerCardsMap();
 
       for (final acc in list) {
-        final name = acc.displayName;
-        if (name.startsWith('Account (') || name == 'Valorant Account' || name == 'Valorant Player') {
+        String? newName = acc.displayName;
+        String? newAvatar = acc.avatarUrl;
+        String? newCardId = acc.playerCardId;
+        bool needsUpdate = false;
+
+        if (newName.startsWith('Account (') || newName == 'Valorant Account' || newName == 'Valorant Player') {
           final realName = await remoteSource.fetchDisplayName(acc.shard, acc.puuid);
-          if (realName != null && realName.isNotEmpty && realName != name) {
-            await localSource.save(acc.credentials, displayName: realName);
-            final updated = await localSource.getSavedAccounts();
-            if (mounted) {
-              setState(() {
-                _savedAccounts = updated;
-              });
-            }
+          if (realName != null && realName.isNotEmpty) {
+            newName = realName;
+            needsUpdate = true;
           }
         }
+
+        if (newAvatar == null || newAvatar.isEmpty) {
+          try {
+            final rawLoadout = await loadoutSource.fetchLoadoutRaw(acc.shard, acc.puuid);
+            final loadoutRoot = rawLoadout.containsKey('Loadout')
+                ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
+                : rawLoadout;
+            final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
+                rawLoadout['Identity'] as Map<String, dynamic>? ??
+                {};
+            final cardId = identity['PlayerCardID'] as String? ??
+                loadoutRoot['PlayerCardID'] as String? ??
+                rawLoadout['PlayerCardID'] as String?;
+            if (cardId != null && cardId.isNotEmpty) {
+              newCardId = cardId;
+              final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
+              newAvatar = cardInfo?['smallArt'] as String? ?? cardInfo?['displayIcon'] as String?;
+              if (newAvatar != null && newAvatar.isNotEmpty) {
+                needsUpdate = true;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (needsUpdate) {
+          await localSource.save(
+            acc.credentials,
+            displayName: newName,
+            playerCardId: newCardId,
+            avatarUrl: newAvatar,
+          );
+        }
+      }
+
+      final updated = await localSource.getSavedAccounts();
+      if (mounted) {
+        setState(() {
+          _savedAccounts = updated;
+        });
       }
     } catch (_) {}
   }
@@ -158,10 +201,30 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                           return GestureDetector(
                             onTap: () async {
                               if (!isActive) {
+                                // 1. Wipe cached user data from old session
+                                await CacheStorage.instance.clearUserCache();
+
+                                // 2. Save active credentials into SecureStorage
                                 final source = ref.read(credentialsLocalSourceProvider);
-                                await source.save(acc.credentials,
-                                    displayName: acc.displayName);
+                                await source.save(
+                                  acc.credentials,
+                                  displayName: acc.displayName,
+                                  playerCardId: acc.playerCardId,
+                                  avatarUrl: acc.avatarUrl,
+                                );
+
+                                // 3. Invalidate current credentials & session providers
                                 ref.invalidate(currentCredentialsProvider);
+                                ref.invalidate(apiDioProvider);
+                                ref.invalidate(storeRemoteSourceProvider);
+                                ref.invalidate(storeRepositoryProvider);
+                                ref.invalidate(matchRemoteSourceProvider);
+                                ref.invalidate(mmrRemoteSourceProvider);
+                                ref.invalidate(contractsRemoteSourceProvider);
+                                ref.invalidate(accountRemoteSourceProvider);
+                                ref.invalidate(restrictionsRemoteSourceProvider);
+                                ref.invalidate(loadoutRemoteSourceProvider);
+
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -192,7 +255,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                               ),
                               child: Row(
                                 children: [
-                                  // Account Avatar Icon
+                                  // Account Avatar Icon displaying Player Card artwork
                                   Container(
                                     width: 42,
                                     height: 42,
@@ -201,15 +264,53 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                           ? AppColors.red.withAlpha(40)
                                           : const Color(0xFF070A10),
                                       shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Icon(
-                                        Icons.person,
-                                        color: isActive
-                                            ? AppColors.red
-                                            : Colors.white54,
-                                        size: 20,
+                                      border: Border.all(
+                                        color: isActive ? AppColors.red : Colors.white10,
+                                        width: 1.5,
                                       ),
+                                    ),
+                                    child: ClipOval(
+                                      child: acc.avatarUrl != null && acc.avatarUrl!.isNotEmpty
+                                          ? CachedNetworkImage(
+                                              imageUrl: acc.avatarUrl!,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) => Center(
+                                                child: Text(
+                                                  acc.displayName.isNotEmpty
+                                                      ? acc.displayName[0].toUpperCase()
+                                                      : 'V',
+                                                  style: TextStyle(
+                                                    color: isActive ? Colors.white : Colors.white70,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                                ),
+                                              ),
+                                              errorWidget: (_, __, ___) => Center(
+                                                child: Text(
+                                                  acc.displayName.isNotEmpty
+                                                      ? acc.displayName[0].toUpperCase()
+                                                      : 'V',
+                                                  style: TextStyle(
+                                                    color: isActive ? Colors.white : Colors.white70,
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          : Center(
+                                              child: Text(
+                                                acc.displayName.isNotEmpty
+                                                    ? acc.displayName[0].toUpperCase()
+                                                    : 'V',
+                                                style: TextStyle(
+                                                  color: isActive ? Colors.white : Colors.white70,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                              ),
+                                            ),
                                     ),
                                   ),
                                   const SizedBox(width: 14),

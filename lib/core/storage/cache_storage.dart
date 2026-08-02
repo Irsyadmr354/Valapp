@@ -152,6 +152,32 @@ class CacheStorage {
     await prefs.remove(key);
   }
 
+  /// Wipes user-specific cached responses upon account switch
+  /// so old account data is not served to the new account.
+  Future<void> clearUserCache() async {
+    final keys = [
+      keyDailyShop,
+      keyDailyShopFetchedAt,
+      keyMmrCache,
+      keyMmrCacheFetchedAt,
+      keyCompetitiveUpdatesCache,
+      keyCompetitiveUpdatesCacheFetchedAt,
+      keyMatchHistoryCache,
+      keyMatchHistoryCacheFetchedAt,
+      keyMatchDetailCache,
+      keyAccountXpCache,
+      keyAccountXpCacheFetchedAt,
+      keyDisplayNameCache,
+      keyDisplayNameCacheFetchedAt,
+      keyContractsCache,
+      keyContractsCacheFetchedAt,
+      'player_loadout',
+    ];
+    for (final k in keys) {
+      await remove(k);
+    }
+  }
+
   Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

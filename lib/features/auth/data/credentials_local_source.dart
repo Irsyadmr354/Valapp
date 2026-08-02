@@ -9,6 +9,8 @@ class SavedAccountProfile {
   final String displayName;
   final String region;
   final String shard;
+  final String? playerCardId;
+  final String? avatarUrl;
   final Credentials credentials;
 
   const SavedAccountProfile({
@@ -16,6 +18,8 @@ class SavedAccountProfile {
     required this.displayName,
     required this.region,
     required this.shard,
+    this.playerCardId,
+    this.avatarUrl,
     required this.credentials,
   });
 
@@ -24,6 +28,8 @@ class SavedAccountProfile {
         'displayName': displayName,
         'region': region,
         'shard': shard,
+        'playerCardId': playerCardId,
+        'avatarUrl': avatarUrl,
         'accessToken': credentials.accessToken,
         'idToken': credentials.idToken,
         'entitlementToken': credentials.entitlementToken,
@@ -49,6 +55,8 @@ class SavedAccountProfile {
       displayName: json['displayName'] as String? ?? 'Valorant Account',
       region: json['region'] as String? ?? 'ap',
       shard: json['shard'] as String? ?? 'ap',
+      playerCardId: json['playerCardId'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
       credentials: creds,
     );
   }
@@ -101,7 +109,7 @@ class CredentialsLocalSource {
     );
   }
 
-  Future<void> save(Credentials creds, {String? displayName}) async {
+  Future<void> save(Credentials creds, {String? displayName, String? playerCardId, String? avatarUrl}) async {
     await AsyncLock.run('credentials_save', () async {
       await Future.wait([
         _storage.write(SecureStorage.keyAccessToken, creds.accessToken),
@@ -118,11 +126,15 @@ class CredentialsLocalSource {
       // Also add/update profile in saved accounts list
       final profiles = await getSavedAccounts();
       final idx = profiles.indexWhere((p) => p.puuid == creds.puuid);
+      final existing = idx != -1 ? profiles[idx] : null;
+
       final newProfile = SavedAccountProfile(
         puuid: creds.puuid,
-        displayName: displayName ?? (idx != -1 ? profiles[idx].displayName : 'Account (${creds.puuid.substring(0, 6)})'),
+        displayName: displayName ?? (existing != null ? existing.displayName : 'Account (${creds.puuid.substring(0, 6)})'),
         region: creds.region,
         shard: creds.shard,
+        playerCardId: playerCardId ?? existing?.playerCardId,
+        avatarUrl: avatarUrl ?? existing?.avatarUrl,
         credentials: creds,
       );
 

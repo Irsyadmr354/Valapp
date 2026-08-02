@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/storage/cache_storage.dart';
 import '../../../core/exceptions/auth_exception.dart';
 import '../data/auth_remote_source.dart';
 
@@ -103,18 +104,57 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
         expiresIn: expiresIn,
       );
 
-      // Attempt to resolve real Riot ID display name for multi-account profile
+      // Wipe cached user data from old session
+      await CacheStorage.instance.clearUserCache();
+
+      // Attempt to resolve real Riot ID display name and Player Card Avatar for multi-account profile
       try {
         final source = await ref.read(accountRemoteSourceProvider.future);
+        final loadoutSource = await ref.read(loadoutRemoteSourceProvider.future);
+        final assets = ref.read(valorantAssetsProvider);
+        final localSource = ref.read(credentialsLocalSourceProvider);
+
         final realName = await source.fetchDisplayName(creds.shard, creds.puuid);
-        if (realName != null && realName.isNotEmpty) {
-          final localSource = ref.read(credentialsLocalSourceProvider);
-          await localSource.save(creds, displayName: realName);
-        }
+        String? avatarUrl;
+        String? cardId;
+
+        try {
+          final rawLoadout = await loadoutSource.fetchLoadoutRaw(creds.shard, creds.puuid);
+          final loadoutRoot = rawLoadout.containsKey('Loadout')
+              ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
+              : rawLoadout;
+          final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
+              rawLoadout['Identity'] as Map<String, dynamic>? ??
+              {};
+          cardId = identity['PlayerCardID'] as String? ??
+              loadoutRoot['PlayerCardID'] as String? ??
+              rawLoadout['PlayerCardID'] as String?;
+          if (cardId != null && cardId.isNotEmpty) {
+            final cardsMap = await assets.getPlayerCardsMap();
+            final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
+            avatarUrl = cardInfo?['smallArt'] as String? ?? cardInfo?['displayIcon'] as String?;
+          }
+        } catch (_) {}
+
+        await localSource.save(
+          creds,
+          displayName: (realName != null && realName.isNotEmpty) ? realName : null,
+          playerCardId: cardId,
+          avatarUrl: avatarUrl,
+        );
       } catch (_) {}
 
-      // Invalidate credentials provider so router picks up the new session
+      // Invalidate credentials & session providers so router and UI pick up the new session
       ref.invalidate(currentCredentialsProvider);
+      ref.invalidate(apiDioProvider);
+      ref.invalidate(storeRemoteSourceProvider);
+      ref.invalidate(storeRepositoryProvider);
+      ref.invalidate(matchRemoteSourceProvider);
+      ref.invalidate(mmrRemoteSourceProvider);
+      ref.invalidate(contractsRemoteSourceProvider);
+      ref.invalidate(accountRemoteSourceProvider);
+      ref.invalidate(restrictionsRemoteSourceProvider);
+      ref.invalidate(loadoutRemoteSourceProvider);
 
       if (mounted) {
         if (Navigator.of(context).canPop()) {
