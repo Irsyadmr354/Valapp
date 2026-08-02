@@ -391,11 +391,22 @@ final enrichedMatchHistoryProvider =
         ..sort((a, b) => b.score.compareTo(a.score));
       final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
 
+      // Build score string (e.g. "13 – 8") the same way _matchHistoryProvider does.
+      String? scoreStr;
+      if (details.roundResults.isNotEmpty) {
+        final pt = player.teamId.toLowerCase();
+        final myWins = details.roundResults
+            .where((r) => r.winningTeam.toLowerCase() == pt)
+            .length;
+        scoreStr = '$myWins – ${details.roundResults.length - myWins}';
+      }
+
       enriched.add(entry.copyWithStats(
         kills: player.kills,
         deaths: player.deaths,
         assists: player.assists,
         isMvp: isMvp,
+        matchScore: scoreStr,
         result: matchResult,
         agentId: player.agentId,
         mapId: details.mapId,

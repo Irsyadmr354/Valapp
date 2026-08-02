@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valorant_shop_monitor/features/shop/domain/models/storefront.dart';
+import 'package:valorant_app/features/shop/domain/models/storefront.dart';
 
 void main() {
   group('Storefront.fromJson daily offer pricing', () {

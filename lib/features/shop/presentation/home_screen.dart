@@ -513,6 +513,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refresh() async {
+    // Clear the notified set so wishlist alerts fire again for the new shop.
+    _notifiedSkins.clear();
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
     await ref.read(_storefrontProvider.future);
@@ -1032,7 +1034,9 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
               final offer = widget.offers[i];
               final tierColor =
                   TierColors.forName(offer.contentTierUuid);
-              final discountInt = price_utils.discountPercent(offer.discountPercent.toDouble());
+              // discountPercent is already normalised to 0–100 in NightMarketOffer.fromJson,
+              // so we use it directly — no multiplication needed.
+              final discountInt = offer.discountPercent;
 
               return GestureDetector(
                 onTap: () =>

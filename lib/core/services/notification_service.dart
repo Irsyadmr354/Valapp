@@ -11,7 +11,6 @@ class NotificationService {
 
   static const _wishlistChannelId = 'valapp_wishlist_channel';
   static const _shopChannelId = 'valapp_shop_channel';
-  static const _newsChannelId = 'valapp_news_channel';
 
   Future<void> init() async {
     if (_isInitialized) return;
@@ -108,30 +107,4 @@ class NotificationService {
       ),
     );
   }
-
-  // ── News alert ────────────────────────────────────────────────────────────
-
-  Future<void> showNewsAlert({
-    required String headline,
-    required String category,
-  }) async {
-    await init();
-    await _notifications.show(
-      headline.hashCode & 0x7FFFFFFF,
-      '📰 VALORANT — ${category.toUpperCase()}',
-      headline,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _newsChannelId, 'Valorant News',
-          channelDescription: 'Latest Valorant patch notes and news',
-          importance: Importance.low,
-          priority: Priority.low,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: DarwinNotificationDetails(
-            presentAlert: true, presentBadge: false, presentSound: false),
-      ),
-    );
-  }
-
 }

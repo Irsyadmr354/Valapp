@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valorant_shop_monitor/features/match/domain/models/match_history.dart';
+import 'package:valorant_app/features/match/domain/models/match_history.dart';
 
 void main() {
   group('MatchHistoryEntry map resolution tests', () {

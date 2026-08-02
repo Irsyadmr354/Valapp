@@ -44,6 +44,11 @@ class ValorantInterceptor extends Interceptor {
   DateTime? _lastReauthCheckAt;
   static const _reauthCheckCooldown = Duration(seconds: 60);
 
+  /// In-flight reauth future. When one request is already performing the
+  /// proactive reauth, every other concurrent request awaits this same
+  /// future instead of starting a duplicate reauth round-trip.
+  Future<void>? _reauthInFlight;
+
   @override
   void onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
@@ -76,6 +81,13 @@ class ValorantInterceptor extends Interceptor {
   }
 
   Future<void> _maybeProactiveReauth() async {
+    // If another request already kicked off the reauth, piggyback on it
+    // instead of starting a second one in parallel.
+    if (_reauthInFlight != null) {
+      await _reauthInFlight;
+      return;
+    }
+
     // Skip if we already checked recently — avoids two SecureStorage reads
     // and a potential reauth round-trip on every concurrent API call.
     final now = DateTime.now();
@@ -83,6 +95,8 @@ class ValorantInterceptor extends Interceptor {
         now.difference(_lastReauthCheckAt!) < _reauthCheckCooldown) {
       return;
     }
+    // Claim the slot immediately before any await so no other concurrent
+    // caller can slip past the cooldown check while we're doing I/O.
     _lastReauthCheckAt = now;
 
     final expiresAtStr = await _secureStorage.read(SecureStorage.keyExpiresAt);
@@ -117,6 +131,17 @@ class ValorantInterceptor extends Interceptor {
 
     debugPrint(
         '[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
+
+    // Store the in-flight future so concurrent callers await the same work.
+    _reauthInFlight = _doProactiveReauth();
+    try {
+      await _reauthInFlight;
+    } finally {
+      _reauthInFlight = null;
+    }
+  }
+
+  Future<void> _doProactiveReauth() async {
     try {
       await onReauth();
       debugPrint('[ValorantInterceptor] Proactive reauth completed');

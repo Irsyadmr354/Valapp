@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valorant_shop_monitor/features/contracts/domain/models/contracts.dart';
+import 'package:valorant_app/features/contracts/domain/models/contracts.dart';
 
 void main() {
   group('Contract & PlayerContracts tests', () {

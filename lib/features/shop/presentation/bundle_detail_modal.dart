@@ -10,6 +10,14 @@ import '../domain/models/skin_offer.dart';
 import '../domain/models/storefront.dart';
 import 'skin_detail_modal.dart';
 
+/// Riverpod provider for the skin-levels asset map — lives at file scope so
+/// the Future is created once per provider lifetime, not once per build().
+final _bundleSkinMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getSkinLevelsMap();
+});
+
 /// Modal displaying full contents of the Featured Bundle (all skin items, prices, timers, and inspectable preview).
 class BundleDetailModal extends ConsumerWidget {
   const BundleDetailModal({
@@ -39,7 +47,7 @@ class BundleDetailModal extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final assets = ref.watch(valorantAssetsProvider);
+    final skinMapAsync = ref.watch(_bundleSkinMapProvider);
     final discountInt = price_utils.discountPercent(bundle.totalDiscountPercent);
 
     return Container(
@@ -139,15 +147,18 @@ class BundleDetailModal extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.red.withAlpha(20),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.red.withAlpha(80), width: 0.8),
+                  border: Border.all(
+                      color: AppColors.red.withAlpha(80), width: 0.8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.timer_outlined, color: AppColors.red, size: 16),
+                    const Icon(Icons.timer_outlined,
+                        color: AppColors.red, size: 16),
                     const SizedBox(width: 8),
                     const Text('OFFER ENDS IN ',
                         style: TextStyle(
@@ -171,185 +182,202 @@ class BundleDetailModal extends ConsumerWidget {
 
           // Bundle Content List
           Expanded(
-            child: FutureBuilder<Map<String, dynamic>>(
-              future: assets.getSkinLevelsMap(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.red),
-                  );
-                }
-
-                final skinMap = snapshot.data ?? {};
-
-                return ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    // Promo Image Banner Artwork
-                    if (bannerImageUrl != null && bannerImageUrl!.isNotEmpty) ...[
-                      Container(
-                        height: 160,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: const Color(0xFF141F2D),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: CachedNetworkImage(
-                            imageUrl: bannerImageUrl!,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Section Title
-                    Row(
-                      children: [
-                        Container(width: 3, height: 14, color: AppColors.red),
-                        const SizedBox(width: 8),
-                        Text(
-                          'BUNDLE ITEMS (${bundle.itemIds.length})',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Grid of Skins inside the Bundle
-                    ...bundle.itemIds.map((itemId) {
-                      final meta = skinMap[itemId] as Map<String, dynamic>? ??
-                          skinMap[itemId.toLowerCase()] as Map<String, dynamic>?;
-
-                      final skinName = meta?['displayName'] as String? ??
-                          meta?['skinName'] as String? ??
-                          'Bundle Item';
-                      final displayIcon = meta?['displayIcon'] as String?;
-                      final tierUuid = meta?['contentTierUuid'] as String?;
-                      final tierColor = TierColors.forName(tierUuid);
-
-                      final itemPrice = bundle.itemPrices[itemId] ?? 0;
-                      final offer = SkinOffer(
-                        offerId: itemId,
-                        skinLevelUuid: itemId,
-                        price: itemPrice,
-                        displayName: skinName,
-                        displayIcon: displayIcon,
-                        contentTierUuid: tierUuid,
-                      );
-
-                      return GestureDetector(
-                        onTap: () => SkinDetailModal.show(context, offer),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.bgCard2,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: tierColor.withAlpha(80), width: 1),
-                          ),
-                          child: Row(
-                            children: [
-                              // Skin Icon Preview Thumbnail
-                              Container(
-                                width: 56,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: AppColors.bg,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: displayIcon != null && displayIcon.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: displayIcon,
-                                        fit: BoxFit.contain,
-                                      )
-                                    : const Icon(Icons.image,
-                                        color: Colors.white24),
-                              ),
-                              const SizedBox(width: 14),
-
-                              // Name & Tier Info
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      skinName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: tierColor.withAlpha(30),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            TierColors.tierLabel(tierUuid).toUpperCase(),
-                                            style: TextStyle(
-                                              color: tierColor,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // INSPECT label + chevron
-                              const Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text('INSPECT',
-                                          style: TextStyle(
-                                              color: AppColors.red,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 0.5)),
-                                      Icon(Icons.chevron_right,
-                                          color: AppColors.red, size: 16),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 30),
-                  ],
-                );
-              },
+            child: skinMapAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.red),
+              ),
+              error: (_, __) => _BundleItemList(
+                bundle: bundle,
+                bannerImageUrl: bannerImageUrl,
+                skinMap: const {},
+              ),
+              data: (skinMap) => _BundleItemList(
+                bundle: bundle,
+                bannerImageUrl: bannerImageUrl,
+                skinMap: skinMap,
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BundleItemList extends StatelessWidget {
+  const _BundleItemList({
+    required this.bundle,
+    required this.skinMap,
+    this.bannerImageUrl,
+  });
+
+  final FeaturedBundle bundle;
+  final Map<String, dynamic> skinMap;
+  final String? bannerImageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        // Promo Image Banner Artwork
+        if (bannerImageUrl != null && bannerImageUrl!.isNotEmpty) ...[
+          Container(
+            height: 160,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF141F2D),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: CachedNetworkImage(
+                imageUrl: bannerImageUrl!,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // Section Title
+        Row(
+          children: [
+            Container(width: 3, height: 14, color: AppColors.red),
+            const SizedBox(width: 8),
+            Text(
+              'BUNDLE ITEMS (${bundle.itemIds.length})',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Grid of Skins inside the Bundle
+        ...bundle.itemIds.map((itemId) {
+          final meta = skinMap[itemId] as Map<String, dynamic>? ??
+              skinMap[itemId.toLowerCase()] as Map<String, dynamic>?;
+
+          final skinName = meta?['displayName'] as String? ??
+              meta?['skinName'] as String? ??
+              'Bundle Item';
+          final displayIcon = meta?['displayIcon'] as String?;
+          final tierUuid = meta?['contentTierUuid'] as String?;
+          final tierColor = TierColors.forName(tierUuid);
+
+          final itemPrice = bundle.itemPrices[itemId] ?? 0;
+          final offer = SkinOffer(
+            offerId: itemId,
+            skinLevelUuid: itemId,
+            price: itemPrice,
+            displayName: skinName,
+            displayIcon: displayIcon,
+            contentTierUuid: tierUuid,
+          );
+
+          return GestureDetector(
+            onTap: () => SkinDetailModal.show(context, offer),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.bgCard2,
+                borderRadius: BorderRadius.circular(12),
+                border:
+                    Border.all(color: tierColor.withAlpha(80), width: 1),
+              ),
+              child: Row(
+                children: [
+                  // Skin Icon Preview Thumbnail
+                  Container(
+                    width: 56,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: displayIcon != null && displayIcon.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: displayIcon,
+                            fit: BoxFit.contain,
+                          )
+                        : const Icon(Icons.image, color: Colors.white24),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // Name & Tier Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          skinName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: tierColor.withAlpha(30),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                TierColors.tierLabel(tierUuid).toUpperCase(),
+                                style: TextStyle(
+                                  color: tierColor,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // INSPECT label + chevron
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('INSPECT',
+                              style: TextStyle(
+                                  color: AppColors.red,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5)),
+                          Icon(Icons.chevron_right,
+                              color: AppColors.red, size: 16),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 30),
+      ],
     );
   }
 }

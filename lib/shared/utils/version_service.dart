@@ -7,6 +7,13 @@ class VersionService {
   VersionService._();
   static final VersionService instance = VersionService._();
 
+  /// Single reusable Dio instance — avoids allocating a new client on
+  /// every cache miss (which would also leak the underlying HttpClient).
+  static final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
+
   static const _versionUrl = 'https://valorant-api.com/v1/version';
   static const _cacheDuration = Duration(hours: 24);
   static const _fallback = 'release-13.02-shipping-7-5092570';
@@ -33,7 +40,7 @@ class VersionService {
 
     // Fetch fresh version
     try {
-      final response = await Dio().get<Map<String, dynamic>>(_versionUrl);
+      final response = await _dio.get<Map<String, dynamic>>(_versionUrl);
       final version =
           response.data?['data']?['riotClientVersion'] as String? ?? _fallback;
 

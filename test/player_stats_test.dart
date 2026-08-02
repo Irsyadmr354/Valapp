@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valorant_shop_monitor/features/match/domain/models/match_details.dart';
+import 'package:valorant_app/features/match/domain/models/match_details.dart';
 
 void main() {
   group('PlayerStats KDA tests', () {

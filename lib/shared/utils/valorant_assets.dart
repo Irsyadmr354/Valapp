@@ -100,7 +100,7 @@ class ValorantAssets {
         : <dynamic>[];
 
     await cache.setJson(
-        CacheStorage.keyCompetitiveTiers, {'tiers': tiers});
+        CacheStorage.keyCompetitiveTiers, tiers);
     await cache.setTimestamp(CacheStorage.keyCompetitiveTiersFetchedAt);
     return tiers;
   }

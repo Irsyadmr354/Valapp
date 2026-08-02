@@ -29,11 +29,12 @@ class CompetitiveUpdate {
 
   bool get isLoss => rankedRatingEarned < 0;
 
-  bool get isDraw =>
-      rankedRatingEarned == 0 &&
-      afkPenalty == 0 &&
-      tierAfterUpdate == tierBeforeUpdate &&
-      rankedRatingAfterUpdate == rankedRatingBeforeUpdate;
+  /// A match is a draw when no RR was earned or lost and there was no AFK
+  /// penalty. We intentionally do NOT additionally require tier equality
+  /// because Riot can adjust tiers independently of RR in edge cases (e.g.
+  /// provisional placements), which would make those entries appear as
+  /// neither win, loss, nor draw.
+  bool get isDraw => rankedRatingEarned == 0 && afkPenalty == 0;
 
   factory CompetitiveUpdate.fromJson(Map<String, dynamic> json) {
     return CompetitiveUpdate(

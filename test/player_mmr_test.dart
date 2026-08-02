@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valorant_shop_monitor/features/rank/domain/models/player_mmr.dart';
+import 'package:valorant_app/features/rank/domain/models/player_mmr.dart';
 
 void main() {
   group('CompetitiveUpdate W/L/D tests', () {

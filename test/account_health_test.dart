@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:valorant_shop_monitor/features/profile/domain/models/account_health.dart';
+import 'package:valorant_app/features/profile/domain/models/account_health.dart';
 
 void main() {
   group('AccountHealth Model Tests', () {
