@@ -514,7 +514,7 @@ class ValorantAssets {
         return Map<String, String>.from(
             cached.map((k, v) => MapEntry(k, v?.toString() ?? '')));
       }
-      return {'episode': 'EPISODE 9', 'act': 'ACT 1', 'label': 'EPISODE 9 // ACT 1'};
+      return {'episode': '', 'act': '', 'label': ''};
     }
   }
 
@@ -635,6 +635,47 @@ class ValorantAssets {
       return map;
     } catch (_) {
       return await cache.getJson(keyContractDefs) ?? {};
+    }
+  }
+
+  // ── Missions ──────────────────────────────────────────────────────────────
+
+  /// Returns a map of mission UUID → { 'title', 'xpGrant', 'progressToComplete' }
+  /// sourced from valorant-api.com/v1/missions.
+  /// Used to resolve the real mission title (e.g. "Kill Enemies") since
+  /// Riot's contracts endpoint does not include the Title field.
+  Future<Map<String, dynamic>> getMissionsMap() async {
+    final cache = CacheStorage.instance;
+    const keyMissions = 'missions_metadata';
+    const keyMissionsFetchedAt = 'missions_metadata_fetched_at';
+
+    final isStale = await cache.isStale(keyMissionsFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keyMissions);
+      if (cached != null) return cached;
+    }
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/missions');
+      final missions = (response.data?['data'] as List<dynamic>?) ?? [];
+      final map = <String, dynamic>{};
+      for (final m in missions) {
+        final uuid = m['uuid'] as String?;
+        final title = m['title'] as String?;
+        // Skip entries with no meaningful title
+        if (uuid != null && title != null && title.isNotEmpty) {
+          map[uuid] = {
+            'title': title,
+            'xpGrant': m['xpGrant'],
+            'progressToComplete': m['progressToComplete'],
+          };
+        }
+      }
+      await cache.setJson(keyMissions, map);
+      await cache.setTimestamp(keyMissionsFetchedAt);
+      return map;
+    } catch (_) {
+      return await cache.getJson(keyMissions) ?? {};
     }
   }
 

@@ -17,6 +17,10 @@ import '../domain/models/match_details.dart';
 final _queueFilterProvider = StateProvider<String?>((ref) => null);
 final _resultFilterProvider = StateProvider<MatchResult?>((ref) => null);
 
+/// Tracks matchIds that failed to fetch during this app session.
+/// Cleared when user performs a manual pull-to-refresh.
+final _failedEnrichmentIdsProvider = StateProvider<Set<String>>((ref) => {});
+
 final _mapsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
@@ -78,16 +82,7 @@ final _matchHistoryProvider =
           .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
       if (player == null) { quickEnriched.add(entry); continue; }
 
-      MatchResult matchResult = MatchResult.unknown;
-      if (details.roundResults.isNotEmpty) {
-        final pt = player.teamId.toLowerCase();
-        final myWins = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == pt).length;
-        final oppWins = details.roundResults.length - myWins;
-        matchResult = myWins > oppWins
-            ? MatchResult.victory
-            : myWins < oppWins ? MatchResult.defeat : MatchResult.draw;
-      }
+      MatchResult matchResult = details.resultForPlayer(creds.puuid);
 
       String? scoreStr;
       if (details.roundResults.isNotEmpty) {
@@ -136,9 +131,15 @@ final _backgroundEnrichmentProvider =
   final source = await ref.watch(matchRemoteSourceProvider.future);
   final detailCache = ref.watch(matchDetailLocalCacheProvider);
 
-  // Only fetch details that are NOT already cached
+  // Skip matchIds that already failed in this session to prevent
+  // infinite retry loops when a match detail is permanently unavailable.
+  final failedIds = ref.watch(_failedEnrichmentIdsProvider);
+
+  // Only fetch details that are NOT already cached and NOT permanently failed
   final missing = historyResult.data.matches
-      .where((e) => e.result == MatchResult.unknown || e.kills == null)
+      .where((e) =>
+          (e.result == MatchResult.unknown || e.kills == null) &&
+          !failedIds.contains(e.matchId))
       .toList();
   if (missing.isEmpty) return;
 
@@ -151,11 +152,15 @@ final _backgroundEnrichmentProvider =
       final existing = await detailCache.loadMatchDetailRaw(entry.matchId);
       if (existing != null) return;
       try {
-        final raw =
-            await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
-        await detailCache.saveMatchDetail(entry.matchId, raw);
-        anyNewData = true;
-      } catch (_) {}
+          final raw =
+              await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
+          await detailCache.saveMatchDetail(entry.matchId, raw);
+          anyNewData = true;
+        } catch (_) {
+          // Mark as failed so we don't retry this matchId in the same session
+          ref.read(_failedEnrichmentIdsProvider.notifier).update(
+              (ids) => {...ids, entry.matchId});
+        }
     }));
   }
 
@@ -229,7 +234,11 @@ class MatchHistoryScreen extends ConsumerWidget {
       body: RefreshIndicator(
         color: AppColors.red,
         backgroundColor: AppColors.bgCard2,
-        onRefresh: () async => ref.invalidate(_matchHistoryProvider),
+        onRefresh: () async {
+          // Reset failed enrichment set so pull-to-refresh retries everything
+          ref.read(_failedEnrichmentIdsProvider.notifier).state = {};
+          ref.invalidate(_matchHistoryProvider);
+        },
         child: historyAsync.when(
           data: (result) {
             if (result == null || result.data.matches.isEmpty) {

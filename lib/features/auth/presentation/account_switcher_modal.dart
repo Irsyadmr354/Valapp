@@ -364,9 +364,73 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                       icon: const Icon(Icons.delete_outline,
                                           color: Colors.white38, size: 20),
                                       onPressed: () async {
-                                        final source = ref.read(credentialsLocalSourceProvider);
-                                        await source.removeAccount(acc.puuid);
-                                        await _loadAccounts();
+                                        final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            backgroundColor: const Color(0xFF0E1622),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(16),
+                                              side: const BorderSide(
+                                                  color: AppColors.red, width: 1.5),
+                                            ),
+                                            title: const Text(
+                                              'Hapus Akun?',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                            content: Text(
+                                              'Akun "${acc.displayName}" akan dihapus dari daftar. Kamu bisa login kembali kapan saja.',
+                                              style: const TextStyle(
+                                                color: Colors.white60,
+                                                fontSize: 13,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(ctx).pop(false),
+                                                style: TextButton.styleFrom(
+                                                  foregroundColor: Colors.white54,
+                                                ),
+                                                child: const Text(
+                                                  'BATAL',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                              FilledButton(
+                                                onPressed: () => Navigator.of(ctx).pop(true),
+                                                style: FilledButton.styleFrom(
+                                                  backgroundColor: AppColors.red,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 20, vertical: 10),
+                                                ),
+                                                child: const Text(
+                                                  'HAPUS',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirmed == true) {
+                                          final source = ref.read(credentialsLocalSourceProvider);
+                                          await source.removeAccount(acc.puuid);
+                                          await _loadAccounts();
+                                        }
                                       },
                                     ),
                                   ],

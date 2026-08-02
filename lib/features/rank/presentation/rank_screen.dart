@@ -102,7 +102,7 @@ class _RankScreenState extends ConsumerState<RankScreen>
         title: Consumer(
           builder: (ctx, r, _) {
             final seasonAsync = r.watch(_activeSeasonProvider);
-            final label = seasonAsync.asData?.value['label'] ?? 'EPISODE 9 // ACT 1';
+            final label = seasonAsync.asData?.value['label'] ?? '';
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -112,12 +112,13 @@ class _RankScreenState extends ConsumerState<RankScreen>
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.5,
                         fontSize: 16)),
-                Text(label,
-                    style: const TextStyle(
-                        color: AppColors.red,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8)),
+                if (label.isNotEmpty)
+                  Text(label,
+                      style: const TextStyle(
+                          color: AppColors.red,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8)),
               ],
             );
           },
@@ -537,7 +538,7 @@ class _ActRankTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final seasonAsync = ref.watch(_activeSeasonProvider);
     final tiersAsync = ref.watch(_competitiveTiersMapProvider);
-    final seasonLabel = seasonAsync.asData?.value['label'] ?? 'EPISODE 9 // ACT 1';
+    final seasonLabel = seasonAsync.asData?.value['label'] ?? '';
 
     return mmrAsync.when(
       data: (result) {
@@ -566,13 +567,14 @@ class _ActRankTab extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  Text(seasonLabel,
-                      style: const TextStyle(
-                          color: AppColors.red,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5)),
-                  const SizedBox(height: 20),
+                  if (seasonLabel.isNotEmpty)
+                    Text(seasonLabel,
+                        style: const TextStyle(
+                            color: AppColors.red,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5)),
+                  if (seasonLabel.isNotEmpty) const SizedBox(height: 20),
                   if (iconUrl != null && iconUrl.isNotEmpty)
                     CachedNetworkImage(
                       imageUrl: iconUrl,

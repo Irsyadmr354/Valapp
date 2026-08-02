@@ -28,7 +28,6 @@ final _contractsProvider =
 });
 
 // Contract definitions: contractUuid → { agentUuid, displayName, displayIcon }
-// This is the CORRECT fix — contracts API gives us contract→agent mapping.
 final _contractDefsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
@@ -40,6 +39,13 @@ final _contractAgentsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
   return assets.getAgentsMap();
+});
+
+// Missions map: missionUuid → { title, xpGrant, progressToComplete }
+final _missionsMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getMissionsMap();
 });
 
 class ContractsScreen extends ConsumerWidget {
@@ -322,12 +328,18 @@ class _BattlepassCard extends ConsumerWidget {
   }
 }
 
-class _MissionTile extends StatelessWidget {
+class _MissionTile extends ConsumerWidget {
   const _MissionTile({required this.mission});
   final Mission mission;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final missionsMap = ref.watch(_missionsMapProvider).asData?.value ?? {};
+    // Resolve title from valorant-api.com — fallback to what the API gave us
+    final resolvedTitle = (missionsMap[mission.missionId]?['title'] as String?)
+        ?.isNotEmpty == true
+        ? missionsMap[mission.missionId]!['title'] as String
+        : mission.title;
     final progress = mission.progressFraction;
     final expiryStr = mission.expirationTime != null
         ? 'Expires ${DateFormat('MMM d').format(mission.expirationTime!)}'
@@ -373,7 +385,7 @@ class _MissionTile extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  mission.title,
+                  resolvedTitle,
                   style: TextStyle(
                     color: mission.isCompleted ? AppColors.textMuted : Colors.white,
                     fontSize: 13,

@@ -110,42 +110,53 @@ class CredentialsLocalSource {
   }
 
   Future<void> save(Credentials creds, {String? displayName, String? playerCardId, String? avatarUrl}) async {
-    await AsyncLock.run('credentials_save', () async {
-      await Future.wait([
-        _storage.write(SecureStorage.keyAccessToken, creds.accessToken),
-        _storage.write(SecureStorage.keyIdToken, creds.idToken),
-        _storage.write(SecureStorage.keyEntitlementToken, creds.entitlementToken),
-        _storage.write(SecureStorage.keyPuuid, creds.puuid),
-        _storage.write(SecureStorage.keyRegion, creds.region),
-        _storage.write(SecureStorage.keyShard, creds.shard),
-        _storage.write(
-            SecureStorage.keyExpiresAt, creds.expiresAt.toIso8601String()),
-        _storage.writeEntitlementExpiry(creds.entitlementExpiresAt),
-      ]);
+    await AsyncLock.run('credentials_save', () =>
+        _saveInternal(creds, displayName: displayName, playerCardId: playerCardId, avatarUrl: avatarUrl));
+  }
 
-      // Also add/update profile in saved accounts list
-      final profiles = await getSavedAccounts();
-      final idx = profiles.indexWhere((p) => p.puuid == creds.puuid);
-      final existing = idx != -1 ? profiles[idx] : null;
+  /// Core save logic — runs INSIDE an existing lock or standalone.
+  /// Do NOT call [save] from within a 'credentials_save' lock; call this
+  /// instead to avoid the non-reentrant mutex deadlocking.
+  Future<void> _saveInternal(
+    Credentials creds, {
+    String? displayName,
+    String? playerCardId,
+    String? avatarUrl,
+  }) async {
+    await Future.wait([
+      _storage.write(SecureStorage.keyAccessToken, creds.accessToken),
+      _storage.write(SecureStorage.keyIdToken, creds.idToken),
+      _storage.write(SecureStorage.keyEntitlementToken, creds.entitlementToken),
+      _storage.write(SecureStorage.keyPuuid, creds.puuid),
+      _storage.write(SecureStorage.keyRegion, creds.region),
+      _storage.write(SecureStorage.keyShard, creds.shard),
+      _storage.write(
+          SecureStorage.keyExpiresAt, creds.expiresAt.toIso8601String()),
+      _storage.writeEntitlementExpiry(creds.entitlementExpiresAt),
+    ]);
 
-      final newProfile = SavedAccountProfile(
-        puuid: creds.puuid,
-        displayName: displayName ?? (existing != null ? existing.displayName : 'Account (${creds.puuid.substring(0, 6)})'),
-        region: creds.region,
-        shard: creds.shard,
-        playerCardId: playerCardId ?? existing?.playerCardId,
-        avatarUrl: avatarUrl ?? existing?.avatarUrl,
-        credentials: creds,
-      );
+    // Also add/update profile in saved accounts list
+    final profiles = await getSavedAccounts();
+    final idx = profiles.indexWhere((p) => p.puuid == creds.puuid);
+    final existing = idx != -1 ? profiles[idx] : null;
 
-      if (idx != -1) {
-        profiles[idx] = newProfile;
-      } else {
-        profiles.add(newProfile);
-      }
+    final newProfile = SavedAccountProfile(
+      puuid: creds.puuid,
+      displayName: displayName ?? (existing != null ? existing.displayName : 'Account (${creds.puuid.substring(0, 6)})'),
+      region: creds.region,
+      shard: creds.shard,
+      playerCardId: playerCardId ?? existing?.playerCardId,
+      avatarUrl: avatarUrl ?? existing?.avatarUrl,
+      credentials: creds,
+    );
 
-      await _saveProfiles(profiles);
-    });
+    if (idx != -1) {
+      profiles[idx] = newProfile;
+    } else {
+      profiles.add(newProfile);
+    }
+
+    await _saveProfiles(profiles);
   }
 
   Future<List<SavedAccountProfile>> getSavedAccounts() async {
@@ -165,11 +176,14 @@ class CredentialsLocalSource {
       profiles.removeWhere((p) => p.puuid == puuid);
       await _saveProfiles(profiles);
 
-      // If active account was removed, clear current credentials
+      // If active account was removed, switch to the next available one
       final currentPuuid = await _storage.read(SecureStorage.keyPuuid);
       if (currentPuuid == puuid) {
         if (profiles.isNotEmpty) {
-          await save(profiles.first.credentials);
+          // Use _saveInternal — NOT save() — to avoid nested lock deadlock.
+          // (AsyncLock is non-reentrant; calling save() here would wait forever.)
+          await _saveInternal(profiles.first.credentials,
+              displayName: profiles.first.displayName);
         } else {
           await clear();
         }
@@ -180,6 +194,23 @@ class CredentialsLocalSource {
   Future<void> _saveProfiles(List<SavedAccountProfile> profiles) async {
     final encoded = jsonEncode(profiles.map((p) => p.toJson()).toList());
     await _storage.write(_keySavedAccounts, encoded);
+  }
+
+  /// Removes only the active session tokens from secure storage, leaving the
+  /// saved accounts list intact so other accounts remain switchable.
+  /// Call this when a single account's reauth fails permanently (Opsi A:
+  /// also remove the failed account's entry from the saved list).
+  Future<void> clearActiveSessionOnly() async {
+    await Future.wait([
+      _storage.delete(SecureStorage.keyAccessToken),
+      _storage.delete(SecureStorage.keyIdToken),
+      _storage.delete(SecureStorage.keyEntitlementToken),
+      _storage.delete(SecureStorage.keyPuuid),
+      _storage.delete(SecureStorage.keyRegion),
+      _storage.delete(SecureStorage.keyShard),
+      _storage.delete(SecureStorage.keyExpiresAt),
+      _storage.delete(SecureStorage.keyEntitlementExpiresAt),
+    ]);
   }
 
   Future<void> clear() => _storage.deleteAll();

@@ -21,26 +21,7 @@ class AuthRepository {
 
   Future<Credentials?> loadCredentials() => _local.load();
 
-  // ── Full login flow ────────────────────────────────────────────────────────
-
-  /// Step 1+2: Init session and submit password.
-  /// Returns `{'type': 'response'}` or `{'type': 'multifactor', 'email': '...'}`.
-  Future<Map<String, dynamic>> login(
-      String username, String password) async {
-    await _remote.initSession();
-    return _remote.submitCredentials(username, password);
-  }
-
-  /// Step 3: Complete MFA and finish building credentials.
-  Future<Credentials> completeMfa(String code) async {
-    final uri = await _remote.submitMfaCode(code);
-    return _buildCredentialsFromUri(uri);
-  }
-
-  /// Called when Step 2 returned `type: response` (no 2FA needed).
-  Future<Credentials> completeLogin(String redirectUri) async {
-    return _buildCredentialsFromUri(redirectUri);
-  }
+  // ── Login from WebView ─────────────────────────────────────────────────────
 
   /// Called after WebView login — tokens already parsed, just fetch
   /// entitlement + geo and save credentials.
@@ -49,35 +30,6 @@ class AuthRepository {
     required String idToken,
     required int expiresIn,
   }) async {
-    final entitlementToken =
-        await _remote.fetchEntitlementToken(accessToken);
-    final geoData =
-        await _remote.fetchRegionAndShard(accessToken, idToken);
-    final puuid = AuthRemoteSource.extractPuuid(accessToken);
-
-    final credentials = Credentials(
-      accessToken: accessToken,
-      idToken: idToken,
-      entitlementToken: entitlementToken,
-      puuid: puuid,
-      region: geoData['region']!,
-      shard: geoData['shard']!,
-      expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
-      entitlementExpiresAt: DateTime.now().add(
-        SecureStorage.entitlementTokenLifetime,
-      ),
-    );
-
-    await _local.save(credentials);
-    return credentials;
-  }
-
-  Future<Credentials> _buildCredentialsFromUri(String redirectUri) async {
-    final tokens = AuthRemoteSource.parseTokensFromUri(redirectUri);
-    final accessToken = tokens['access_token']!;
-    final idToken = tokens['id_token']!;
-    final expiresIn = int.parse(tokens['expires_in']!);
-
     final entitlementToken =
         await _remote.fetchEntitlementToken(accessToken);
     final geoData =

@@ -57,14 +57,13 @@ bool _matchesWeaponId(String skinName, String weaponId) {
 }
 
 Color _getTierColor(String? tierUuid) {
-  if (tierUuid == null || tierUuid.isEmpty) return const Color(0xFF5A9FE2);
-  final uuid = tierUuid.toLowerCase();
-  if (uuid.contains('12683d76')) { return const Color(0xFF5A9FE2); }
-  if (uuid.contains('0cebb8be')) { return const Color(0xFF009587); }
-  if (uuid.contains('60bca009')) { return AppColors.red; }
-  if (uuid.contains('411e4a55')) { return const Color(0xFFFAD663); }
-  if (uuid.contains('e046854e')) { return const Color(0xFFF5955B); }
-  return TierColors.forName(tierUuid);
+  // Intentional: Premium uses AppColors.red in the catalog (brand consistency).
+  // All other tiers delegate to the shared TierColors utility.
+  const premiumUuidFragment = '60bca009';
+  if (tierUuid != null && tierUuid.toLowerCase().contains(premiumUuidFragment)) {
+    return AppColors.red;
+  }
+  return TierColors.tierColorForUuid(tierUuid);
 }
 
 String _getTierLabel(String? tierUuid) => TierColors.tierLabelForUuid(tierUuid);

@@ -1,6 +1,14 @@
 /// Account XP and level info.
 class AccountXp {
-  /// AP required to advance one account level (flat across all levels).
+  /// Account Points (AP) required to advance one account level.
+  /// Verified flat at 5,000 AP across ALL levels.
+  ///
+  /// Source: Riot official blog — "VALORANT Account Leveling Explained"
+  /// https://playvalorant.com/en-gb/news/game-updates/valorant-account-leveling-explained/
+  /// Quote: "Your account level goes up with every 5,000 AP you earn."
+  ///
+  /// Note: Riot calls this "Account Points (AP)", not XP. The field name
+  /// `xpPerLevel` is kept for code consistency but refers to AP.
   static const xpPerLevel = 5000;
 
   final String puuid;

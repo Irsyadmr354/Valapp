@@ -56,9 +56,8 @@ class BackgroundService {
 /// Performs the background shop check:
 /// 1. Fetches the live storefront
 /// 2. Resolves skin names + actual prices
-/// 3. Fires wishlist match notification if any matched
-/// 4. Evaluates smart category rules (melee, vandal, phantom, operator, sheriff)
-/// 5. Fires shop reset notification when the shop changes
+/// 3. Fires wishlist match notifications when shop changes
+/// 4. Fires shop reset summary notification when the shop changes
 class BackgroundShopChecker {
   final Dio _dio = Dio();
 

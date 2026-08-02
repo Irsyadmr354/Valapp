@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'core/di/providers.dart';
 import 'shared/utils/app_colors.dart';
 import 'features/auth/presentation/login_screen.dart';
-import 'features/auth/presentation/mfa_screen.dart';
 import 'features/auth/presentation/webview_login_screen.dart';
 import 'features/match/presentation/match_detail_screen.dart';
 import 'features/match/presentation/match_history_screen.dart';
@@ -42,7 +41,6 @@ final _routerProvider = Provider<GoRouter>((ref) {
       final creds = credsAsync.value;
       final location = state.matchedLocation;
       final isAuthRoute = location == '/login' ||
-          location == '/mfa' ||
           location.startsWith('/login/');
 
       if (creds == null && !isAuthRoute) return '/login';
@@ -54,7 +52,6 @@ final _routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/login/webview',
           builder: (_, __) => const WebViewLoginScreen()),
-      GoRoute(path: '/mfa', builder: (_, __) => const MfaScreen()),
       GoRoute(
           path: '/wishlist', builder: (_, __) => const WishlistCatalogScreen()),
       GoRoute(path: '/loadout', builder: (_, __) => const LoadoutScreen()),

@@ -8,6 +8,7 @@ import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
+import '../../../shared/utils/price_utils.dart' as price_utils;
 import '../../news/domain/models/news_article.dart';
 import '../../../shared/widgets/skin_card.dart';
 import '../../../shared/widgets/countdown_timer.dart';
@@ -23,7 +24,6 @@ import '../../auth/presentation/account_switcher_modal.dart';
 import '../../match/domain/models/match_history.dart';
 import '../../profile/domain/models/account_xp.dart';
 import '../../rank/domain/models/player_mmr.dart';
-
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final _storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async {
@@ -670,10 +670,7 @@ class _BundleBanner extends ConsumerWidget {
       }
     }
 
-    final discountInt = (bundle.totalDiscountPercent > 1
-            ? bundle.totalDiscountPercent
-            : bundle.totalDiscountPercent * 100)
-        .round();
+    final discountInt = price_utils.discountPercent(bundle.totalDiscountPercent);
 
     final finalImageUrl = imageUrl;
 
@@ -1035,10 +1032,7 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
               final offer = widget.offers[i];
               final tierColor =
                   TierColors.forName(offer.contentTierUuid);
-              final discountInt = (offer.discountPercent > 1
-                      ? offer.discountPercent
-                      : offer.discountPercent * 100)
-                  .round();
+              final discountInt = price_utils.discountPercent(offer.discountPercent.toDouble());
 
               return GestureDetector(
                 onTap: () =>
@@ -1259,10 +1253,13 @@ class _HomeQuickCardsRow extends ConsumerWidget {
     final mmrAsync = ref.watch(_homeMmrProvider);
     final historyAsync = ref.watch(_homeMatchesProvider);
     final tiersAsync = ref.watch(_competitiveTiersMapHomeProvider);
+    final updatesAsync = ref.watch(competitiveUpdatesProvider);
 
     final mmr = mmrAsync.asData?.value;
     final matches = historyAsync.asData?.value?.matches ?? [];
     final tiersMap = tiersAsync.asData?.value ?? {};
+    // Real competitive updates — most recent first (already sorted by API)
+    final updates = updatesAsync.asData?.value ?? [];
 
     final tierData = mmr != null ? tiersMap[mmr.currentTier] : null;
     final rankIconUrl = tierData?['largeIcon'] as String? ??
@@ -1272,8 +1269,12 @@ class _HomeQuickCardsRow extends ConsumerWidget {
             ? TierNameUtil.name(mmr.currentTier)
             : 'Unranked');
 
-    // RR trend: last 10 competitive updates
-    final latestRr = mmr?.latestUpdate?.rankedRatingEarned ?? 0;
+    // RR trend: last 8 competitive updates for the spark chart
+    // Use updates from the shared provider for accuracy.
+    // Fall back to mmr.latestUpdate for the "LAST MATCH" text if updates empty.
+    final latestRr = updates.isNotEmpty
+        ? updates.first.rankedRatingEarned
+        : (mmr?.latestUpdate?.rankedRatingEarned ?? 0);
     final isPos = latestRr >= 0;
 
     return Padding(
@@ -1437,21 +1438,13 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                   const SizedBox(height: 10),
                   SizedBox(
                     height: 22,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: List.generate(8, (idx) {
-                        final h = ((idx + 1) * 2.5).clamp(4.0, 22.0);
-                        return Container(
-                          width: 3,
-                          height: h,
-                          decoration: BoxDecoration(
-                            color: isPos ? AppColors.win : AppColors.loss,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        );
-                      }),
-                    ),
+                    child: updates.isEmpty
+                        ? const Center(
+                            child: Text('—',
+                                style: TextStyle(
+                                    color: Colors.white24, fontSize: 10)),
+                          )
+                        : _RrMiniChart(updates: updates),
                   ),
                 ],
               ),
@@ -1468,6 +1461,46 @@ class _HomeQuickCardsRow extends ConsumerWidget {
         .format(DateTime.fromMillisecondsSinceEpoch(ms));
   }
 }
+
+// ── RR Mini Chart (Home Screen trend card) ───────────────────────────────────
+
+/// Renders up to 8 proportional bars representing recent RR changes.
+/// Green = gain, red = loss. Heights are normalised to the max absolute value
+/// in the displayed set so bars are always proportional — never all the same height.
+class _RrMiniChart extends StatelessWidget {
+  const _RrMiniChart({required this.updates});
+  final List<CompetitiveUpdate> updates;
+
+  @override
+  Widget build(BuildContext context) {
+    // Take up to 8, chronological (oldest → newest = left → right)
+    final recent = updates.take(8).toList().reversed.toList();
+    if (recent.isEmpty) return const SizedBox();
+
+    final maxAbs = recent
+        .map((u) => u.rankedRatingEarned.abs())
+        .fold<int>(1, (a, b) => a > b ? a : b);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: recent.map((u) {
+        final rr = u.rankedRatingEarned;
+        final h = (rr.abs() / maxAbs * 22.0).clamp(4.0, 22.0);
+        return Container(
+          width: 3,
+          height: h,
+          decoration: BoxDecoration(
+            color: rr >= 0 ? AppColors.win : AppColors.loss,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ── Quick Cards ───────────────────────────────────────────────────────────────
 
 class _QuickCard extends StatelessWidget {
   const _QuickCard({required this.child, required this.onTap});

@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
+import '../../../shared/utils/price_utils.dart' as price_utils;
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/countdown_timer.dart';
@@ -39,10 +40,7 @@ class BundleDetailModal extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final assets = ref.watch(valorantAssetsProvider);
-    final discountInt = (bundle.totalDiscountPercent > 1
-            ? bundle.totalDiscountPercent
-            : bundle.totalDiscountPercent * 100)
-        .round();
+    final discountInt = price_utils.discountPercent(bundle.totalDiscountPercent);
 
     return Container(
       constraints: BoxConstraints(

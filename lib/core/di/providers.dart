@@ -32,6 +32,7 @@ import '../../features/match/domain/models/match_details.dart';
 
 import '../../features/rank/data/mmr_remote_source.dart';
 import '../../features/rank/data/mmr_local_cache.dart';
+import '../../features/rank/domain/models/player_mmr.dart';
 
 // ── Contracts ─────────────────────────────────────────────────────────────────
 
@@ -119,9 +120,38 @@ final apiDioProvider = FutureProvider<Dio>((ref) async {
       await authRepo!.reauth();
     },
     onAuthFailed: () async {
-      // Clear stored credentials and signal router to redirect to login
+      // A permanent reauth failure for the current account.
+      // Opsi A: remove the failed account's entry from saved list,
+      // then switch to the next account if one exists — other saved
+      // accounts are NOT wiped (unlike the old local.clear() approach).
       final local = ref.read(credentialsLocalSourceProvider);
-      await local.clear();
+      final failedPuuid = await ref.read(secureStorageProvider).read(SecureStorage.keyPuuid);
+
+      // Remove only the active session tokens (not the full accounts list)
+      await local.clearActiveSessionOnly();
+
+      if (failedPuuid != null) {
+        // Remove the failed account's entry from the saved list (Opsi A)
+        final remaining = await local.getSavedAccounts();
+        final others = remaining.where((a) => a.puuid != failedPuuid).toList();
+
+        // Rewrite the saved list without the failed account
+        if (others.length < remaining.length) {
+          // Re-save the trimmed list by removing the failed puuid entry
+          await local.removeAccount(failedPuuid);
+        }
+
+        // Auto-switch to another account if available
+        final updated = await local.getSavedAccounts();
+        if (updated.isNotEmpty) {
+          await local.save(updated.first.credentials,
+              displayName: updated.first.displayName);
+          ref.invalidate(currentCredentialsProvider);
+          return;
+        }
+      }
+
+      // No other accounts — redirect to login
       ref.invalidate(currentCredentialsProvider);
     },
   );
@@ -233,7 +263,25 @@ final newsRemoteSourceProvider = Provider<NewsRemoteSource>((ref) {
   return NewsRemoteSource(dio);
 });
 
-// ── Player Card Art ────────────────────────────────────────────────────────
+// ── Shared Competitive Updates ─────────────────────────────────────────────
+
+/// Shared competitive updates provider so Home Screen and Rank Screen
+/// both use the same cached data — no duplicate network fetches.
+final competitiveUpdatesProvider =
+    FutureProvider.autoDispose<List<CompetitiveUpdate>>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return [];
+  final source = await ref.watch(mmrRemoteSourceProvider.future);
+  final cache = ref.watch(mmrLocalCacheProvider);
+  try {
+    final raw = await source.fetchCompetitiveUpdatesRaw(creds.shard, creds.puuid);
+    final list = source.parseCompetitiveUpdates(raw);
+    await cache.saveCompetitiveUpdates(raw);
+    return list;
+  } catch (_) {
+    return await cache.loadCompetitiveUpdates() ?? [];
+  }
+});
 
 /// Resolves the equipped player card art URLs from the player's loadout.
 /// Returns both [smallArt] (used in avatars) and [wideArt] (used in headers).
@@ -337,18 +385,7 @@ final enrichedMatchHistoryProvider =
         continue;
       }
 
-      MatchResult matchResult = MatchResult.unknown;
-      if (details.roundResults.isNotEmpty) {
-        final pt = player.teamId.toLowerCase();
-        final myWins = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == pt).length;
-        final oppWins = details.roundResults.length - myWins;
-        matchResult = myWins > oppWins
-            ? MatchResult.victory
-            : myWins < oppWins
-                ? MatchResult.defeat
-                : MatchResult.draw;
-      }
+      MatchResult matchResult = details.resultForPlayer(creds.puuid);
 
       final sorted = List<PlayerStats>.from(details.players)
         ..sort((a, b) => b.score.compareTo(a.score));

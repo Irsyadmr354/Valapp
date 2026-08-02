@@ -1,4 +1,10 @@
-/// High-level match info extracted from match details.
+// ── Shared MatchResult import for extension ─────────────────────────────────
+// match_history.dart defines MatchResult (Victory/Defeat/Draw/Unknown).
+// ignore: always_use_package_imports
+import 'match_history.dart' show MatchResult;
+
+// ── Match info ────────────────────────────────────────────────────────────────
+
 class MatchInfo {
   final String matchId;
   final String mapId;
@@ -194,3 +200,32 @@ class MatchDetails {
   }
 }
 
+
+// ── Match Result Extension ────────────────────────────────────────────────────
+
+/// Calculates match result for a given player from round results.
+/// Extracted to a single place to avoid duplicating this logic across
+/// providers and screens.
+///
+/// Note: Riot's private match-details API does not expose a top-level
+/// `teams[].Won` boolean in the responses observed (only the public
+/// VAL-MATCH-V1 endpoint does). We therefore derive result from
+/// roundResults, which is accurate for all standard game modes.
+extension MatchResultCalculator on MatchDetails {
+  /// Returns the match outcome for [puuid] based on round wins/losses.
+  /// Returns [MatchResult.unknown] if the player is not found or there are
+  /// no round results (e.g. Deathmatch, or incomplete data).
+  MatchResult resultForPlayer(String puuid) {
+    final player = players.cast<PlayerStats?>()
+        .firstWhere((p) => p?.puuid == puuid, orElse: () => null);
+    if (player == null || roundResults.isEmpty) { return MatchResult.unknown; }
+
+    final pt = player.teamId.toLowerCase();
+    final myWins = roundResults
+        .where((r) => r.winningTeam.toLowerCase() == pt).length;
+    final oppWins = roundResults.length - myWins;
+    if (myWins > oppWins) { return MatchResult.victory; }
+    if (myWins < oppWins) { return MatchResult.defeat; }
+    return MatchResult.draw;
+  }
+}
