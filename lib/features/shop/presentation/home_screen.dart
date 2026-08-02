@@ -202,9 +202,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     )
                   : _buildContent(storefront, wishlist.toSet()),
-              loading: () => const SliverFillRemaining(
-                child: HomeSkeleton(),
-              ),
+              loading: () => HomeSkeleton.asSliver(),
               error: (e, _) => SliverFillRemaining(
                 child: Center(
                   child: Column(

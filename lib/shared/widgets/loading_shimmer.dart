@@ -120,64 +120,115 @@ class SkinCardShimmer extends StatelessWidget {
 
 // ── HomeSkeleton ──────────────────────────────────────────────────────────────
 
-/// Full-page skeleton for HomeScreen: timer bar + 3 skin cards + quick cards.
+/// Full-page skeleton for HomeScreen.
+/// Must be used as a Sliver (via [asSliver]) so it sits inside the same
+/// CustomScrollView as the actual content — otherwise scroll context differs
+/// and the layout won't match what the user sees after data loads.
+///
+/// Layout mirrors _buildContent exactly:
+///   1. Timer bar  (36 px)
+///   2. FEATURED BUNDLE header + 190 px banner card
+///   3. DAILY SHOP header + single full-width skin card (280 px) + dots row
+///   4. 3 quick-stat cards (150 px)
+///   5. VALORANT NEWS header + horizontal 196 px news strip
 class HomeSkeleton extends StatelessWidget {
   const HomeSkeleton({super.key});
 
+  /// Returns this skeleton as a [SliverList] so it can be dropped directly
+  /// into a [CustomScrollView] alongside other slivers.
+  static Widget asSliver() => SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate(const [
+            // ── 1. Timer bar ───────────────────────────────────────────────
+            _ShimmerBox(height: 36, radius: 10),
+            SizedBox(height: 20),
+
+            // ── 2. Featured Bundle ─────────────────────────────────────────
+            _ShimmerLine(width: 140, height: 12),
+            SizedBox(height: 10),
+            _ShimmerBox(height: 190, radius: 16),
+            SizedBox(height: 20),
+
+            // ── 3. Daily Shop ──────────────────────────────────────────────
+            _ShimmerLine(width: 100, height: 12),
+            SizedBox(height: 10),
+            SkinCardShimmer(),
+            SizedBox(height: 10),
+            _HomeSkeletonDotsRow(),
+            SizedBox(height: 20),
+
+            // ── 4. Quick Cards ─────────────────────────────────────────────
+            _HomeSkeletonQuickCards(),
+            SizedBox(height: 20),
+
+            // ── 5. Valorant News ───────────────────────────────────────────
+            _ShimmerLine(width: 120, height: 12),
+            SizedBox(height: 10),
+            _HomeSkeletonNewsRow(),
+          ]),
+        ),
+      );
+
+  // Kept for any call-sites that still use HomeSkeleton() directly.
+  @override
+  Widget build(BuildContext context) => HomeSkeleton.asSliver();
+}
+
+class _HomeSkeletonDotsRow extends StatelessWidget {
+  const _HomeSkeletonDotsRow();
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
+    return Row(
       children: [
-        // Timer bar
-        const _ShimmerBox(height: 36, radius: 10),
-        const SizedBox(height: 12),
-        // Section header
-        const _ShimmerLine(width: 100, height: 12),
-        const SizedBox(height: 10),
-        // 3 skin card shimmers in a row (carousel style)
-        SizedBox(
-          height: 280,
-          child: Row(
-            children: List.generate(3, (i) => Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-                child: const SkinCardShimmer(),
-              ),
-            )),
-          ),
-        ),
-        const SizedBox(height: 20),
-        // Quick cards section header
-        const _ShimmerLine(width: 120, height: 12),
-        const SizedBox(height: 10),
-        // 3 quick-stat cards
+        const _ShimmerBox(width: 110, height: 10, radius: 4),
+        const Spacer(),
         Row(
-          children: List.generate(3, (i) => Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-              child: const _ShimmerBox(height: 150, radius: 14),
+          children: List.generate(4, (i) => Padding(
+            padding: EdgeInsets.only(left: i == 0 ? 0 : 5),
+            child: _ShimmerBox(
+              width: i == 0 ? 18 : 6,
+              height: 6,
+              radius: 3,
             ),
           )),
         ),
-        const SizedBox(height: 20),
-        // News section header
-        const _ShimmerLine(width: 100, height: 12),
-        const SizedBox(height: 10),
-        // News cards row
-        SizedBox(
-          height: 196,
-          child: Row(
-            children: List.generate(3, (i) => Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(left: i == 0 ? 0 : 10),
-                child: const _ShimmerBox(height: 196, radius: 14),
-              ),
-            )),
-          ),
-        ),
       ],
+    );
+  }
+}
+
+class _HomeSkeletonQuickCards extends StatelessWidget {
+  const _HomeSkeletonQuickCards();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(3, (i) => Expanded(
+        child: Padding(
+          padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+          child: const _ShimmerBox(height: 150, radius: 14),
+        ),
+      )),
+    );
+  }
+}
+
+class _HomeSkeletonNewsRow extends StatelessWidget {
+  const _HomeSkeletonNewsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 196,
+      child: Row(
+        children: List.generate(3, (i) => Padding(
+          padding: EdgeInsets.only(right: i == 2 ? 0 : 12),
+          child: const _ShimmerBox(width: 230, height: 196, radius: 14),
+        )),
+      ),
     );
   }
 }
