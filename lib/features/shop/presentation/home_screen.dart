@@ -897,7 +897,7 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.86);
+    _pageController = PageController(viewportFraction: 1.0);
   }
 
   @override
@@ -922,9 +922,8 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
               final offer = widget.offers[i];
               final inWishlist =
                   widget.wishlist.contains(offer.skinLevelUuid);
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                margin: const EdgeInsets.symmetric(horizontal: 6),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: GestureDetector(
                   onTap: () => SkinDetailModal.show(context, offer),
                   child: SkinCard(
