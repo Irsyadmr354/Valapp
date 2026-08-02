@@ -579,3 +579,68 @@ class _PlayerRowShimmer extends StatelessWidget {
     );
   }
 }
+
+// ── WishlistCatalogSkeleton ───────────────────────────────────────────────────
+
+/// Matches WishlistCatalogScreen: sidebar + 2-column skin grid.
+class WishlistCatalogSkeleton extends StatelessWidget {
+  const WishlistCatalogSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Left sidebar
+        Container(
+          width: 72,
+          decoration: const BoxDecoration(
+            border: Border(right: BorderSide(color: Colors.white10, width: 0.8)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          child: Column(
+            children: List.generate(8, (i) => const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Column(
+                children: [
+                  _ShimmerBox(width: 24, height: 24, radius: 6),
+                  SizedBox(height: 4),
+                  _ShimmerLine(width: 44, height: 7),
+                ],
+              ),
+            )),
+          ),
+        ),
+        // Right grid
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(10),
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.82,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: 6,
+            itemBuilder: (_, __) => Container(
+              decoration: BoxDecoration(
+                color: AppColors.bgCard2,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white10),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _ShimmerBox(height: double.infinity, radius: 10)),
+                  SizedBox(height: 10),
+                  _ShimmerLine(height: 12),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

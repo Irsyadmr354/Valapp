@@ -8,13 +8,6 @@ import '../domain/models/skin_offer.dart';
 import 'skin_video_player.dart';
 import 'wishlist_provider.dart';
 
-// ── Absolute Tier Colors & Labels ─────────────────────────────────────────────
-// Delegate to TierColors shared utility — single source of truth.
-
-String _getTierLabel(String? tierUuid) => TierColors.tierLabelForUuid(tierUuid);
-
-Color _getTierColor(String? tierUuid) => TierColors.tierColorForUuid(tierUuid);
-
 /// Interactive modal showing skin details, level progression (VFX, Finisher),
 /// and chroma color swatches matching user mockup screenshot.
 class SkinDetailModal extends ConsumerStatefulWidget {
@@ -43,8 +36,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final assetsAsync = ref.watch(_skinFullDetailProvider(widget.offer.skinLevelUuid));
     final wishlist = ref.watch(wishlistProvider);
     final isWishlisted = wishlist.contains(widget.offer.skinLevelUuid);
-    final tierColor = _getTierColor(widget.offer.contentTierUuid);
-    final tierLabel = _getTierLabel(widget.offer.contentTierUuid);
+    final tierColor = TierColors.tierColorForUuid(widget.offer.contentTierUuid);
+    final tierLabel = TierColors.tierLabelForUuid(widget.offer.contentTierUuid);
 
     return Container(
       constraints: BoxConstraints(
@@ -778,9 +771,15 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
   String _cleanLevelItem(String item) {
     final parts = item.split('::');
     final raw = parts.last;
-    // Use a raw string for the replacement so $1 is treated as a backreference
-    // to capture group 1 (the uppercase letter), not a literal "$1".
-    return raw.replaceAll(RegExp(r'([A-Z])'), r' $1').trim();
+    // Insert a space before every capital letter to split CamelCase into words,
+    // then trim any leading space that results from a leading capital.
+    return raw
+        .splitMapJoin(
+          RegExp(r'([A-Z])'),
+          onMatch: (m) => ' ${m.group(0)!}',
+          onNonMatch: (s) => s,
+        )
+        .trim();
   }
 }
 

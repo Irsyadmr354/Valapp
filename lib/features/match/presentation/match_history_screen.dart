@@ -15,6 +15,7 @@ import '../domain/models/match_details.dart';
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final _queueFilterProvider = StateProvider<String?>((ref) => null);
+final _resultFilterProvider = StateProvider<MatchResult?>((ref) => null);
 
 final _mapsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
@@ -189,6 +190,8 @@ class MatchHistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(_matchHistoryProvider);
     final selectedQueue = ref.watch(_queueFilterProvider);
+    final selectedResult = ref.watch(_resultFilterProvider);
+    final hasResultFilter = selectedResult != null;
 
     // Kick off background enrichment — non-blocking, updates list when done
     ref.watch(_backgroundEnrichmentProvider);
@@ -206,9 +209,11 @@ class MatchHistoryScreen extends ConsumerWidget {
                 fontSize: 16)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list_rounded,
-                color: AppColors.red, size: 22),
-            onPressed: () {},
+            icon: Icon(Icons.filter_list_rounded,
+                color: hasResultFilter ? AppColors.red : Colors.white54,
+                size: 22),
+            tooltip: 'Filter by Result',
+            onPressed: () => _showResultFilterSheet(context, ref, selectedResult),
           ),
         ],
         bottom: PreferredSize(
@@ -233,7 +238,38 @@ class MatchHistoryScreen extends ConsumerWidget {
                     style: TextStyle(color: Colors.white38, fontSize: 13)),
               );
             }
-            final matches = result.data.matches;
+            // Apply result filter if set
+            final allMatches = result.data.matches;
+            final matches = selectedResult == null
+                ? allMatches
+                : allMatches
+                    .where((m) => m.result == selectedResult)
+                    .toList();
+            if (matches.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.filter_alt_off_outlined,
+                        color: Colors.white24, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No ${_resultLabel(selectedResult!)} matches found.',
+                      style: const TextStyle(
+                          color: Colors.white54, fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => ref
+                          .read(_resultFilterProvider.notifier)
+                          .state = null,
+                      child: const Text('Clear filter',
+                          style: TextStyle(color: AppColors.red)),
+                    ),
+                  ],
+                ),
+              );
+            }
             return ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 80),
@@ -261,10 +297,7 @@ class MatchHistoryScreen extends ConsumerWidget {
               },
             );
           },
-          loading: () => const SizedBox(
-            width: double.infinity,
-            child: SkinCardShimmer(),
-          ),
+          loading: () => const MatchHistorySkeleton(),
           error: (e, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -301,6 +334,97 @@ class MatchHistoryScreen extends ConsumerWidget {
       ),
     );
   }
+  void _showResultFilterSheet(
+      BuildContext context, WidgetRef ref, MatchResult? current) {
+    const options = [
+      (null,                  'All Results',  Colors.white70,   Icons.apps_rounded),
+      (MatchResult.victory,   'Victory',      AppColors.win,    Icons.emoji_events_rounded),
+      (MatchResult.defeat,    'Defeat',       AppColors.loss,   Icons.close_rounded),
+      (MatchResult.draw,      'Draw',         Colors.white38,   Icons.remove_rounded),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard2,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: AppColors.red, width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('FILTER BY RESULT',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...options.map((opt) {
+              final (value, label, color, icon) = opt;
+              final isSelected = current == value;
+              return GestureDetector(
+                onTap: () {
+                  ref.read(_resultFilterProvider.notifier).state = value;
+                  Navigator.of(context).pop();
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: isSelected ? color.withAlpha(30) : AppColors.bg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? color : Colors.white10,
+                      width: isSelected ? 1.8 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, color: color, size: 18),
+                      const SizedBox(width: 12),
+                      Text(label,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white70,
+                            fontSize: 14,
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                          )),
+                      const Spacer(),
+                      if (isSelected)
+                        Icon(Icons.check_circle, color: color, size: 18),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _resultLabel(MatchResult r) => switch (r) {
+        MatchResult.victory => 'Victory',
+        MatchResult.defeat  => 'Defeat',
+        MatchResult.draw    => 'Draw',
+        MatchResult.unknown => 'Unknown',
+      };
 }
 
 // ── Queue Filter Bar ──────────────────────────────────────────────────────────

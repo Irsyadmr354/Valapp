@@ -14,7 +14,6 @@ import '../domain/models/account_xp.dart';
 import '../../auth/presentation/account_switcher_modal.dart';
 import 'account_health_modal.dart';
 import '../../match/domain/models/match_history.dart';
-import '../../match/domain/models/match_details.dart';
 import '../../rank/domain/models/player_mmr.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
@@ -80,83 +79,9 @@ final _profileMmrProvider =
 
 final _profileMatchesProvider =
     FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(matchRemoteSourceProvider.future);
-  final historyCache = ref.watch(matchHistoryLocalCacheProvider);
-  final detailCache = ref.watch(matchDetailLocalCacheProvider);
-
-  // ── Fetch raw history ───────────────────────────────────────────────────
-  MatchHistoryResult raw;
-  try {
-    final rawJson = await source.fetchHistoryRaw(creds.shard, creds.puuid);
-    raw = MatchHistoryResult.fromJson(rawJson);
-    await historyCache.saveHistory(raw);
-  } catch (_) {
-    final cached = await historyCache.loadHistory();
-    if (cached != null) {
-      raw = cached;
-    } else {
-      return null;
-    }
-  }
-
-  // ── Enrich from detail cache (cache-only, zero network calls here) ──────
-  final enriched = <MatchHistoryEntry>[];
-  for (final entry in raw.matches) {
-    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
-    if (detailRaw == null) {
-      enriched.add(entry);
-      continue;
-    }
-    try {
-      final details = MatchDetails.fromJson(detailRaw);
-      final player = details.players
-          .cast<PlayerStats?>()
-          .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
-      if (player == null) {
-        enriched.add(entry);
-        continue;
-      }
-
-      MatchResult matchResult = MatchResult.unknown;
-      if (details.roundResults.isNotEmpty) {
-        final pt = player.teamId.toLowerCase();
-        final myWins = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == pt).length;
-        final oppWins = details.roundResults.length - myWins;
-        matchResult = myWins > oppWins
-            ? MatchResult.victory
-            : myWins < oppWins
-                ? MatchResult.defeat
-                : MatchResult.draw;
-      }
-
-      final sorted = List<PlayerStats>.from(details.players)
-        ..sort((a, b) => b.score.compareTo(a.score));
-      final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
-
-      enriched.add(entry.copyWithStats(
-        kills: player.kills,
-        deaths: player.deaths,
-        assists: player.assists,
-        isMvp: isMvp,
-        result: matchResult,
-        agentId: player.agentId,
-        mapId: details.mapId,
-      ));
-    } catch (_) {
-      enriched.add(entry);
-    }
-  }
-
-  return MatchHistoryResult(
-    puuid: raw.puuid,
-    total: raw.total,
-    start: raw.start,
-    end: raw.end,
-    matches: enriched,
-  );
+  // Delegate to shared enriched history provider — eliminates ~40 lines
+  // of duplicated fetch + cache-only enrich logic.
+  return ref.watch(enrichedMatchHistoryProvider.future);
 });
 
 // Tier name resolution is delegated to TierNameUtil.

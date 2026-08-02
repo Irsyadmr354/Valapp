@@ -25,6 +25,8 @@ import '../../features/shop/domain/store_repository.dart';
 
 import '../../features/match/data/match_remote_source.dart';
 import '../../features/match/data/match_local_cache.dart';
+import '../../features/match/domain/models/match_history.dart';
+import '../../features/match/domain/models/match_details.dart';
 
 // ── Rank ───────────────────────────────────────────────────────────────────────
 
@@ -283,4 +285,94 @@ final playerCardArtProvider =
   } catch (_) {
     return const PlayerCardArtInfo();
   }
+});
+
+// ── Enriched Match History (shared) ───────────────────────────────────────────
+
+/// Fetches the player's recent match history and enriches each entry
+/// with KDA / result / agent data from the local detail cache (zero
+/// extra network calls — background enrichment fills the cache separately).
+///
+/// Used by HomeScreen and ProfileScreen so neither file duplicates the
+/// ~40-line fetch + cache-only enrich loop.
+final enrichedMatchHistoryProvider =
+    FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
+
+  final source      = await ref.watch(matchRemoteSourceProvider.future);
+  final historyCache = ref.watch(matchHistoryLocalCacheProvider);
+  final detailCache  = ref.watch(matchDetailLocalCacheProvider);
+
+  // ── 1. Fetch / load raw history ──────────────────────────────────────────
+  MatchHistoryResult raw;
+  try {
+    final rawJson = await source.fetchHistoryRaw(creds.shard, creds.puuid);
+    raw = MatchHistoryResult.fromJson(rawJson);
+    await historyCache.saveHistory(raw);
+  } catch (_) {
+    final cached = await historyCache.loadHistory();
+    if (cached != null) {
+      raw = cached;
+    } else {
+      return null;
+    }
+  }
+
+  // ── 2. Enrich from detail cache (no network) ─────────────────────────────
+  final enriched = <MatchHistoryEntry>[];
+  for (final entry in raw.matches) {
+    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
+    if (detailRaw == null) {
+      enriched.add(entry);
+      continue;
+    }
+    try {
+      final details = MatchDetails.fromJson(detailRaw);
+      final player = details.players
+          .cast<PlayerStats?>()
+          .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
+      if (player == null) {
+        enriched.add(entry);
+        continue;
+      }
+
+      MatchResult matchResult = MatchResult.unknown;
+      if (details.roundResults.isNotEmpty) {
+        final pt = player.teamId.toLowerCase();
+        final myWins = details.roundResults
+            .where((r) => r.winningTeam.toLowerCase() == pt).length;
+        final oppWins = details.roundResults.length - myWins;
+        matchResult = myWins > oppWins
+            ? MatchResult.victory
+            : myWins < oppWins
+                ? MatchResult.defeat
+                : MatchResult.draw;
+      }
+
+      final sorted = List<PlayerStats>.from(details.players)
+        ..sort((a, b) => b.score.compareTo(a.score));
+      final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
+
+      enriched.add(entry.copyWithStats(
+        kills: player.kills,
+        deaths: player.deaths,
+        assists: player.assists,
+        isMvp: isMvp,
+        result: matchResult,
+        agentId: player.agentId,
+        mapId: details.mapId,
+      ));
+    } catch (_) {
+      enriched.add(entry);
+    }
+  }
+
+  return MatchHistoryResult(
+    puuid: raw.puuid,
+    total: raw.total,
+    start: raw.start,
+    end: raw.end,
+    matches: enriched,
+  );
 });

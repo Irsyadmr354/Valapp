@@ -53,10 +53,11 @@ class TierColors {
   }
 
   /// Resolves color using UUID prefix matching.
-  /// The Premium tier returns [AppColors.red] so that it matches the
-  /// wishlist-catalog display, which intentionally uses the app red rather
-  /// than the softer pink used in the skin-detail modal.
-  /// For the skin-detail modal (which needs the exact pink) use [forName] directly.
+  /// Returns the game-accurate palette color for each tier — Premium uses
+  /// [Color(0xFFD1548D)] (pink/magenta) matching the official Valorant palette.
+  /// Note: [wishlist_catalog_screen] intentionally overrides Premium to
+  /// [AppColors.red] for brand consistency; use [forName] directly if you
+  /// need that variant.
   static Color tierColorForUuid(String? tierUuid) {
     if (tierUuid == null || tierUuid.isEmpty) return const Color(0xFF5A9FE2);
     final uuid = tierUuid.toLowerCase();

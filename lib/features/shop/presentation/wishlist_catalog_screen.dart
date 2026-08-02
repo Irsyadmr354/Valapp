@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
@@ -24,7 +23,6 @@ final _allSkinsListProvider =
           skinData['skinName']?.toString() ?? skinData['displayName']?.toString() ?? '';
       final displayIcon = skinData['displayIcon']?.toString();
 
-      // Filter out base 'Standard' default skins & unskinned generic 'Melee'
       final lowerName = skinName.toLowerCase().trim();
       if (skinName.isNotEmpty &&
           !lowerName.startsWith('standard') &&
@@ -49,84 +47,68 @@ final _allSkinsListProvider =
   return list;
 });
 
-String _getWeaponCategory(String skinName) {
-  final name = skinName.toLowerCase();
-  if (name.contains('ghost') ||
-      name.contains('classic') ||
-      name.contains('sheriff') ||
-      name.contains('frenzy') ||
-      name.contains('shorty')) {
-    return 'PISTOLS';
-  }
-  if (name.contains('spectre') || name.contains('stinger')) {
-    return 'SMGS';
-  }
-  if (name.contains('vandal') ||
-      name.contains('phantom') ||
-      name.contains('bulldog') ||
-      name.contains('guardian')) {
-    return 'RIFLES';
-  }
-  if (name.contains('operator') ||
-      name.contains('outlaw') ||
-      name.contains('marshal')) {
-    return 'SNIPER';
-  }
-  if (name.contains('judge') || name.contains('bucky')) {
-    return 'SHOTGUNS';
-  }
-  if (name.contains('ares') || name.contains('odin')) {
-    return 'HEAVY';
-  }
-  if (name.contains('melee') ||
-      name.contains('knife') ||
-      name.contains('axe') ||
-      name.contains('blade') ||
-      name.contains('sword') ||
-      name.contains('dagger') ||
-      name.contains('karambit') ||
-      name.contains('scythe') ||
-      name.contains('staff') ||
-      name.contains('mace') ||
-      name.contains('katana') ||
-      name.contains('hammer') ||
-      name.contains('baton') ||
-      name.contains('fan') ||
-      name.contains('comb') ||
-      name.contains('claw') ||
-      name.contains('cleaver') ||
-      name.contains('misericórdia') ||
-      name.contains('misericordia') ||
-      name.contains('kunai') ||
-      name.contains('bident') ||
-      name.contains('anchor') ||
-      name.contains('firefly') ||
-      name.contains('podium') ||
-      name.contains('relic') ||
-      name.contains('tethered') ||
-      name.contains('bio-harness') ||
-      name.contains('hack') ||
-      name.contains('onimaru')) {
-    return 'MELEE';
-  }
-  return 'MELEE';
-}
+// ── Weapon category helpers ───────────────────────────────────────────────────
 
-// Delegate to shared utility — single source of truth for tier labels.
-String _getTierLabel(String? tierUuid) => TierColors.tierLabelForUuid(tierUuid);
+/// Returns whether a skin name matches a specific individual weapon sidebar ID.
+bool _matchesWeaponId(String skinName, String weaponId) {
+  final name = skinName.toLowerCase();
+  final id = weaponId.toLowerCase();
+  return name.contains(id);
+}
 
 Color _getTierColor(String? tierUuid) {
   if (tierUuid == null || tierUuid.isEmpty) return const Color(0xFF5A9FE2);
   final uuid = tierUuid.toLowerCase();
-  // Intentional: Premium uses AppColors.red in the catalog (brand consistency),
-  // while the skin-detail modal uses the exact pink from the game palette.
-  if (uuid.contains('12683d76')) return const Color(0xFF5A9FE2); // Select (Light Blue)
-  if (uuid.contains('0cebb8be')) return const Color(0xFF009587); // Deluxe (Teal Green)
-  if (uuid.contains('60bca009')) return AppColors.red;            // Premium (brand red)
-  if (uuid.contains('411e4a55')) return const Color(0xFFFAD663); // Ultra (Gold/Yellow)
-  if (uuid.contains('e046854e')) return const Color(0xFFF5955B); // Exclusive (Orange)
+  if (uuid.contains('12683d76')) { return const Color(0xFF5A9FE2); }
+  if (uuid.contains('0cebb8be')) { return const Color(0xFF009587); }
+  if (uuid.contains('60bca009')) { return AppColors.red; }
+  if (uuid.contains('411e4a55')) { return const Color(0xFFFAD663); }
+  if (uuid.contains('e046854e')) { return const Color(0xFFF5955B); }
   return TierColors.forName(tierUuid);
 }
+
+String _getTierLabel(String? tierUuid) => TierColors.tierLabelForUuid(tierUuid);
+
+// ── Sidebar category definitions ──────────────────────────────────────────────
+
+class _SidebarItem {
+  const _SidebarItem({required this.id, required this.label, required this.icon});
+  final String id;
+  final String label;
+  final IconData icon;
+}
+
+const _sidebarItems = [
+  _SidebarItem(id: 'ALL',       label: 'ALL',      icon: Icons.grid_view_rounded),
+  // ── Pistols ──
+  _SidebarItem(id: 'CLASSIC',   label: 'CLASSIC',  icon: Icons.radio_button_unchecked),
+  _SidebarItem(id: 'SHORTY',    label: 'SHORTY',   icon: Icons.horizontal_rule_rounded),
+  _SidebarItem(id: 'FRENZY',    label: 'FRENZY',   icon: Icons.bolt_rounded),
+  _SidebarItem(id: 'GHOST',     label: 'GHOST',    icon: Icons.nightlight_round),
+  _SidebarItem(id: 'SHERIFF',   label: 'SHERIFF',  icon: Icons.star_outline_rounded),
+  // ── SMGs ──
+  _SidebarItem(id: 'STINGER',   label: 'STINGER',  icon: Icons.speed_rounded),
+  _SidebarItem(id: 'SPECTRE',   label: 'SPECTRE',  icon: Icons.wind_power_rounded),
+  // ── Rifles ──
+  _SidebarItem(id: 'BULLDOG',   label: 'BULLDOG',  icon: Icons.adjust_rounded),
+  _SidebarItem(id: 'GUARDIAN',  label: 'GUARDIAN', icon: Icons.shield_outlined),
+  _SidebarItem(id: 'PHANTOM',   label: 'PHANTOM',  icon: Icons.visibility_off_outlined),
+  _SidebarItem(id: 'VANDAL',    label: 'VANDAL',   icon: Icons.military_tech_outlined),
+  // ── Snipers ──
+  _SidebarItem(id: 'MARSHAL',   label: 'MARSHAL',  icon: Icons.center_focus_weak_rounded),
+  _SidebarItem(id: 'OUTLAW',    label: 'OUTLAW',   icon: Icons.gps_fixed_rounded),
+  _SidebarItem(id: 'OPERATOR',  label: 'OPERATOR', icon: Icons.center_focus_strong_outlined),
+  // ── Shotguns ──
+  _SidebarItem(id: 'BUCKY',     label: 'BUCKY',    icon: Icons.flash_on_rounded),
+  _SidebarItem(id: 'JUDGE',     label: 'JUDGE',    icon: Icons.electric_bolt_rounded),
+  // ── Heavy ──
+  _SidebarItem(id: 'ARES',      label: 'ARES',     icon: Icons.rotate_right_rounded),
+  _SidebarItem(id: 'ODIN',      label: 'ODIN',     icon: Icons.settings_rounded),
+  // ── Melee ──
+  _SidebarItem(id: 'MELEE',     label: 'MELEE',    icon: Icons.architecture_rounded),
+  // ── Wishlist ──
+  _SidebarItem(id: 'WISHLIST',  label: 'WISHLIST', icon: Icons.bookmark_rounded),
+];
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
@@ -138,43 +120,20 @@ class WishlistCatalogScreen extends ConsumerStatefulWidget {
       _WishlistCatalogScreenState();
 }
 
-class _WishlistCatalogScreenState
-    extends ConsumerState<WishlistCatalogScreen> {
+class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
   String _selectedCategory = 'ALL';
-  String _selectedQuickFilter = 'ALL';
   String _selectedTierFilter = 'ALL';
   String _searchQuery = '';
   String _sortMode = 'name'; // 'name' | 'tier'
   final _searchController = TextEditingController();
 
-  final List<Map<String, dynamic>> _quickFilterPills = [
-    {'id': 'ALL', 'label': 'ALL'},
-    {'id': 'VANDAL', 'label': 'VANDAL'},
-    {'id': 'PHANTOM', 'label': 'PHANTOM'},
-    {'id': 'MELEE', 'label': 'MELEE'},
-    {'id': 'OPERATOR', 'label': 'OPERATOR'},
-    {'id': 'SHERIFF', 'label': 'SHERIFF'},
-    {'id': 'GHOST', 'label': 'GHOST'},
-  ];
-
-  final List<Map<String, dynamic>> _sidebarCategories = [
-    {'id': 'ALL', 'label': 'ALL', 'icon': Icons.grid_view_rounded},
-    {'id': 'PISTOLS', 'label': 'PISTOLS', 'icon': Icons.shield_outlined},
-    {'id': 'SMGS', 'label': 'SMGS', 'icon': Icons.speed_rounded},
-    {'id': 'RIFLES', 'label': 'RIFLES', 'icon': Icons.military_tech_outlined},
-    {'id': 'SNIPER', 'label': 'SNIPER', 'icon': Icons.center_focus_strong_outlined},
-    {'id': 'SHOTGUNS', 'label': 'SHOTGUNS', 'icon': Icons.flash_on_rounded},
-    {'id': 'MELEE', 'label': 'MELEE', 'icon': Icons.architecture_rounded},
-    {'id': 'WISHLIST', 'label': 'WISHLIST', 'icon': Icons.bookmark_rounded},
-  ];
-
   final List<Map<String, dynamic>> _tierOptions = [
-    {'id': 'ALL', 'label': 'ALL EDITIONS', 'color': Colors.white70},
-    {'id': 'Ultra', 'label': 'ULTRA EDITION (GOLD)', 'color': const Color(0xFFFAD663)},
-    {'id': 'Exclusive', 'label': 'EXCLUSIVE EDITION (ORANGE)', 'color': const Color(0xFFF5955B)},
-    {'id': 'Premium', 'label': 'PREMIUM EDITION (PINK)', 'color': AppColors.red},
-    {'id': 'Deluxe', 'label': 'DELUXE EDITION (GREEN)', 'color': const Color(0xFF009587)},
-    {'id': 'Select', 'label': 'SELECT EDITION (BLUE)', 'color': const Color(0xFF5A9FE2)},
+    {'id': 'ALL',       'label': 'ALL EDITIONS',              'color': const Color(0xB3FFFFFF)},
+    {'id': 'Ultra',     'label': 'ULTRA EDITION',             'color': const Color(0xFFFAD663)},
+    {'id': 'Exclusive', 'label': 'EXCLUSIVE EDITION',         'color': const Color(0xFFF5955B)},
+    {'id': 'Premium',   'label': 'PREMIUM EDITION',           'color': AppColors.red},
+    {'id': 'Deluxe',    'label': 'DELUXE EDITION',            'color': const Color(0xFF009587)},
+    {'id': 'Select',    'label': 'SELECT EDITION',            'color': const Color(0xFF5A9FE2)},
   ];
 
   @override
@@ -200,15 +159,9 @@ class _WishlistCatalogScreenState
           children: [
             Row(
               children: [
-                const Text(
-                  'FILTER EDITION TIER',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.0,
-                  ),
-                ),
+                const Text('FILTER EDITION TIER',
+                    style: TextStyle(color: Colors.white, fontSize: 16,
+                        fontWeight: FontWeight.w900, letterSpacing: 1.0)),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
@@ -220,7 +173,6 @@ class _WishlistCatalogScreenState
             ..._tierOptions.map((opt) {
               final isSelected = opt['id'] == _selectedTierFilter;
               final Color color = opt['color'] as Color;
-
               return GestureDetector(
                 onTap: () {
                   setState(() => _selectedTierFilter = opt['id'] as String);
@@ -239,26 +191,17 @@ class _WishlistCatalogScreenState
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
+                      Container(width: 12, height: 12,
+                          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
                       const SizedBox(width: 12),
-                      Text(
-                        opt['label'] as String,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontSize: 13,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                        ),
-                      ),
+                      Text(opt['label'] as String,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white70,
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          )),
                       const Spacer(),
-                      if (isSelected)
-                        Icon(Icons.check_circle, color: color, size: 18),
+                      if (isSelected) Icon(Icons.check_circle, color: color, size: 18),
                     ],
                   ),
                 ),
@@ -281,14 +224,15 @@ class _WishlistCatalogScreenState
       body: SafeArea(
         child: Column(
           children: [
-            // 1. Top Bar Header
+            // ── Header ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white, size: 20),
                     visualDensity: VisualDensity.compact,
                   ),
                   const SizedBox(width: 8),
@@ -296,41 +240,53 @@ class _WishlistCatalogScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'SKIN CATALOG & WISHLIST',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
+                        Text('SKIN CATALOG & WISHLIST',
+                            style: TextStyle(color: Colors.white, fontSize: 16,
+                                fontWeight: FontWeight.w900, letterSpacing: 0.8)),
                         SizedBox(height: 2),
-                        Text(
-                          'COLLECT. CUSTOMIZE. DOMINATE.',
-                          style: TextStyle(
-                            color: AppColors.red,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
-                          ),
-                        ),
+                        Text('COLLECT. CUSTOMIZE. DOMINATE.',
+                            style: TextStyle(color: AppColors.red, fontSize: 9,
+                                fontWeight: FontWeight.w800, letterSpacing: 1.0)),
                       ],
                     ),
                   ),
-
-                  // Top Right Wishlist Summary Card
-                  _WishlistHeaderSummaryCard(
-                    wishlistCount: wishlist.length,
-                    onTap: () {
-                      setState(() => _selectedCategory = 'WISHLIST');
-                    },
+                  // VIEW WISHLIST button (replaced old X + summary card)
+                  GestureDetector(
+                    onTap: () => setState(() => _selectedCategory = 'WISHLIST'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgCard2,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
+                        boxShadow: [BoxShadow(color: AppColors.red.withAlpha(25), blurRadius: 10)],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.bookmark_rounded, color: AppColors.red, size: 14),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${wishlist.length}',
+                                  style: const TextStyle(color: Colors.white,
+                                      fontSize: 14, fontWeight: FontWeight.w900)),
+                              const Text('VIEW WISHLIST >',
+                                  style: TextStyle(color: AppColors.red, fontSize: 8,
+                                      fontWeight: FontWeight.w900)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // 2. Search & Filter Bar
+            // ── Search & Filter Bar ─────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -350,10 +306,12 @@ class _WishlistCatalogScreenState
                         decoration: InputDecoration(
                           hintText: 'Search skin name',
                           hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                          prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 20),
+                          prefixIcon: const Icon(Icons.search_rounded,
+                              color: Colors.white38, size: 20),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear, color: Colors.white38, size: 18),
+                                  icon: const Icon(Icons.clear,
+                                      color: Colors.white38, size: 18),
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() => _searchQuery = '');
@@ -367,241 +325,179 @@ class _WishlistCatalogScreenState
                     ),
                   ),
                   const SizedBox(width: 8),
-
-                  // Tier Filter + Sort buttons row
-                  Row(
-                    children: [
-                      // Tier Filter button
-                      GestureDetector(
-                        onTap: _showTierFilterModal,
-                        child: Container(
-                          height: 42,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.bgCard2,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedTierFilter != 'ALL'
-                                  ? AppColors.red
-                                  : AppColors.border,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.tune_rounded, color: AppColors.red, size: 18),
-                              const SizedBox(width: 6),
-                              Text(
-                                _selectedTierFilter == 'ALL'
-                                    ? 'TIERS'
-                                    : _selectedTierFilter.toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.keyboard_arrow_down_rounded,
-                                  color: Colors.white54, size: 18),
-                            ],
-                          ),
+                  // Tier filter
+                  GestureDetector(
+                    onTap: _showTierFilterModal,
+                    child: Container(
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgCard2,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _selectedTierFilter != 'ALL' ? AppColors.red : AppColors.border,
+                          width: 1,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Sort button
-                      GestureDetector(
-                        onTap: () => setState(() =>
-                            _sortMode = _sortMode == 'name' ? 'tier' : 'name'),
-                        child: Container(
-                          height: 42,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.bgCard2,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _sortMode == 'tier'
-                                  ? AppColors.red
-                                  : AppColors.border,
-                              width: 1,
-                            ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.tune_rounded, color: AppColors.red, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            _selectedTierFilter == 'ALL' ? 'TIERS' : _selectedTierFilter.toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontSize: 11,
+                                fontWeight: FontWeight.w800),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.sort_rounded,
-                                  color: AppColors.red, size: 18),
-                              const SizedBox(width: 4),
-                              Text(
-                                _sortMode == 'name' ? 'A–Z' : 'TIER',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.keyboard_arrow_down_rounded,
+                              color: Colors.white54, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Sort A–Z / TIER
+                  GestureDetector(
+                    onTap: () => setState(
+                        () => _sortMode = _sortMode == 'name' ? 'tier' : 'name'),
+                    child: Container(
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgCard2,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _sortMode == 'tier' ? AppColors.red : AppColors.border,
+                          width: 1,
                         ),
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.sort_rounded, color: AppColors.red, size: 18),
+                          const SizedBox(width: 4),
+                          Text(_sortMode == 'name' ? 'A–Z' : 'TIER',
+                              style: const TextStyle(color: Colors.white, fontSize: 11,
+                                  fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // 3. Quick Weapon Type Filter Horizontal Pills
-            SizedBox(
-              height: 34,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                scrollDirection: Axis.horizontal,
-                itemCount: _quickFilterPills.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 6),
-                itemBuilder: (context, idx) {
-                  final pill = _quickFilterPills[idx];
-                  final isSelected = _selectedQuickFilter == pill['id'];
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedQuickFilter = pill['id'] as String),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.red : AppColors.bgCard2,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isSelected ? AppColors.red : Colors.white10,
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          pill['label'] as String,
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white60,
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
+            const SizedBox(height: 6),
 
-            const SizedBox(height: 10),
-
-            // 4. Main Body (Left Vertical Sidebar + Right Grid View)
+            // ── Main Body: Sidebar + Grid ───────────────────────────────────
             Expanded(
               child: Row(
                 children: [
-                  // Left Vertical Sidebar Menu
+                  // ── Left Vertical Sidebar ──────────────────────────────────
                   Container(
-                    width: 78,
+                    width: 72,
                     decoration: const BoxDecoration(
                       color: AppColors.bg,
                       border: Border(right: BorderSide(color: Colors.white10, width: 0.8)),
                     ),
                     child: ListView.builder(
-                      itemCount: _sidebarCategories.length,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: _sidebarItems.length,
                       itemBuilder: (context, idx) {
-                        final cat = _sidebarCategories[idx];
-                        final isSelected = _selectedCategory == cat['id'];
-                        final isWishlistCat = cat['id'] == 'WISHLIST';
+                        final item = _sidebarItems[idx];
+                        final isSelected = _selectedCategory == item.id;
+                        final isWishlist = item.id == 'WISHLIST';
 
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedCategory = cat['id'] as String),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? (isWishlistCat
-                                      ? AppColors.red.withAlpha(40)
-                                      : AppColors.red.withAlpha(40))
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              border: isSelected
-                                  ? Border.all(
-                                      color: isWishlistCat
-                                          ? AppColors.red
-                                          : AppColors.red,
-                                      width: 1,
-                                    )
-                                  : null,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  cat['icon'] as IconData,
+                        // Section dividers before first item of each group
+                        final showDivider = item.id == 'CLASSIC' ||
+                            item.id == 'STINGER' || item.id == 'BULLDOG' ||
+                            item.id == 'MARSHAL' || item.id == 'BUCKY' ||
+                            item.id == 'ARES'    || item.id == 'MELEE'  ||
+                            item.id == 'WISHLIST';
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (showDivider)
+                              const Divider(height: 8, thickness: 0.5,
+                                  color: Colors.white10, indent: 10, endIndent: 10),
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _selectedCategory = item.id),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                margin: const EdgeInsets.symmetric(
+                                    vertical: 2, horizontal: 5),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
                                   color: isSelected
-                                      ? (isWishlistCat ? AppColors.red : AppColors.red)
-                                      : Colors.white38,
-                                  size: 20,
+                                      ? AppColors.red.withAlpha(40)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: isSelected
+                                      ? Border.all(color: AppColors.red, width: 1)
+                                      : null,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  cat['label'] as String,
-                                  style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.white38,
-                                    fontSize: 8,
-                                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                                    letterSpacing: 0.3,
-                                  ),
-                                  textAlign: TextAlign.center,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      item.icon,
+                                      color: isSelected
+                                          ? (isWishlist ? AppColors.red : AppColors.red)
+                                          : Colors.white38,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      item.label,
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.white : Colors.white38,
+                                        fontSize: 7,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w900
+                                            : FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
+                          ],
                         );
                       },
                     ),
                   ),
 
-                  // Right Skin Grid View
+                  // ── Right Skin Grid ────────────────────────────────────────
                   Expanded(
                     child: skinsAsync.when(
                       data: (skins) {
-                        // Apply Filter Rules
                         final filteredSkins = skins.where((skin) {
                           final name = (skin['displayName'] as String).toLowerCase();
                           final levelUuid = skin['skinLevelUuid'] as String;
                           final skinUuid = skin['skinUuid'] as String;
-                          final category = _getWeaponCategory(name);
                           final tierUuid = skin['contentTierUuid'] as String?;
                           final tierLabel = _getTierLabel(tierUuid).toLowerCase();
 
-                          // Wishlist Category Filter
+                          // Sidebar category / weapon filter
                           if (_selectedCategory == 'WISHLIST') {
-                            final isWishlisted = wishlist.contains(levelUuid) || wishlist.contains(skinUuid);
-                            if (!isWishlisted) return false;
+                            if (!wishlist.contains(levelUuid) &&
+                                !wishlist.contains(skinUuid)) { return false; }
                           } else if (_selectedCategory != 'ALL') {
-                            if (category != _selectedCategory) return false;
+                            if (!_matchesWeaponId(name, _selectedCategory)) { return false; }
                           }
 
-                          // Quick Weapon Filter
-                          if (_selectedQuickFilter != 'ALL') {
-                            final qf = _selectedQuickFilter.toUpperCase();
-                            if (qf == 'MELEE') {
-                              if (category != 'MELEE') return false;
-                            } else if (qf == 'PISTOLS') {
-                              if (category != 'PISTOLS') return false;
-                            } else if (qf == 'SNIPER') {
-                              if (category != 'SNIPER') return false;
-                            } else if (qf == 'SHOTGUNS') {
-                              if (category != 'SHOTGUNS') return false;
-                            } else {
-                              if (!name.contains(qf.toLowerCase())) return false;
-                            }
-                          }
-
-                          // Edition Tier Filter
+                          // Edition tier filter
                           if (_selectedTierFilter != 'ALL') {
-                            if (!tierLabel.contains(_selectedTierFilter.toLowerCase())) return false;
+                            if (!tierLabel.contains(
+                                _selectedTierFilter.toLowerCase())) { return false; }
                           }
 
-                          // Search Query Filter
+                          // Search
                           if (_searchQuery.isNotEmpty) {
                             if (!name.contains(_searchQuery.toLowerCase())) return false;
                           }
@@ -612,22 +508,26 @@ class _WishlistCatalogScreenState
                         // Sort
                         if (_sortMode == 'tier') {
                           const tierOrder = {
-                            '411e4a55': 0, // Ultra
-                            'e046854e': 1, // Exclusive
-                            '60bca009': 2, // Premium
-                            '0cebb8be': 3, // Deluxe
-                            '12683d76': 4, // Select
+                            '411e4a55': 0,
+                            'e046854e': 1,
+                            '60bca009': 2,
+                            '0cebb8be': 3,
+                            '12683d76': 4,
                           };
                           filteredSkins.sort((a, b) {
                             final ta = tierOrder.entries
                                 .firstWhere(
-                                  (e) => (a['contentTierUuid'] as String? ?? '').toLowerCase().contains(e.key),
+                                  (e) => (a['contentTierUuid'] as String? ?? '')
+                                      .toLowerCase()
+                                      .contains(e.key),
                                   orElse: () => const MapEntry('', 5),
                                 )
                                 .value;
                             final tb = tierOrder.entries
                                 .firstWhere(
-                                  (e) => (b['contentTierUuid'] as String? ?? '').toLowerCase().contains(e.key),
+                                  (e) => (b['contentTierUuid'] as String? ?? '')
+                                      .toLowerCase()
+                                      .contains(e.key),
                                   orElse: () => const MapEntry('', 5),
                                 )
                                 .value;
@@ -640,12 +540,12 @@ class _WishlistCatalogScreenState
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.search_off_rounded, color: Colors.white24, size: 48),
+                                Icon(Icons.search_off_rounded,
+                                    color: Colors.white24, size: 48),
                                 SizedBox(height: 12),
-                                Text(
-                                  'No Skins Found',
-                                  style: TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.w700),
-                                ),
+                                Text('No Skins Found',
+                                    style: TextStyle(color: Colors.white54,
+                                        fontSize: 14, fontWeight: FontWeight.w700)),
                               ],
                             ),
                           );
@@ -653,111 +553,89 @@ class _WishlistCatalogScreenState
 
                         return Column(
                           children: [
-                            // Skin count badge
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                               child: Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: AppColors.red.withAlpha(25),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.red.withAlpha(80), width: 0.8),
+                                      border: Border.all(
+                                          color: AppColors.red.withAlpha(80), width: 0.8),
                                     ),
                                     child: Text(
                                       '${filteredSkins.length} SKINS',
-                                      style: const TextStyle(
-                                        color: AppColors.red,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.5,
-                                      ),
+                                      style: const TextStyle(color: AppColors.red,
+                                          fontSize: 10, fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.5),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+
                             Expanded(
                               child: GridView.builder(
-                          padding: const EdgeInsets.all(12),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.82,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                          ),
-                          itemCount: filteredSkins.length,
-                          itemBuilder: (context, idx) {
-                            final item = filteredSkins[idx];
-                            final levelUuid = item['skinLevelUuid'] as String;
-                            final skinUuid = item['skinUuid'] as String;
-                            final name = item['displayName'] as String;
-                            final iconUrl = item['displayIcon'] as String;
-                            final tierUuid = item['contentTierUuid'] as String?;
+                                padding: const EdgeInsets.all(10),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.82,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
+                                itemCount: filteredSkins.length,
+                                itemBuilder: (context, idx) {
+                                  final item = filteredSkins[idx];
+                                  final levelUuid = item['skinLevelUuid'] as String;
+                                  final skinUuid = item['skinUuid'] as String;
+                                  final name = item['displayName'] as String;
+                                  final iconUrl = item['displayIcon'] as String;
+                                  final tierUuid = item['contentTierUuid'] as String?;
+                                  final isWishlisted = wishlist.contains(levelUuid) ||
+                                      wishlist.contains(skinUuid);
+                                  final tierColor = _getTierColor(tierUuid);
 
-                            final isWishlisted = wishlist.contains(levelUuid) || wishlist.contains(skinUuid);
-                            final tierColor = _getTierColor(tierUuid);
-                            final tierLabel = _getTierLabel(tierUuid);
-
-                            return _SkinCatalogGridCard(
-                              name: name,
-                              iconUrl: iconUrl,
-                              tierColor: tierColor,
-                              tierLabel: tierLabel,
-                              isWishlisted: isWishlisted,
-                              onToggleWishlist: () {
-                                ref.read(wishlistProvider.notifier).toggle(levelUuid);
-                              },
-                              onTap: () {
-                                final offer = SkinOffer(
-                                  offerId: levelUuid,
-                                  skinLevelUuid: levelUuid,
-                                  price: 0, // price shown in detail modal from live store data
-                                  displayName: name,
-                                  displayIcon: iconUrl,
-                                  contentTierUuid: tierUuid,
-                                  isInWishlist: isWishlisted,
-                                );
-                                SkinDetailModal.show(context, offer);
-                              },
-                            );
-                          },
-                        ),
-                            ),  // Expanded
+                                  return _SkinCatalogGridCard(
+                                    name: name,
+                                    iconUrl: iconUrl,
+                                    tierColor: tierColor,
+                                    isWishlisted: isWishlisted,
+                                    onToggleWishlist: () => ref
+                                        .read(wishlistProvider.notifier)
+                                        .toggle(levelUuid),
+                                    onTap: () {
+                                      final offer = SkinOffer(
+                                        offerId: levelUuid,
+                                        skinLevelUuid: levelUuid,
+                                        price: 0,
+                                        displayName: name,
+                                        displayIcon: iconUrl,
+                                        contentTierUuid: tierUuid,
+                                        isInWishlist: isWishlisted,
+                                      );
+                                      SkinDetailModal.show(context, offer);
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
                           ],
-                        ); // Column
+                        );
                       },
-                      loading: () => const Center(
-                        child: CircularProgressIndicator(color: AppColors.red),
-                      ),
+                      loading: () => const WishlistCatalogSkeleton(),
                       error: (e, _) => Center(
-                        child: Text('Error: $e', style: const TextStyle(color: Colors.white54)),
+                        child: Text('Error: $e',
+                            style: const TextStyle(color: Colors.white54)),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-
-            // 5. Bottom Dock: WISHLIST PREVIEW (Matching Mockup Footer)
-            if (wishlist.isNotEmpty)
-              skinsAsync.when(
-                data: (allSkins) {
-                  final wishlistedSkins = allSkins.where((s) {
-                    final lUuid = s['skinLevelUuid'] as String;
-                    final sUuid = s['skinUuid'] as String;
-                    return wishlist.contains(lUuid) || wishlist.contains(sUuid);
-                  }).toList();
-
-                  return _WishlistPreviewBottomDock(
-                    wishlistedSkins: wishlistedSkins,
-                    onViewAllTap: () => setState(() => _selectedCategory = 'WISHLIST'),
-                  );
-                },
-                loading: () => const SizedBox(),
-                error: (_, __) => const SizedBox(),
-              ),
           ],
         ),
       ),
@@ -765,91 +643,15 @@ class _WishlistCatalogScreenState
   }
 }
 
-// ── Top Header Wishlist Summary Card ──────────────────────────────────────────
-
-class _WishlistHeaderSummaryCard extends StatelessWidget {
-  const _WishlistHeaderSummaryCard({
-    required this.wishlistCount,
-    required this.onTap,
-  });
-
-  final int wishlistCount;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.bgCard2,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.red.withAlpha(25),
-              blurRadius: 10,
-            )
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.bookmark_rounded, color: AppColors.red, size: 14),
-                SizedBox(width: 4),
-                Text(
-                  'WISHLIST',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Text(
-                  '$wishlistCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'VIEW WISHLIST',
-                  style: TextStyle(
-                    color: AppColors.red,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: AppColors.red, size: 12),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Skin Catalog Grid Card ───────────────────────────────────────────────────
+// ── Skin Catalog Grid Card ────────────────────────────────────────────────────
+// Card background uses tier color gradient (like shop screen).
+// Tier label text removed — color communicates tier visually.
 
 class _SkinCatalogGridCard extends StatelessWidget {
   const _SkinCatalogGridCard({
     required this.name,
     required this.iconUrl,
     required this.tierColor,
-    required this.tierLabel,
     required this.isWishlisted,
     required this.onToggleWishlist,
     required this.onTap,
@@ -858,7 +660,6 @@ class _SkinCatalogGridCard extends StatelessWidget {
   final String name;
   final String iconUrl;
   final Color tierColor;
-  final String tierLabel;
   final bool isWishlisted;
   final VoidCallback onToggleWishlist;
   final VoidCallback onTap;
@@ -869,10 +670,18 @@ class _SkinCatalogGridCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.bgCard2,
           borderRadius: BorderRadius.circular(16),
+          // Tier color gradient background — same pattern as shop/daily screen
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              tierColor.withAlpha(55),
+              AppColors.bgCard2,
+            ],
+          ),
           border: Border.all(
-            color: isWishlisted ? AppColors.red : Colors.white10,
+            color: isWishlisted ? AppColors.red : tierColor.withAlpha(80),
             width: isWishlisted ? 1.5 : 1,
           ),
         ),
@@ -883,64 +692,45 @@ class _SkinCatalogGridCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Status Badge (WISHLIST or OWNED)
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isWishlisted
-                            ? AppColors.red.withAlpha(40)
-                            : AppColors.red.withAlpha(30),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: isWishlisted ? AppColors.red : AppColors.red,
-                          width: 0.8,
+                  // Wishlist badge — only show when skin is wishlisted
+                  if (isWishlisted)
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.red.withAlpha(40),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.red, width: 0.8),
                         ),
-                      ),
-                      child: Text(
-                        isWishlisted ? 'WISHLIST' : 'OWNED',
-                        style: TextStyle(
-                          color: isWishlisted ? AppColors.red : AppColors.red,
-                          fontSize: 7,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.4,
+                        child: const Text(
+                          'WISHLIST',
+                          style: TextStyle(color: AppColors.red, fontSize: 7,
+                              fontWeight: FontWeight.w900, letterSpacing: 0.4),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Weapon Image
+                  // Weapon image
                   Expanded(
                     child: Center(
                       child: CachedNetworkImage(
                         imageUrl: iconUrl,
                         fit: BoxFit.contain,
-                        placeholder: (_, __) => const LoadingShimmer(height: 60),
-                        errorWidget: (_, __, ___) => const Icon(Icons.military_tech_outlined, color: Colors.white24, size: 28),
+                        placeholder: (_, __) =>
+                            const LoadingShimmer(height: 60),
+                        errorWidget: (_, __, ___) => const Icon(
+                            Icons.military_tech_outlined,
+                            color: Colors.white24, size: 28),
                       ),
                     ),
                   ),
 
-                  // Bottom Name & Edition Subtitle in Absolute Tier Color
+                  // Skin name — no tier label below it
                   Text(
                     name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tierLabel,
-                    style: TextStyle(
-                      color: tierColor,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 12,
+                        fontWeight: FontWeight.w900),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -948,7 +738,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
               ),
             ),
 
-            // Bottom Right Bookmark Toggle Button
+            // Bookmark toggle
             Positioned(
               right: 8,
               bottom: 8,
@@ -961,7 +751,9 @@ class _SkinCatalogGridCard extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    isWishlisted ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                    isWishlisted
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_outline_rounded,
                     color: isWishlisted ? Colors.white : Colors.white54,
                     size: 14,
                   ),
@@ -970,122 +762,6 @@ class _SkinCatalogGridCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── WISHLIST PREVIEW Bottom Dock ──────────────────────────────────────────────
-
-class _WishlistPreviewBottomDock extends StatelessWidget {
-  const _WishlistPreviewBottomDock({
-    required this.wishlistedSkins,
-    required this.onViewAllTap,
-  });
-
-  final List<Map<String, dynamic>> wishlistedSkins;
-  final VoidCallback onViewAllTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: AppColors.bg,
-        border: Border(top: BorderSide(color: Colors.white10, width: 1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.star_rounded, color: AppColors.red, size: 16),
-                  SizedBox(width: 6),
-                  Text(
-                    'WISHLIST PREVIEW',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: onViewAllTap,
-                child: Row(
-                  children: [
-                    Text(
-                      '${wishlistedSkins.length} ITEMS',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    const Icon(Icons.chevron_right, color: Colors.white38, size: 14),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 54,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: wishlistedSkins.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, idx) {
-                final item = wishlistedSkins[idx];
-                final iconUrl = item['displayIcon'] as String;
-                final tierUuid = item['contentTierUuid'] as String?;
-                final tierColor = _getTierColor(tierUuid);
-
-                return Container(
-                  width: 90,
-                  decoration: BoxDecoration(
-                    color: AppColors.bgCard2,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: tierColor.withAlpha(80), width: 1),
-                  ),
-                  child: Stack(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Center(
-                          child: CachedNetworkImage(
-                            imageUrl: iconUrl,
-                            fit: BoxFit.contain,
-                            placeholder: (_, __) => const LoadingShimmer(height: 30),
-                            errorWidget: (_, __, ___) => const Icon(Icons.military_tech_outlined, color: Colors.white24, size: 16),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 4,
-                        bottom: 4,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: tierColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -584,12 +584,16 @@ class _SectionHeader extends StatelessWidget {
 Color? _parseHexColor(String? hex) {
   if (hex == null || hex.isEmpty) return null;
   var cleaned = hex.replaceAll('#', '');
-  if (cleaned.length == 6) cleaned = 'FF$cleaned';
-  if (cleaned.length == 8 && !cleaned.startsWith('FF')) {
-    // If format is RRGGBBAA, convert to AARRGGBB for Flutter Color
+  if (cleaned.length == 6) {
+    // 6-char hex — treat as fully opaque RGB
+    cleaned = 'FF$cleaned';
+  } else if (cleaned.length == 8) {
+    // Riot returns RRGGBBAA — convert to AARRGGBB for Flutter Color
     final rrggbb = cleaned.substring(0, 6);
     final aa = cleaned.substring(6, 8);
     cleaned = '$aa$rrggbb';
+  } else {
+    return null;
   }
   final value = int.tryParse(cleaned, radix: 16);
   return value != null ? Color(value) : null;

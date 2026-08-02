@@ -108,18 +108,8 @@ final _homeMmrProvider = FutureProvider.autoDispose<PlayerMmr?>((ref) async {
 });
 
 final _homeMatchesProvider = FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(matchRemoteSourceProvider.future);
-  final cache = ref.watch(matchHistoryLocalCacheProvider);
-  try {
-    final raw = await source.fetchHistoryRaw(creds.shard, creds.puuid);
-    final history = MatchHistoryResult.fromJson(raw);
-    await cache.saveHistory(history);
-    return history;
-  } catch (_) {
-    return cache.loadHistory();
-  }
+  // Delegate to shared enriched history provider — no duplication.
+  return ref.watch(enrichedMatchHistoryProvider.future);
 });
 
 final _competitiveTiersMapHomeProvider =
