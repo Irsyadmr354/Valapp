@@ -5,6 +5,7 @@ import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
+import '../../../shared/widgets/loading_shimmer.dart';
 import '../domain/models/contracts.dart';
 import 'battlepass_carousel_modal.dart';
 
@@ -78,12 +79,7 @@ class ContractsScreen extends ConsumerWidget {
                   contracts: result.data,
                   showCacheBanner: result.fromCache,
                 ),
-          loading: () => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: AppColors.red),
-            ),
-          ),
+          loading: () => const ContractsSkeleton(),
           error: (e, _) => Center(
             child: Text('Error: $e',
                 style: const TextStyle(color: Colors.white54)),

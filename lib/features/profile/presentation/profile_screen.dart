@@ -9,6 +9,7 @@ import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
+import '../../../shared/widgets/loading_shimmer.dart';
 import '../domain/models/account_xp.dart';
 import '../../auth/presentation/account_switcher_modal.dart';
 import 'account_health_modal.dart';
@@ -235,6 +236,15 @@ class ProfileScreen extends ConsumerWidget {
     final mmrAsync = ref.watch(_profileMmrProvider);
     final matchesAsync = ref.watch(_profileMatchesProvider);
     final cardAsync = ref.watch(_profileCardProvider);
+
+    // Show full-page skeleton until at least name or xp resolves
+    final isLoading = xpAsync.isLoading && nameAsync.isLoading;
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.bg,
+        body: SafeArea(child: ProfileSkeleton()),
+      );
+    }
 
     final showCacheBanner = (xpAsync.asData?.value?.fromCache ?? false) ||
         (nameAsync.asData?.value?.fromCache ?? false);
@@ -826,8 +836,28 @@ class _AccountLevelXpSkeleton extends StatelessWidget {
         color: AppColors.bgCard2,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Center(
-        child: CircularProgressIndicator(color: AppColors.red),
+      child: const Padding(
+        padding: EdgeInsets.all(18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            LoadingShimmer(width: 60, height: 60, borderRadius: 8),
+            SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  LoadingShimmer(height: 12),
+                  SizedBox(height: 10),
+                  LoadingShimmer(height: 8, borderRadius: 4),
+                  SizedBox(height: 10),
+                  LoadingShimmer(height: 10),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1026,15 +1056,16 @@ class _ProfileQuickStatsSkeleton extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white10, width: 1),
             ),
-            child: const Center(
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.red,
-                ),
-              ),
+            padding: const EdgeInsets.all(12),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LoadingShimmer(width: 32, height: 32, borderRadius: 16),
+                SizedBox(height: 8),
+                LoadingShimmer(height: 9),
+                SizedBox(height: 6),
+                LoadingShimmer(height: 22),
+              ],
             ),
           ),
         ),

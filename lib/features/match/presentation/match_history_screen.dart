@@ -8,6 +8,7 @@ import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
+import '../../../shared/widgets/loading_shimmer.dart';
 import '../domain/models/match_history.dart';
 import '../domain/models/match_details.dart';
 
@@ -260,11 +261,9 @@ class MatchHistoryScreen extends ConsumerWidget {
               },
             );
           },
-          loading: () => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: Color(0xFFFF4655)),
-            ),
+          loading: () => const SizedBox(
+            width: double.infinity,
+            child: SkinCardShimmer(),
           ),
           error: (e, _) => Center(
             child: Padding(

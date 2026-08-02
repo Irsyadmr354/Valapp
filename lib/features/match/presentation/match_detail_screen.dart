@@ -5,6 +5,7 @@ import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
+import '../../../shared/widgets/loading_shimmer.dart';
 import '../domain/models/match_details.dart';
 import '../domain/models/match_history.dart';
 
@@ -94,9 +95,7 @@ class MatchDetailScreen extends ConsumerWidget {
                 details: result.data,
                 showCacheBanner: result.fromCache,
               ),
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.red),
-        ),
+        loading: () => const MatchDetailSkeleton(),
         error: (e, _) => Center(
           child: Text('Error: $e',
               style: const TextStyle(color: Colors.white54)),

@@ -7,6 +7,7 @@ import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
+import '../../../shared/widgets/loading_shimmer.dart';
 import '../domain/models/player_mmr.dart';
 
 // Dynamic season provider
@@ -216,11 +217,7 @@ class _LeaderboardTab extends ConsumerWidget {
           data: (result) => result == null
               ? const SizedBox()
               : _RankCard(mmr: result.data),
-          loading: () => const Center(
-              child: Padding(
-            padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(color: Color(0xFFFF4655)),
-          )),
+          loading: () => const RankSkeleton(),
           error: (e, _) => _ErrorCard(message: e.toString()),
         ),
         const SizedBox(height: 20),
@@ -522,11 +519,7 @@ class _MatchHistoryTab extends StatelessWidget {
               : Column(
                   children:
                       result.data.map((u) => _UpdateTile(update: u)).toList()),
-          loading: () => const Center(
-              child: Padding(
-            padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(color: Color(0xFFFF4655)),
-          )),
+          loading: () => const RankHistorySkeleton(),
           error: (e, _) => _ErrorCard(message: e.toString()),
         ),
       ],
@@ -632,8 +625,7 @@ class _ActRankTab extends ConsumerWidget {
           ],
         );
       },
-      loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.red)),
+      loading: () => const RankSkeleton(),
       error: (e, _) => Center(child: _ErrorCard(message: e.toString())),
     );
   }

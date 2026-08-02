@@ -92,8 +92,7 @@ class LoadoutScreen extends ConsumerWidget {
                   loadout: result.data,
                   showCacheBanner: result.fromCache,
                 ),
-          loading: () => const Center(
-              child: CircularProgressIndicator(color: AppColors.red)),
+          loading: () => const LoadoutSkeleton(),
           error: (e, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),

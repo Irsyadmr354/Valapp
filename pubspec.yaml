@@ -1,5 +1,5 @@
-name: valorant_shop_monitor
-description: Personal Valorant Shop Monitor - track your daily shop, rank, and match history.
+name: valorant_app
+description: Personal Valorant App - track your daily shop, rank, and match history.
 publish_to: 'none'
 version: 1.0.0+1
 

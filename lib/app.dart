@@ -10,7 +10,7 @@ import 'features/auth/presentation/webview_login_screen.dart';
 import 'features/match/presentation/match_detail_screen.dart';
 import 'features/match/presentation/match_history_screen.dart';
 import 'features/rank/presentation/rank_screen.dart';
-import 'features/shop/presentation/shop_screen.dart';
+import 'features/shop/presentation/home_screen.dart';
 import 'features/shop/presentation/wishlist_catalog_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 import 'features/contracts/presentation/contracts_screen.dart';
@@ -66,7 +66,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => _ScaffoldWithNav(child: child),
         routes: [
-          GoRoute(path: '/shop', builder: (_, __) => const ShopScreen()),
+          GoRoute(path: '/shop', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/rank', builder: (_, __) => const RankScreen()),
           GoRoute(
               path: '/matches',
