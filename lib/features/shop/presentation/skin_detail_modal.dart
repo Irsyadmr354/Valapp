@@ -778,7 +778,9 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
   String _cleanLevelItem(String item) {
     final parts = item.split('::');
     final raw = parts.last;
-    return raw.replaceAll(RegExp(r'([A-Z])'), ' \$1').trim();
+    // Use a raw string for the replacement so $1 is treated as a backreference
+    // to capture group 1 (the uppercase letter), not a literal "$1".
+    return raw.replaceAll(RegExp(r'([A-Z])'), r' $1').trim();
   }
 }
 
