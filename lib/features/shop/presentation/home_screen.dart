@@ -1448,31 +1448,97 @@ class _RrMiniChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Take up to 8, chronological (oldest → newest = left → right)
     final recent = updates.take(8).toList().reversed.toList();
     if (recent.isEmpty) return const SizedBox();
-
-    final maxAbs = recent
-        .map((u) => u.rankedRatingEarned.abs())
-        .fold<int>(1, (a, b) => a > b ? a : b);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: recent.map((u) {
-        final rr = u.rankedRatingEarned;
-        final h = (rr.abs() / maxAbs * 22.0).clamp(4.0, 22.0);
-        return Container(
-          width: 3,
-          height: h,
-          decoration: BoxDecoration(
-            color: rr >= 0 ? AppColors.win : AppColors.loss,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        );
-      }).toList(),
+    return SizedBox(
+      height: 28,
+      child: CustomPaint(
+        size: const Size(double.infinity, 28),
+        painter: _MiniLinePainter(updates: recent),
+      ),
     );
   }
+}
+
+class _MiniLinePainter extends CustomPainter {
+  const _MiniLinePainter({required this.updates});
+  final List<CompetitiveUpdate> updates;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (updates.length < 2) return;
+
+    // Build cumulative RR values so the line shows trend over time.
+    final values = <double>[];
+    double running = 0;
+    for (final u in updates) {
+      running += u.rankedRatingEarned;
+      values.add(running);
+    }
+
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final range = (maxV - minV).abs();
+    final effectiveRange = range < 1 ? 1.0 : range;
+
+    // Map each value to a y-coordinate (top = positive, bottom = negative).
+    Offset toPoint(int i) {
+      final x = i / (values.length - 1) * size.width;
+      final norm = (values[i] - minV) / effectiveRange;
+      // Flip: high value = low y (top of canvas)
+      final y = size.height - norm * size.height * 0.85 - size.height * 0.075;
+      return Offset(x, y);
+    }
+
+    final points = List.generate(values.length, toPoint);
+
+    // Determine overall trend color from last value vs first.
+    final isPos = values.last >= values.first;
+    final lineColor = isPos ? AppColors.win : AppColors.loss;
+
+    // Filled area under line.
+    final fillPath = Path()..moveTo(points.first.dx, size.height);
+    for (final p in points) {
+      fillPath.lineTo(p.dx, p.dy);
+    }
+    fillPath
+      ..lineTo(points.last.dx, size.height)
+      ..close();
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..color = lineColor.withAlpha(30)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Smooth line through points using cubic bezier.
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      final prev = points[i - 1];
+      final curr = points[i];
+      final cpX = (prev.dx + curr.dx) / 2;
+      linePath.cubicTo(cpX, prev.dy, cpX, curr.dy, curr.dx, curr.dy);
+    }
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = lineColor.withAlpha(220)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Dot at last point.
+    canvas.drawCircle(
+      points.last,
+      2.5,
+      Paint()..color = lineColor,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniLinePainter old) =>
+      old.updates != updates;
 }
 
 // ── Quick Cards ───────────────────────────────────────────────────────────────

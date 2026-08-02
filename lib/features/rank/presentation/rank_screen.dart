@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -348,9 +347,9 @@ class _RrSparklineCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 40,
+            height: 56,
             child: CustomPaint(
-              size: const Size(double.infinity, 40),
+              size: const Size(double.infinity, 56),
               painter: _SparklinePainter(updates: recent),
             ),
           ),
@@ -366,31 +365,93 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (updates.isEmpty) return;
-    final count = updates.length;
-    final barW = (size.width / count) * 0.55;
-    final gap = (size.width / count) * 0.45;
-    final maxAbs = updates
-        .map((u) => u.rankedRatingEarned.abs())
-        .fold<int>(1, (a, b) => a > b ? a : b);
+    if (updates.length < 2) return;
 
-    for (var i = 0; i < count; i++) {
-      final rr = updates[i].rankedRatingEarned;
-      final isWin = rr > 0;
-      final norm = rr.abs() / maxAbs;
-      final barH = math.max(4.0, norm * size.height);
-      final x = i * (barW + gap);
-      final y = size.height - barH;
-
-      final paint = Paint()
-        ..color = (isWin ? AppColors.win : AppColors.loss).withAlpha(200)
-        ..style = PaintingStyle.fill;
-
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(x, y, barW, barH), const Radius.circular(3)),
-        paint,
-      );
+    // Cumulative RR so the line shows total trend across the 10 games.
+    final values = <double>[];
+    double running = 0;
+    for (final u in updates) {
+      running += u.rankedRatingEarned;
+      values.add(running);
     }
+
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final range = (maxV - minV).abs();
+    final effectiveRange = range < 1 ? 1.0 : range;
+
+    Offset toPoint(int i) {
+      final x = i / (values.length - 1) * size.width;
+      final norm = (values[i] - minV) / effectiveRange;
+      final y = size.height - norm * size.height * 0.85 - size.height * 0.075;
+      return Offset(x, y);
+    }
+
+    final points = List.generate(values.length, toPoint);
+    final isPos = values.last >= 0;
+    final lineColor = isPos ? AppColors.win : AppColors.loss;
+
+    // Filled area under line.
+    final fillPath = Path()..moveTo(points.first.dx, size.height);
+    for (final p in points) {
+      fillPath.lineTo(p.dx, p.dy);
+    }
+    fillPath..lineTo(points.last.dx, size.height)..close();
+    canvas.drawPath(fillPath,
+        Paint()..color = lineColor.withAlpha(35)..style = PaintingStyle.fill);
+
+    // Zero baseline (dashed).
+    final zeroNorm = (0.0 - minV) / effectiveRange;
+    final zeroY = size.height - zeroNorm * size.height * 0.85 - size.height * 0.075;
+    const dashW = 6.0;
+    const dashGap = 4.0;
+    double dx = 0;
+    final baselinePaint = Paint()
+      ..color = Colors.white.withAlpha(25)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    while (dx < size.width) {
+      canvas.drawLine(Offset(dx, zeroY), Offset(dx + dashW, zeroY), baselinePaint);
+      dx += dashW + dashGap;
+    }
+
+    // Smooth line through all points via cubic bezier.
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      final prev = points[i - 1];
+      final curr = points[i];
+      final cpX = (prev.dx + curr.dx) / 2;
+      linePath.cubicTo(cpX, prev.dy, cpX, curr.dy, curr.dx, curr.dy);
+    }
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = lineColor.withAlpha(230)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    // Hollow dot at each data point, colored per win/loss.
+    for (var i = 0; i < points.length; i++) {
+      final u = updates[i];
+      final dotColor = u.rankedRatingEarned > 0
+          ? AppColors.win
+          : u.rankedRatingEarned < 0
+              ? AppColors.loss
+              : Colors.white54;
+      canvas.drawCircle(points[i], 3.0,
+          Paint()..color = const Color(0xFF0D1420)..style = PaintingStyle.fill);
+      canvas.drawCircle(points[i], 3.0,
+          Paint()
+            ..color = dotColor.withAlpha(200)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5);
+    }
+
+    // Larger filled dot at the last (most recent) point.
+    canvas.drawCircle(points.last, 4.0, Paint()..color = lineColor);
   }
 
   @override
