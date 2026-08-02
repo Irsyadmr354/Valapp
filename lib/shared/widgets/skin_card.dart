@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../features/shop/domain/models/skin_offer.dart';
 import '../utils/tier_colors.dart';
 
-/// Card displaying a single skin with its name, tier color badge, price, and wishlist toggle.
+/// Card displaying a single skin.
+/// Background: flat solid tier color tint (no gradient, no shadow, not 3D).
+/// VP price chip: overlaid bottom-right of the image area.
+/// Footer: skin name + bookmark only.
 class SkinCard extends StatelessWidget {
   const SkinCard({
     super.key,
@@ -21,181 +24,166 @@ class SkinCard extends StatelessWidget {
     final tierColor = TierColors.forName(offer.contentTierUuid);
     final tierLabel = TierColors.tierLabel(offer.contentTierUuid);
 
+    // Flat tier-tinted background — enough color to show the tier without 3D.
+    // We blend a very low-alpha tier color over the dark base so it reads flat.
+    final bgColor = Color.alphaBlend(
+      tierColor.withAlpha(38),
+      const Color(0xFF0C1118),
+    );
+
     return Container(
       decoration: BoxDecoration(
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isHighlighted
               ? const Color(0xFFFF4655)
-              : tierColor.withAlpha(160),
-          width: isHighlighted ? 2 : 1.2,
-        ),
-        boxShadow: const [],
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            tierColor.withAlpha(25),
-            const Color(0xFF0C1118),
-          ],
-          stops: const [0.0, 1.0],
+              : Colors.white.withAlpha(18),
+          width: isHighlighted ? 2 : 1,
         ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Thin left accent bar — flat, does not create depth
-            Positioned(
-              top: 0,
-              left: 0,
-              bottom: 0,
-              child: Container(
-                width: 3,
-                decoration: BoxDecoration(
-                  color: tierColor.withAlpha(180),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(15),
-                    bottomLeft: Radius.circular(15),
-                  ),
-                ),
-              ),
-            ),
-
-            // Top-right Edition Tier Chip Badge
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: tierColor.withAlpha(30),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: tierColor.withAlpha(100), width: 0.6),
-                ),
-                child: Text(
-                  tierLabel.replaceAll(' Edition', '').toUpperCase(),
-                  style: TextStyle(
-                    color: tierColor,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-
-            // Card Body Content
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 16),
-                // Skin Image
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: offer.displayIcon != null
-                        ? CachedNetworkImage(
-                            imageUrl: offer.displayIcon!,
-                            fit: BoxFit.contain,
-                            placeholder: (_, __) => const _ShimmerBox(),
-                            errorWidget: (_, __, ___) => const _PlaceholderIcon(),
-                          )
-                        : const _PlaceholderIcon(),
-                  ),
-                ),
-
-                // Info Footer
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF090E16).withAlpha(230),
-                    border: const Border(
-                      top: BorderSide(color: Color(0xFF1B2738), width: 0.8),
+            // ── Image area ─────────────────────────────────────────────────
+            Expanded(
+              child: Stack(
+                children: [
+                  // Skin image
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+                      child: offer.displayIcon != null
+                          ? CachedNetworkImage(
+                              imageUrl: offer.displayIcon!,
+                              fit: BoxFit.contain,
+                              placeholder: (_, __) => const _ShimmerBox(),
+                              errorWidget: (_, __, ___) =>
+                                  const _PlaceholderIcon(),
+                            )
+                          : const _PlaceholderIcon(),
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Skin Name
-                      Text(
-                        offer.displayName ?? 'Unknown Skin',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
+
+                  // Top-right: edition tier chip
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: tierColor.withAlpha(40),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                            color: tierColor.withAlpha(120), width: 0.6),
+                      ),
+                      child: Text(
+                        tierLabel.replaceAll(' Edition', '').toUpperCase(),
+                        style: TextStyle(
+                          color: tierColor,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
-
-                      // Price + Wishlist Row
-                      Row(
-                        children: [
-                          // VP Badge Chip
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 3.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF00F0FF).withAlpha(25),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: const Color(0xFF00F0FF).withAlpha(100),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const _VpIcon(),
-                                const SizedBox(width: 4),
-                                Text(
-                                  offer.price.toString(),
-                                  style: const TextStyle(
-                                    color: Color(0xFF00F0FF),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
-
-                          // Wishlist button
-                          if (onWishlistToggle != null)
-                            GestureDetector(
-                              onTap: onWishlistToggle,
-                              child: Container(
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(
-                                  color: offer.isInWishlist
-                                      ? const Color(0xFFFF4655).withAlpha(40)
-                                      : Colors.transparent,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  offer.isInWishlist
-                                      ? Icons.bookmark
-                                      : Icons.bookmark_border,
-                                  color: offer.isInWishlist
-                                      ? const Color(0xFFFF4655)
-                                      : Colors.white38,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
+
+                  // Bottom-right: VP price chip overlaid on image (no bg card)
+                  if (offer.price > 0)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: _VpChip(price: offer.price),
+                    ),
+                ],
+              ),
+            ),
+
+            // ── Footer: name + bookmark ────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(60),
+                border: const Border(
+                  top: BorderSide(color: Color(0x22FFFFFF), width: 0.8),
                 ),
-              ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      offer.displayName ?? 'Unknown Skin',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (onWishlistToggle != null) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: onWishlistToggle,
+                      child: Icon(
+                        offer.isInWishlist
+                            ? Icons.bookmark
+                            : Icons.bookmark_border,
+                        color: offer.isInWishlist
+                            ? const Color(0xFFFF4655)
+                            : Colors.white38,
+                        size: 18,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── VP price chip ─────────────────────────────────────────────────────────────
+
+class _VpChip extends StatelessWidget {
+  const _VpChip({required this.price});
+  final int price;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF080D14).withAlpha(200),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: const Color(0xFF00F0FF).withAlpha(90),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const _VpIcon(),
+          const SizedBox(width: 4),
+          Text(
+            price.toString(),
+            style: const TextStyle(
+              color: Color(0xFF00F0FF),
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }

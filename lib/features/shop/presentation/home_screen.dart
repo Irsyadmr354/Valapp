@@ -423,7 +423,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const Icon(Icons.timer_outlined,
                     color: Color(0xFFFF4655), size: 14),
                 const SizedBox(width: 6),
-                const Text('RESET IN ',
+                const Text('REFRESHES IN ',
                     style: TextStyle(
                         color: Color(0xFFFF4655),
                         fontSize: 11,
@@ -476,18 +476,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // Featured Bundle
         if (storefront.featuredBundle != null) ...[
+          const SizedBox(height: 16),
           const _SectionHeader(title: 'Featured Bundle'),
           _BundleBanner(bundle: storefront.featuredBundle!),
           const SizedBox(height: 20),
         ],
 
         // Daily Shop
+        const SizedBox(height: 4),
         const _SectionHeader(title: 'Daily Shop'),
         _DailyShopCarousel(
           offers: storefront.dailyOffers,
           wishlist: wishlist,
           onWishlistToggle: _toggleWishlist,
-          dailyResetSeconds: storefront.currentDailyOffersRemainingSeconds,
         ),
         const SizedBox(height: 24),
 
@@ -878,13 +879,11 @@ class _DailyShopCarousel extends StatefulWidget {
     required this.offers,
     required this.wishlist,
     required this.onWishlistToggle,
-    required this.dailyResetSeconds,
   });
 
   final List<SkinOffer> offers;
   final Set<String> wishlist;
   final ValueChanged<SkinOffer> onWishlistToggle;
-  final int dailyResetSeconds;
 
   @override
   State<_DailyShopCarousel> createState() => _DailyShopCarouselState();
@@ -937,51 +936,26 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
           ),
         ),
         const SizedBox(height: 10),
-        // Refreshes in … + indicator dots row
+        // Page indicator dots
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.refresh,
-                      color: Colors.white38, size: 12),
-                  const SizedBox(width: 4),
-                  const Text('REFRESHES IN ',
-                      style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700)),
-                  CountdownTimer(
-                    remainingSeconds: widget.dailyResetSeconds,
-                    style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              // Page indicator dots
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(widget.offers.length, (index) {
-                  final isSelected = index == _currentPage;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: isSelected ? 20 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFFF4655)
-                          : Colors.white24,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  );
-                }),
-              ),
-            ],
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(widget.offers.length, (index) {
+              final isSelected = index == _currentPage;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isSelected ? 20 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFFFF4655)
+                      : Colors.white24,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              );
+            }),
           ),
         ),
       ],
