@@ -1,10 +1,12 @@
-# ValAPP — Valorant Shop, Rank & Account Companion 🎯
+# ValAPP — Valorant Shop, Rank, Account & Companion 🎯
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.3.0+-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.0+-0175C2?logo=dart)](https://dart.dev)
+[![Analyze](https://img.shields.io/badge/Flutter_Analyze-Clean-brightgreen)](https://flutter.dev)
+[![Tests](https://img.shields.io/badge/Unit_Tests-18%2F18_Passed-brightgreen)](test/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A high-performance, feature-packed, and beautifully designed Flutter mobile application (iOS & Android) for monitoring your Valorant account — Daily Shop, Featured Bundles, Night Market, Skin Catalog & Wishlist, Interactive Chromas & Video Inspector, Multi-Account Manager, Competitive Rank & 10-Game Net RR Trend, Match Scoreboards with MVP Badges, Battle Pass Carousel, Equipped Loadout Inspector, and Native Background Push Notifications — directly from your smartphone without opening the game client.
+A high-performance, feature-packed, and beautifully designed Flutter mobile application (iOS & Android) for monitoring your Valorant account — Daily Shop, Featured Bundles, Night Market, Skin Catalog & Wishlist, Account Health & Penalty Dashboard, Interactive Chromas & Video Inspector, Multi-Account Manager, Competitive Rank & 10-Game Net RR Trend, Match Scoreboards with MVP Badges, Battle Pass Carousel, Equipped Loadout Inspector, and Native Wishlist Push Notifications — directly from your smartphone without opening the game client.
 
 > **Disclaimer:** This application uses unofficial Valorant endpoints reverse-engineered by the community and metadata from `valorant-api.com`. It is intended strictly for personal use. Riot Games does not officially support or endorse this project.
 
@@ -14,16 +16,17 @@ A high-performance, feature-packed, and beautifully designed Flutter mobile appl
 
 | Screen / Feature | Capabilities & Description |
 |------------------|----------------------------|
-| 🛒 **Daily Shop & Bundles** | 4 Daily Skin Offers with prices & reset countdown timer, **Featured Bundle Promo Banner**, **Night Market** (with real skin artwork & discount percentages), VP/RP/KC/Free Agent wallet balances header, News Feed, and **Wishlist Match Alert Banner**. |
-| 👥 **Multi-Account Manager** | Instant account switching between main and alt Riot accounts (`AccountSwitcherModal`) with active account indicator (`AppColors.red`), region/shard indicators, account deletion, and seamless webview onboarding. |
-| 🔍 **Skin Catalog & Wishlist** | Comprehensive skin catalog with live search bar, weapon category filters (`Vandal`, `Phantom`, `Melee`, `Operator`, `Sheriff`, `Ghost`, `Classic`, `Spectre`, `Outlaw`, etc.), and one-tap wishlist bookmarking. |
-| 🎬 **Skin Inspector & Video VFX** | **Interactive Chromas & Level Inspector (`SkinDetailModal`)**: Live color swatch picker (Base, Variant 1, 2, 3) with artwork swap, Radianite level upgrade tiers, and **`▶ VIDEO`** button opening a dedicated MP4 player dialog (`SkinVideoDialog`) for watching level VFX & finisher animations. |
-| 🏆 **Competitive Rank & RR Trend** | Official high-res rank tier badges from `valorant-api.com` (**Platinum 3**, Gold, Diamond, Radiant, etc.), animated RR progress bar (`0 – 100 RR`), sparkline chart, and **10-Game Net RR Trend Summary Card** (e.g. `+42 RR (6 W / 4 L)`). |
+| 🛒 **Daily Shop & Bundles** | 4 Daily Skin Offers with prices & WIB-accurate reset countdown timer (07:00 AM WIB / 00:00 UTC), **Featured Bundle Promo Banner** with per-item VP pricing, **Night Market** (with real skin artwork & discount percentages), VP/RP/KC wallet balances header, News Feed, and **Equipped Player Card Avatar**. |
+| 🛡️ **Account Health & Penalties** | **Account Health Status Shield (`AccountHealthModal`)**: Real-time penalty dashboard tracking active restrictions (`GET /restrictions/v3/penalties`), active future interventions (`GET /restrictions/v1/activeFutureInterventions`), AFK warnings, voice/chat mutes, queue delays, and **Avoided Players List** (`GET /restrictions/v1/avoidList`). |
+| 👥 **Multi-Account Manager** | Instant account switching between main and alt Riot accounts (`AccountSwitcherModal`) with active account indicator (`AppColors.red`), real Riot ID background resolution (`Name#TAG`), region/shard indicators, account deletion, and seamless webview onboarding. |
+| 🔍 **Skin Catalog & Wishlist** | Comprehensive skin catalog with live search bar, weapon category filters (**Pistols**, `Vandal`, `Phantom`, `Melee` (Karambits, Daggers, Swords, Axes), `Sniper`, `Shotguns`, `Heavy`), edition tier filters (Ultra, Exclusive, Premium, Deluxe, Select), and one-tap wishlist bookmarking. |
+| 🎬 **Skin Inspector & Video VFX** | **Interactive Chromas & Level Inspector (`SkinDetailModal`)**: Live color swatch picker (Base, Variant 1, 2, 3) with artwork swap, Radianite level upgrade tiers, hex color swatch indicators, and **`▶ VIDEO`** button opening a dedicated MP4 player dialog (`SkinVideoDialog`) for watching level VFX & finisher animations. |
+| 🏆 **Competitive Rank & RR Trend** | Official high-res rank tier badges from `valorant-api.com` (**Platinum 3**, Gold, Diamond, Radiant, etc.), animated RR progress bar (`0 – 100 RR`), sparkline chart, peak rank history, and **10-Game Net RR Trend Summary Card** (e.g. `+42 RR (6 W / 4 L)`). |
 | ⚔️ **Match History & Scoreboards** | Recent match list with **Map Artwork Thumbnails**, queue filters (Competitive, Unrated, Spike Rush, Deathmatch), per-match scoreboard with batch player name resolution (`Name#TAG`), K/D/A, ACS, and **Gold `MATCH MVP` & Cyan `TEAM MVP` Badges**. |
 | 📜 **Battle Pass & Missions** | Act progression, active daily & weekly missions tracker, and a full **Swipeable Battle Pass Carousel (`BattlepassCarouselModal`)** displaying level numbers, free items, and reward unlock statuses. |
-| 🎒 **Equipped Loadout Inspector** | View your account's currently equipped weapon skins, gun buddies, player cards, titles, and sprays. |
-| 🔔 **Background Push Alerts** | Periodic background worker (`Workmanager`) running every 3 hours to evaluate user-configured smart category rules (`Wishlist`, `Melee / Knives`, `Vandal`, `Phantom`, `Operator`, `Sheriff`) and fire native system push alerts on iOS & Android. |
-| 👤 **Profile & Cache Control** | Account level, total XP, recent XP gain logs, clean cache invalidation, multi-account switcher trigger, and secure logout. |
+| 🎒 **Equipped Loadout Inspector** | View your account's currently equipped weapon skins, gun buddies, player cards, titles, and sprays (including pre-round spray socket matching). |
+| 🔔 **Wishlist Push Alerts** | Background worker (`Workmanager`) periodically checking shop rotation at reset to fire instant native system push alerts whenever a wishlisted skin appears in your daily shop. |
+| 👤 **Profile & Cache Control** | Account level, total XP, recent XP gain logs, equipped player card avatar, clean cache invalidation, multi-account switcher trigger, and secure logout. |
 
 ---
 
@@ -32,6 +35,11 @@ A high-performance, feature-packed, and beautifully designed Flutter mobile appl
 - **🔒 Native WebView Login & Cloudflare Bypass:** Authentic Riot OAuth authentication via native `webview_flutter` handling Cloudflare Turnstile protection, multi-factor authentication (MFA/2FA), and Riot Mobile Authenticator (TOTP).
 - **🔄 Silent Background Cookie Re-auth (`SilentWebviewReauth`):** Off-screen background WebView cookie re-auth using persistent `ssid` session cookies. Refreshes expired tokens silently without interrupting user flow.
 - **⚡ Proactive Token & Interceptor Refresh:** `ValorantInterceptor` monitors token TTL and proactive refresh window (<5 minutes remaining), auto-refreshing entitlement and access tokens before expiration.
+- **🔒 Async Key Mutex (`AsyncLock`):** Thread-safe asynchronous lock utility preventing race conditions during local cache updates, match map persistence, and credential storage mutations.
+- **📦 Upgraded Primary API Protocols:**
+  - **Storefront API v3:** Primary `POST /store/v3/storefront/{puuid}` with `v2` fallback.
+  - **Name Service API v3:** Primary `POST /name-service/v3/players` with array parser.
+  - **Interventions API v1:** `GET /restrictions/v1/activeFutureInterventions` integration.
 - **🚀 Rolling Cache Memory Optimization:** `MatchDetailLocalCache` employs a rolling eviction strategy (capped at 30 recent matches) to prevent unbounded local storage growth and main-thread lag.
 - **⏱️ Rate Limit Compliance (`RateLimitInterceptor`):** Enforces a minimum 500ms request spacing across API calls to prevent Riot rate limits (HTTP 429).
 - **🎨 Unified Valorant Theme Token System (`AppColors`):** Single source of truth for Valorant signature red (`#FF4655`), dark slate card surfaces (`#0D1117`, `#111823`), and semantic match outcome colors.
@@ -69,20 +77,41 @@ lib/
 │   ├── network/                      # auth_dio, api_dio, rate_limit_interceptor & valorant_interceptor
 │   ├── services/                     # BackgroundService (Workmanager) & NotificationService (push alerts)
 │   ├── storage/                      # SecureStorage (credentials) & CacheStorage (JSON/SharedPreferences)
+│   ├── utils/                        # AsyncLock (key-based async mutex lock)
 │   └── exceptions/                   # AuthException & ApiException
 ├── shared/
 │   ├── utils/                        # ValorantAssets (valorant-api.com fetcher & cache), AppColors, TierColors, VersionService
 │   └── widgets/                      # SkinCard, RankBadge, CountdownTimer, LoadingShimmer
 └── features/
     ├── auth/                         # WebView login, AccountSwitcherModal, SilentWebviewReauth & token extraction
-    ├── shop/                         # ShopScreen, WishlistCatalogScreen, SkinDetailModal, SkinVideoDialog, NotificationRuleService
+    ├── shop/                         # ShopScreen, WishlistCatalogScreen, SkinDetailModal, SkinVideoDialog, StoreRemoteSource
     ├── match/                        # MatchHistoryScreen, MatchDetailScreen, MatchLocalCache & scoreboard models
     ├── rank/                         # RankScreen, MMR remote source, net RR trend & sparkline painter
     ├── contracts/                    # ContractsScreen, BattlepassCarouselModal & mission models
-    ├── loadout/                      # LoadoutScreen & equipped gear models
+    ├── loadout/                      # LoadoutScreen, LoadoutLocalCache & equipped gear models
     ├── news/                         # NewsRemoteSource & news model
-    └── profile/                      # ProfileScreen, AccountLocalCache & display name batch resolver
+    └── profile/                      # ProfileScreen, AccountHealthModal, RestrictionsRemoteSource & AccountLocalCache
 ```
+
+---
+
+## 🧪 Testing & Verification
+
+The project includes unit & integration tests covering core business logic and Riot API model serialization:
+
+```bash
+# Run full automated test suite (18 test cases)
+flutter test
+```
+
+Test coverage includes:
+- **`AccountHealth`**: Verifies clean status, penalty parsing, active interventions, avoided players, and error fallback states.
+- **`NameService v3`**: Verifies array response parsing and `RiotID#Tag` formatting.
+- **`Storefront v3`**: Verifies daily offer pricing by `OfferID` alignment.
+- **`PlayerMmr`**: Verifies Win / Loss / Draw calculations and RR earn trends.
+- **`MatchHistoryEntry`**: Verifies map display name fallback resolution.
+- **`PlayerStats`**: Verifies KDA ratio calculations.
+- **`Contract`**: Verifies battlepass activation detection.
 
 ---
 
@@ -109,16 +138,19 @@ cd Valapp
 # 2. Install dependencies
 flutter pub get
 
-# 3. Run static code analysis
+# 3. Run static code analysis (100% clean output)
 flutter analyze
 
-# 4. Launch on connected device or emulator
+# 4. Run automated test suite
+flutter test
+
+# 5. Launch on connected device or emulator
 flutter run
 
-# 5. Build release APK (Android)
+# 6. Build release APK (Android)
 flutter build apk --release
 
-# 6. Build unsigned release IPA (iOS)
+# 7. Build unsigned release IPA (iOS)
 flutter build ipa --no-codesign
 ```
 
