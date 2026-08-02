@@ -38,6 +38,36 @@ class TierColors {
     return tierDisplayNames[tierUuid.toLowerCase()] ?? 'Skin Offer';
   }
 
+  /// Resolves label using UUID prefix matching (works with full or partial UUIDs).
+  /// Falls back to [tierLabel] for exact-UUID lookups.
+  /// Returns 'Standard Edition' when the UUID is absent.
+  static String tierLabelForUuid(String? tierUuid) {
+    if (tierUuid == null || tierUuid.isEmpty) return 'Standard Edition';
+    final uuid = tierUuid.toLowerCase();
+    if (uuid.contains('12683d76')) return 'Select Edition';
+    if (uuid.contains('0cebb8be')) return 'Deluxe Edition';
+    if (uuid.contains('60bca009')) return 'Premium Edition';
+    if (uuid.contains('411e4a55')) return 'Ultra Edition';
+    if (uuid.contains('e046854e')) return 'Exclusive Edition';
+    return tierLabel(tierUuid);
+  }
+
+  /// Resolves color using UUID prefix matching.
+  /// The Premium tier returns [AppColors.red] so that it matches the
+  /// wishlist-catalog display, which intentionally uses the app red rather
+  /// than the softer pink used in the skin-detail modal.
+  /// For the skin-detail modal (which needs the exact pink) use [forName] directly.
+  static Color tierColorForUuid(String? tierUuid) {
+    if (tierUuid == null || tierUuid.isEmpty) return const Color(0xFF5A9FE2);
+    final uuid = tierUuid.toLowerCase();
+    if (uuid.contains('12683d76')) return const Color(0xFF5A9FE2); // Select
+    if (uuid.contains('0cebb8be')) return const Color(0xFF009587); // Deluxe
+    if (uuid.contains('60bca009')) return const Color(0xFFD1548D); // Premium
+    if (uuid.contains('411e4a55')) return const Color(0xFFFAD663); // Ultra
+    if (uuid.contains('e046854e')) return const Color(0xFFF5955B); // Exclusive
+    return forName(tierUuid);
+  }
+
   /// Resolves color from either UUID or name.
   static Color forName(String? identifier) {
     if (identifier == null) return Colors.grey;

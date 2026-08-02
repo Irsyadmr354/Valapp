@@ -112,24 +112,17 @@ String _getWeaponCategory(String skinName) {
   return 'MELEE';
 }
 
-String _getTierLabel(String? tierUuid) {
-  if (tierUuid == null || tierUuid.isEmpty) return 'Standard Edition';
-  final uuid = tierUuid.toLowerCase();
-  if (uuid.contains('12683d76')) return 'Select Edition';
-  if (uuid.contains('0cebb8be')) return 'Deluxe Edition';
-  if (uuid.contains('60bca009')) return 'Premium Edition';
-  if (uuid.contains('411e4a55')) return 'Ultra Edition';
-  if (uuid.contains('e046854e')) return 'Exclusive Edition';
-  return TierColors.tierLabel(tierUuid);
-}
+// Delegate to shared utility — single source of truth for tier labels.
+String _getTierLabel(String? tierUuid) => TierColors.tierLabelForUuid(tierUuid);
 
 Color _getTierColor(String? tierUuid) {
   if (tierUuid == null || tierUuid.isEmpty) return const Color(0xFF5A9FE2);
   final uuid = tierUuid.toLowerCase();
-  // Absolute Tier Colors (Official Valorant Color Palette)
+  // Intentional: Premium uses AppColors.red in the catalog (brand consistency),
+  // while the skin-detail modal uses the exact pink from the game palette.
   if (uuid.contains('12683d76')) return const Color(0xFF5A9FE2); // Select (Light Blue)
   if (uuid.contains('0cebb8be')) return const Color(0xFF009587); // Deluxe (Teal Green)
-  if (uuid.contains('60bca009')) return AppColors.red; // Premium (Pink/Magenta)
+  if (uuid.contains('60bca009')) return AppColors.red;            // Premium (brand red)
   if (uuid.contains('411e4a55')) return const Color(0xFFFAD663); // Ultra (Gold/Yellow)
   if (uuid.contains('e046854e')) return const Color(0xFFF5955B); // Exclusive (Orange)
   return TierColors.forName(tierUuid);

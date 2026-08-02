@@ -33,6 +33,17 @@ class ValorantInterceptor extends Interceptor {
   static const _clientPlatform =
       'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9';
 
+  /// Shared Dio instance used when retrying a request after reauth.
+  /// Created lazily and reused to avoid allocating a new instance per retry.
+  late final Dio _retryDio = Dio()
+    ..interceptors.add(_JsonDecodeInterceptor());
+
+  /// Tracks when we last ran the proactive reauth check so we don't re-read
+  /// SecureStorage on every single API request. The check is skipped if it
+  /// ran within the last 60 seconds.
+  DateTime? _lastReauthCheckAt;
+  static const _reauthCheckCooldown = Duration(seconds: 60);
+
   @override
   void onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
@@ -65,6 +76,15 @@ class ValorantInterceptor extends Interceptor {
   }
 
   Future<void> _maybeProactiveReauth() async {
+    // Skip if we already checked recently — avoids two SecureStorage reads
+    // and a potential reauth round-trip on every concurrent API call.
+    final now = DateTime.now();
+    if (_lastReauthCheckAt != null &&
+        now.difference(_lastReauthCheckAt!) < _reauthCheckCooldown) {
+      return;
+    }
+    _lastReauthCheckAt = now;
+
     final expiresAtStr = await _secureStorage.read(SecureStorage.keyExpiresAt);
     final entitlementExpiresAtStr =
         await _secureStorage.read(SecureStorage.keyEntitlementExpiresAt);
@@ -186,8 +206,7 @@ class ValorantInterceptor extends Interceptor {
             freshEntitlement;
       }
 
-      final retryDio = Dio();
-      retryDio.interceptors.add(_JsonDecodeInterceptor());
+      final retryDio = _retryDio;
       final response = await retryDio.fetch(err.requestOptions);
       debugPrint(
           '[ValorantInterceptor] ${err.response?.statusCode} retry succeeded');

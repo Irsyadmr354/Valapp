@@ -230,3 +230,57 @@ final newsRemoteSourceProvider = Provider<NewsRemoteSource>((ref) {
   ));
   return NewsRemoteSource(dio);
 });
+
+// ── Player Card Art ────────────────────────────────────────────────────────
+
+/// Resolves the equipped player card art URLs from the player's loadout.
+/// Returns both [smallArt] (used in avatars) and [wideArt] (used in headers).
+/// Shared by ShopScreen and ProfileScreen to avoid duplicating the
+/// loadout-fetch → player-cards-lookup pipeline.
+class PlayerCardArtInfo {
+  final String? smallArt;
+  final String? wideArt;
+  const PlayerCardArtInfo({this.smallArt, this.wideArt});
+}
+
+final playerCardArtProvider =
+    FutureProvider.autoDispose<PlayerCardArtInfo>((ref) async {
+  try {
+    final creds = await ref.watch(currentCredentialsProvider.future);
+    if (creds == null) return const PlayerCardArtInfo();
+
+    final cache = ref.watch(loadoutLocalCacheProvider);
+    Map<String, dynamic>? raw = await cache.loadLoadoutRaw();
+    if (raw == null) {
+      final source = await ref.watch(loadoutRemoteSourceProvider.future);
+      raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
+      await cache.saveLoadout(raw);
+    }
+
+    // v3 wraps fields under 'Loadout' key; v2 exposes them at root.
+    final loadoutRoot = raw.containsKey('Loadout')
+        ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
+        : raw;
+    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
+        raw['Identity'] as Map<String, dynamic>? ??
+        {};
+    final cardId = identity['PlayerCardID'] as String? ??
+        loadoutRoot['PlayerCardID'] as String? ??
+        raw['PlayerCardID'] as String?;
+    if (cardId == null) return const PlayerCardArtInfo();
+
+    final cardsMap = await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
+    final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
+        as Map<String, dynamic>?;
+
+    return PlayerCardArtInfo(
+      smallArt: cardInfo?['smallArt'] as String? ??
+          cardInfo?['displayIcon'] as String?,
+      wideArt: cardInfo?['largeArt'] as String? ??
+          cardInfo?['wideArt'] as String? ??
+          cardInfo?['displayIcon'] as String?,
+    );
+  } catch (_) {
+    return const PlayerCardArtInfo();
+  }
+});

@@ -6,6 +6,7 @@ import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../domain/models/match_details.dart';
+import '../domain/models/match_history.dart';
 
 final _mapsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
@@ -115,25 +116,8 @@ class _MatchDetailsContent extends ConsumerWidget {
 
   String _mapName(String rawMap) {
     if (rawMap.isEmpty) return 'Unknown Map';
-    final raw = rawMap.toLowerCase();
-
-    if (raw.contains('plummet') || raw.contains('infinity') || raw.contains('abyss')) return 'Abyss';
-    if (raw.contains('jam') || raw.contains('lotus')) return 'Lotus';
-    if (raw.contains('juliett') || raw.contains('sunset')) return 'Sunset';
-    if (raw.contains('canyon') || raw.contains('fracture')) return 'Fracture';
-    if (raw.contains('port') || raw.contains('icebox')) return 'Icebox';
-    if (raw.contains('lowpe') || raw.contains('pitt') || raw.contains('pearl')) return 'Pearl';
-    if (raw.contains('foxtrot')) return 'Drift';
-    if (raw.contains('triad') || raw.contains('haven')) return 'Haven';
-    if (raw.contains('bonsai') || raw.contains('split')) return 'Split';
-    if (raw.contains('duality') || raw.contains('bind')) return 'Bind';
-    if (raw.contains('ascent')) return 'Ascent';
-    if (raw.contains('breeze')) return 'Breeze';
-
-    final parts = rawMap.split('/');
-    final last = parts.last.split('.').first;
-    if (last.isEmpty) return rawMap;
-    return last[0].toUpperCase() + last.substring(1);
+    final name = MatchHistoryEntry.mapDisplayNameFromId(rawMap);
+    return name.isNotEmpty ? name : rawMap;
   }
 
   String _modeName(String rawMode, String queueId) {

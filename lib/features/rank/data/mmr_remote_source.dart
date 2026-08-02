@@ -19,10 +19,6 @@ class MmrRemoteSource {
     return {};
   }
 
-  Future<PlayerMmr> fetchMmr(String shard, String puuid) async {
-    return PlayerMmr.fromJson(await fetchMmrRaw(shard, puuid));
-  }
-
   Future<Map<String, dynamic>> fetchMmrRaw(String shard, String puuid) async {
     final cleanShard = shard.toLowerCase();
     final response = await _dio.get<dynamic>(

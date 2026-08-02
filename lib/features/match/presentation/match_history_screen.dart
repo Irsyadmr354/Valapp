@@ -157,9 +157,12 @@ final _backgroundEnrichmentProvider =
     }));
   }
 
-  // Trigger re-render only if we actually fetched new data
+  // Trigger re-render only if we actually fetched new data.
+  // Only invalidate the history provider (not self) — invalidating self would
+  // cause this provider to re-run immediately after _matchHistoryProvider
+  // rebuilds, potentially looping if the fresh history still has unknowns.
+  // Being autoDispose, this provider is re-created naturally by the screen.
   if (anyNewData) {
-    ref.invalidateSelf();
     ref.invalidate(_matchHistoryProvider);
   }
 });

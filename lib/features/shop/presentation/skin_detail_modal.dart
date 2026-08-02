@@ -9,28 +9,11 @@ import 'skin_video_player.dart';
 import 'wishlist_provider.dart';
 
 // ── Absolute Tier Colors & Labels ─────────────────────────────────────────────
+// Delegate to TierColors shared utility — single source of truth.
 
-String _getTierLabel(String? tierUuid) {
-  if (tierUuid == null || tierUuid.isEmpty) return 'Standard Edition';
-  final uuid = tierUuid.toLowerCase();
-  if (uuid.contains('12683d76')) return 'Select Edition';
-  if (uuid.contains('0cebb8be')) return 'Deluxe Edition';
-  if (uuid.contains('60bca009')) return 'Premium Edition';
-  if (uuid.contains('411e4a55')) return 'Ultra Edition';
-  if (uuid.contains('e046854e')) return 'Exclusive Edition';
-  return TierColors.tierLabel(tierUuid);
-}
+String _getTierLabel(String? tierUuid) => TierColors.tierLabelForUuid(tierUuid);
 
-Color _getTierColor(String? tierUuid) {
-  if (tierUuid == null || tierUuid.isEmpty) return const Color(0xFF5A9FE2);
-  final uuid = tierUuid.toLowerCase();
-  if (uuid.contains('12683d76')) return const Color(0xFF5A9FE2); // Select (Light Blue)
-  if (uuid.contains('0cebb8be')) return const Color(0xFF009587); // Deluxe (Teal Green)
-  if (uuid.contains('60bca009')) return const Color(0xFFD1548D); // Premium (Pink)
-  if (uuid.contains('411e4a55')) return const Color(0xFFFAD663); // Ultra (Gold)
-  if (uuid.contains('e046854e')) return const Color(0xFFF5955B); // Exclusive (Orange)
-  return TierColors.forName(tierUuid);
-}
+Color _getTierColor(String? tierUuid) => TierColors.tierColorForUuid(tierUuid);
 
 /// Interactive modal showing skin details, level progression (VFX, Finisher),
 /// and chroma color swatches matching user mockup screenshot.

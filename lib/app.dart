@@ -30,6 +30,7 @@ class _AuthChangeNotifier extends ChangeNotifier {
 
 final _routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = _AuthChangeNotifier(ref);
+  ref.onDispose(authNotifier.dispose);
 
   return GoRouter(
     initialLocation: '/shop',

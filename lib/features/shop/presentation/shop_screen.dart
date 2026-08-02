@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
@@ -86,36 +87,9 @@ final _homeDisplayNameProvider = FutureProvider.autoDispose<String?>((ref) async
 });
 
 final _homePlayerCardProvider = FutureProvider.autoDispose<String?>((ref) async {
-  try {
-    final creds = await ref.watch(currentCredentialsProvider.future);
-    if (creds == null) return null;
-    final cache = ref.watch(loadoutLocalCacheProvider);
-    Map<String, dynamic>? raw = await cache.loadLoadoutRaw();
-    if (raw == null) {
-      final source = await ref.watch(loadoutRemoteSourceProvider.future);
-      raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
-      await cache.saveLoadout(raw);
-    }
-    final loadoutRoot = raw.containsKey('Loadout')
-        ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
-        : raw;
-    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
-        raw['Identity'] as Map<String, dynamic>? ??
-        {};
-    final cardId = identity['PlayerCardID'] as String? ??
-        loadoutRoot['PlayerCardID'] as String? ??
-        raw['PlayerCardID'] as String?;
-    if (cardId == null) return null;
-
-    final cardsMap =
-        await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
-    final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
-        as Map<String, dynamic>?;
-    return cardInfo?['smallArt'] as String? ??
-        cardInfo?['displayIcon'] as String?;
-  } catch (_) {
-    return null;
-  }
+  // Delegate to the shared provider — returns smallArt for the avatar circle.
+  final info = await ref.watch(playerCardArtProvider.future);
+  return info.smallArt;
 });
 
 final _homeMmrProvider = FutureProvider.autoDispose<PlayerMmr?>((ref) async {
@@ -1707,8 +1681,14 @@ class _NewsCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // Open article URL in the webview or external browser
-        // Using the existing webview infrastructure if available
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => _NewsWebViewScreen(
+              url: article.url,
+              title: article.title,
+            ),
+          ),
+        );
       },
       child: Container(
         width: 240,
@@ -1841,5 +1821,70 @@ class _NewsCard extends StatelessWidget {
       'Jul','Aug','Sep','Oct','Nov','Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+}
+
+// ── News Article WebView Screen ───────────────────────────────────────────────
+
+class _NewsWebViewScreen extends StatefulWidget {
+  const _NewsWebViewScreen({required this.url, required this.title});
+  final String url;
+  final String title;
+
+  @override
+  State<_NewsWebViewScreen> createState() => _NewsWebViewScreenState();
+}
+
+class _NewsWebViewScreenState extends State<_NewsWebViewScreen> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) => setState(() => _isLoading = true),
+          onPageFinished: (_) => setState(() => _isLoading = false),
+          onWebResourceError: (_) => setState(() => _isLoading = false),
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.bgPanel,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Colors.white, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          widget.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(color: AppColors.red),
+            ),
+        ],
+      ),
+    );
   }
 }

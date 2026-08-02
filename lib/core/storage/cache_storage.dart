@@ -1,14 +1,23 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/async_lock.dart';
 
 /// Lightweight cache using [SharedPreferences] for non-sensitive data
 /// (skin metadata, client version, last-fetch timestamps, etc.).
-import '../utils/async_lock.dart';
-
 class CacheStorage {
   CacheStorage._();
   static final CacheStorage instance = CacheStorage._();
+
+  // Cached SharedPreferences instance — initialised once and reused.
+  // SharedPreferences.getInstance() is internally synchronous after the first
+  // call, but caching it here removes the async overhead on every single
+  // read/write and makes call-sites cleaner.
+  SharedPreferences? _prefs;
+
+  Future<SharedPreferences> _getPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
 
   // ── Key Constants ──────────────────────────────────────────────────────────
   static const keyClientVersion = 'client_version';
@@ -17,8 +26,6 @@ class CacheStorage {
   static const keyDailyShopFetchedAt = 'daily_shop_fetched_at';
   static const keySkinMetadata = 'skin_metadata_v2';
   static const keySkinMetadataFetchedAt = 'skin_metadata_v2_fetched_at';
-  static const keyContentTiers = 'content_tiers';
-  static const keyContentTiersFetchedAt = 'content_tiers_fetched_at';
   static const keyCompetitiveTiers = 'competitive_tiers';
   static const keyCompetitiveTiersFetchedAt = 'competitive_tiers_fetched_at';
   static const keyWishlist = 'wishlist_skin_ids';
@@ -43,24 +50,24 @@ class CacheStorage {
   // ── String ─────────────────────────────────────────────────────────────────
 
   Future<void> setString(String key, String value) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.setString(key, value);
   }
 
   Future<String?> getString(String key) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     return prefs.getString(key);
   }
 
   // ── JSON ───────────────────────────────────────────────────────────────────
 
   Future<void> setJson(String key, Object value) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.setString(key, jsonEncode(value));
   }
 
   Future<Map<String, dynamic>?> getJson(String key) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final raw = prefs.getString(key);
     if (raw == null) return null;
     try {
@@ -71,7 +78,7 @@ class CacheStorage {
   }
 
   Future<List<dynamic>?> getJsonList(String key) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final raw = prefs.getString(key);
     if (raw == null) return null;
     try {
@@ -84,12 +91,12 @@ class CacheStorage {
   // ── Timestamp helpers ──────────────────────────────────────────────────────
 
   Future<void> setTimestamp(String key) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.setString(key, DateTime.now().toIso8601String());
   }
 
   Future<bool> isStale(String timestampKey, Duration maxAge) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     final raw = prefs.getString(timestampKey);
     if (raw == null) return true;
     try {
@@ -103,12 +110,12 @@ class CacheStorage {
   // ── Wishlist ───────────────────────────────────────────────────────────────
 
   Future<List<String>> getWishlist() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     return prefs.getStringList(keyWishlist) ?? [];
   }
 
   Future<void> setWishlist(List<String> skinIds) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.setStringList(keyWishlist, skinIds);
   }
 
@@ -148,7 +155,7 @@ class CacheStorage {
   // ── Remove ─────────────────────────────────────────────────────────────────
 
   Future<void> remove(String key) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.remove(key);
   }
 
@@ -172,6 +179,9 @@ class CacheStorage {
       keyContractsCache,
       keyContractsCacheFetchedAt,
       'player_loadout',
+      // Background shop checker state — must be cleared on account switch so
+      // the new account's first shop check always fires a reset notification.
+      'background_last_shop_ids',
     ];
     for (final k in keys) {
       await remove(k);
@@ -179,7 +189,9 @@ class CacheStorage {
   }
 
   Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _getPrefs();
     await prefs.clear();
+    // Reset cached instance so next access re-reads from disk.
+    _prefs = null;
   }
 }

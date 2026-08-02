@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../../../core/storage/cache_storage.dart';
-import '../domain/models/match_history.dart';
 import '../domain/models/match_details.dart';
 
 class MatchRemoteSource {
@@ -18,24 +17,6 @@ class MatchRemoteSource {
       } catch (_) {}
     }
     return {};
-  }
-
-  Future<MatchHistoryResult> fetchHistory(
-    String shard,
-    String puuid, {
-    int startIndex = 0,
-    int endIndex = 15,
-    String? queue,
-  }) async {
-    return MatchHistoryResult.fromJson(
-      await fetchHistoryRaw(
-        shard,
-        puuid,
-        startIndex: startIndex,
-        endIndex: endIndex,
-        queue: queue,
-      ),
-    );
   }
 
   Future<Map<String, dynamic>> fetchHistoryRaw(

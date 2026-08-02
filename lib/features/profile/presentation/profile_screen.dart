@@ -160,56 +160,19 @@ final _profileMatchesProvider =
 
 // Tier name resolution is delegated to TierNameUtil.
 
-// ── Loadout provider — returns playerCardId + smallArt ────────────────────────
+// ── Player card art — delegates to shared provider ────────────────────────────
+// _PlayerCardInfo wraps both art URLs for the profile header banner.
+
 class _PlayerCardInfo {
-  final String? cardId;
   final String? wideArt;
   final String? smallArt;
-  const _PlayerCardInfo({this.cardId, this.wideArt, this.smallArt});
+  const _PlayerCardInfo({this.wideArt, this.smallArt});
 }
 
 final _profileCardProvider =
     FutureProvider.autoDispose<_PlayerCardInfo?>((ref) async {
-  try {
-    final creds = await ref.watch(currentCredentialsProvider.future);
-    if (creds == null) return null;
-    final cache = ref.watch(loadoutLocalCacheProvider);
-    Map<String, dynamic>? raw = await cache.loadLoadoutRaw();
-    if (raw == null) {
-      final source = await ref.watch(loadoutRemoteSourceProvider.future);
-      raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
-      await cache.saveLoadout(raw);
-    }
-    // v3 wraps fields under 'Loadout' key; v2 exposes them at root
-    final loadoutRoot = raw.containsKey('Loadout')
-        ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
-        : raw;
-    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
-        raw['Identity'] as Map<String, dynamic>? ??
-        {};
-    final cardId = identity['PlayerCardID'] as String? ??
-        loadoutRoot['PlayerCardID'] as String? ??
-        raw['PlayerCardID'] as String?;
-    if (cardId == null) return const _PlayerCardInfo();
-
-    final cardsMap =
-        await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
-    final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
-        as Map<String, dynamic>?;
-    // Use largeArt for header background (best quality), fallback chain
-    final wideArt = cardInfo?['largeArt'] as String? ??
-        cardInfo?['wideArt'] as String? ??
-        cardInfo?['displayIcon'] as String?;
-    final smallArt = cardInfo?['smallArt'] as String? ??
-        cardInfo?['displayIcon'] as String?;
-    return _PlayerCardInfo(
-      cardId: cardId,
-      wideArt: wideArt,
-      smallArt: smallArt,
-    );
-  } catch (_) {
-    return null;
-  }
+  final info = await ref.watch(playerCardArtProvider.future);
+  return _PlayerCardInfo(wideArt: info.wideArt, smallArt: info.smallArt);
 });
 
 // ── Level Border provider ─────────────────────────────────────────────────────

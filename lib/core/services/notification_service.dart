@@ -134,28 +134,4 @@ class NotificationService {
     );
   }
 
-  // ── Smart Category alert ──────────────────────────────────────────────────
-
-  Future<void> showCategoryAlert({
-    required String title,
-    required String body,
-  }) async {
-    await init();
-    await _notifications.show(
-      title.hashCode & 0x7FFFFFFF,
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _shopChannelId, 'Shop Alerts',
-          channelDescription: 'Alerts for weapon category matches in shop',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: DarwinNotificationDetails(
-            presentAlert: true, presentBadge: true, presentSound: true),
-      ),
-    );
-  }
 }

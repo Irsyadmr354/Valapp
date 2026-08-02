@@ -76,42 +76,6 @@ class ValorantAssets {
     return freshMap[uuid] as Map<String, dynamic>?;
   }
 
-  // ── Content Tiers ──────────────────────────────────────────────────────────
-
-  Future<Map<String, dynamic>> getContentTiersMap() async {
-    final cache = CacheStorage.instance;
-    final isStale = await cache.isStale(
-      CacheStorage.keyContentTiersFetchedAt,
-      _cacheDuration,
-    );
-
-    if (!isStale) {
-      final cached = await cache.getJson(CacheStorage.keyContentTiers);
-      if (cached != null) return cached;
-    }
-
-    final response =
-        await _dio.get<Map<String, dynamic>>('$_base/contenttiers');
-    final tiers = (response.data?['data'] as List<dynamic>?) ?? [];
-
-    final map = <String, dynamic>{};
-    for (final tier in tiers) {
-      final uuid = tier['uuid'] as String?;
-      if (uuid != null) {
-        map[uuid] = {
-          'displayName': tier['displayName'],
-          'displayIcon': tier['displayIcon'],
-          'highlightColor': tier['highlightColor'],
-          'rank': tier['rank'],
-        };
-      }
-    }
-
-    await cache.setJson(CacheStorage.keyContentTiers, map);
-    await cache.setTimestamp(CacheStorage.keyContentTiersFetchedAt);
-    return map;
-  }
-
   // ── Competitive Tiers ──────────────────────────────────────────────────────
 
   /// Returns the latest competitive tier list (rank names, icons, colors).
@@ -625,45 +589,6 @@ class ValorantAssets {
       return map;
     } catch (_) {
       return await cache.getJson(keyWeapons) ?? {};
-    }
-  }
-
-  // ── Currencies (VP / RP / KC icons) ───────────────────────────────────────
-
-  /// Returns a map of currency UUID → { 'displayName', 'displayIcon', 'largeIcon' }
-  /// VP UUID: 85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741
-  /// RP UUID: e59aa87c-4cbf-517a-5983-6e81511be9b7
-  /// KC UUID: 85ca954a-41f2-ce94-9b45-8ca3dd39a00d
-  Future<Map<String, dynamic>> getCurrenciesMap() async {
-    final cache = CacheStorage.instance;
-    const keyCurrencies = 'currencies_metadata';
-    const keyCurrenciesFetchedAt = 'currencies_metadata_fetched_at';
-
-    final isStale = await cache.isStale(keyCurrenciesFetchedAt, _cacheDuration);
-    if (!isStale) {
-      final cached = await cache.getJson(keyCurrencies);
-      if (cached != null) return cached;
-    }
-    try {
-      final response =
-          await _dio.get<Map<String, dynamic>>('$_base/currencies');
-      final currencies = (response.data?['data'] as List<dynamic>?) ?? [];
-      final map = <String, dynamic>{};
-      for (final c in currencies) {
-        final uuid = c['uuid'] as String?;
-        if (uuid != null) {
-          map[uuid] = {
-            'displayName': c['displayName'],
-            'displayIcon': c['displayIcon'],
-            'largeIcon': c['largeIcon'],
-          };
-        }
-      }
-      await cache.setJson(keyCurrencies, map);
-      await cache.setTimestamp(keyCurrenciesFetchedAt);
-      return map;
-    } catch (_) {
-      return await cache.getJson(keyCurrencies) ?? {};
     }
   }
 

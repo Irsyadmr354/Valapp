@@ -87,7 +87,12 @@ class MatchHistoryEntry {
     return mapDisplayName;
   }
 
-  String get mapDisplayName {
+  String get mapDisplayName => mapDisplayNameFromId(mapId);
+
+  /// Static helper — returns a human-readable map name from a raw Riot map
+  /// path or ID. Used as the fallback when the valorant-api.com assets map
+  /// does not contain an entry for the given path.
+  static String mapDisplayNameFromId(String mapId) {
     if (mapId.isEmpty) return '';
     final raw = mapId.toLowerCase();
 

@@ -152,21 +152,22 @@ class BackgroundShopChecker {
 
     // ── Fire notifications ─────────────────────────────────────────────────
 
-    // Wishlist matches
+    // Wishlist matches — only notify when the shop is actually new,
+    // so the same skin never triggers two notifications in one day.
     final matchedOffers = offerIds
         .where((id) => wishlist.contains(id))
         .toList();
-    for (final id in matchedOffers) {
-      final name = skinNameMap[id] ?? 'Wishlist Skin';
-      final price = priceMap[id] ?? 0;
-      await NotificationService.instance.showWishlistAlert(
-        skinName: name,
-        price: price,
-      );
-    }
 
-    // Evaluate new shop notification summary
     if (isNewShop) {
+      for (final id in matchedOffers) {
+        final name = skinNameMap[id] ?? 'Wishlist Skin';
+        final price = priceMap[id] ?? 0;
+        await NotificationService.instance.showWishlistAlert(
+          skinName: name,
+          price: price,
+        );
+      }
+
       final skinNames = offerIds
           .map((id) => skinNameMap[id] ?? id.substring(0, 8))
           .toList();

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../domain/models/player_loadout.dart';
 
 class LoadoutRemoteSource {
   const LoadoutRemoteSource(this._dio);
@@ -16,10 +15,6 @@ class LoadoutRemoteSource {
       } catch (_) {}
     }
     return {};
-  }
-
-  Future<PlayerLoadout> fetchLoadout(String shard, String puuid) async {
-    return PlayerLoadout.fromJson(await fetchLoadoutRaw(shard, puuid));
   }
 
   Future<Map<String, dynamic>> fetchLoadoutRaw(

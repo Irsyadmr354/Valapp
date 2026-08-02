@@ -96,20 +96,5 @@ class AccountRemoteSource {
     }
   }
 
-  /// Returns owned item UUIDs for a given item type.
-  Future<List<String>> fetchOwnedItems(
-      String shard, String puuid, String itemTypeId) async {
-    final cleanShard = shard.toLowerCase();
-    final response = await _dio.get<dynamic>(
-      'https://pd.$cleanShard.a.pvp.net/store/v1/entitlements/$puuid/$itemTypeId',
-    );
-    final data = _toMap(response.data);
-    final entitlements = (data['Entitlements'] as List<dynamic>?) ?? [];
-    return entitlements
-        .whereType<Map>()
-        .map((e) => e['ItemID']?.toString() ?? '')
-        .where((id) => id.isNotEmpty)
-        .toList();
-  }
 }
 

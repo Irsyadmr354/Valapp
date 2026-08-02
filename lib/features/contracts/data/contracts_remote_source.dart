@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../domain/models/contracts.dart';
 
 class ContractsRemoteSource {
   const ContractsRemoteSource(this._dio);
@@ -16,11 +15,6 @@ class ContractsRemoteSource {
       } catch (_) {}
     }
     return {};
-  }
-
-  Future<PlayerContracts> fetchContracts(
-      String shard, String puuid) async {
-    return PlayerContracts.fromJson(await fetchContractsRaw(shard, puuid));
   }
 
   Future<Map<String, dynamic>> fetchContractsRaw(
