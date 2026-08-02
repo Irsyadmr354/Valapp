@@ -45,14 +45,6 @@ final _allSkinsListProvider =
           'contentTierUuid': skinData['contentTierUuid']?.toString(),
           'weaponType': weaponType,
         };
-        final skinUuid = skinData['skinUuid']?.toString() ?? levelUuid;
-        uniqueSkins[skinUuid] = {
-          'skinUuid': skinUuid,
-          'skinLevelUuid': levelUuid,
-          'displayName': skinName,
-          'displayIcon': displayIcon,
-          'contentTierUuid': skinData['contentTierUuid']?.toString(),
-        };
       }
     }
   });
