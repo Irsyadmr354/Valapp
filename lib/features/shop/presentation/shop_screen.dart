@@ -81,6 +81,39 @@ final _homeDisplayNameProvider = FutureProvider.autoDispose<String?>((ref) async
   }
 });
 
+final _homePlayerCardProvider = FutureProvider.autoDispose<String?>((ref) async {
+  try {
+    final creds = await ref.watch(currentCredentialsProvider.future);
+    if (creds == null) return null;
+    final cache = ref.watch(loadoutLocalCacheProvider);
+    Map<String, dynamic>? raw = await cache.loadLoadoutRaw();
+    if (raw == null) {
+      final source = await ref.watch(loadoutRemoteSourceProvider.future);
+      raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
+      await cache.saveLoadout(raw);
+    }
+    final loadoutRoot = raw.containsKey('Loadout')
+        ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
+        : raw;
+    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
+        raw['Identity'] as Map<String, dynamic>? ??
+        {};
+    final cardId = identity['PlayerCardID'] as String? ??
+        loadoutRoot['PlayerCardID'] as String? ??
+        raw['PlayerCardID'] as String?;
+    if (cardId == null) return null;
+
+    final cardsMap =
+        await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
+    final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
+        as Map<String, dynamic>?;
+    return cardInfo?['smallArt'] as String? ??
+        cardInfo?['displayIcon'] as String?;
+  } catch (_) {
+    return null;
+  }
+});
+
 final _homeMmrProvider = FutureProvider.autoDispose<PlayerMmr?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
@@ -230,8 +263,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         builder: (context, ref, _) {
           final nameAsync = ref.watch(_homeDisplayNameProvider);
           final xpAsync = ref.watch(_homeAccountXpProvider);
+          final cardArtAsync = ref.watch(_homePlayerCardProvider);
 
           final displayName = nameAsync.asData?.value ?? 'Valorant ID';
+          final cardIconUrl = cardArtAsync.asData?.value;
           final rawXp = xpAsync.asData?.value;
           final levelStr = rawXp != null ? 'Level ${rawXp.level}' : 'Level --';
           final xpProgress = rawXp != null
@@ -240,7 +275,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
 
           return Row(
             children: [
-              // Avatar circle with V icon
+              // Avatar circle displaying equipped Player Card artwork
               GestureDetector(
                 onTap: () => AccountSwitcherModal.show(context),
                 child: Container(
@@ -254,16 +289,53 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                       end: Alignment.bottomRight,
                     ),
                   ),
-                  child: Center(
-                    child: Text(
-                      displayName.isNotEmpty
-                          ? displayName[0].toUpperCase()
-                          : 'V',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                      ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2.0),
+                    child: ClipOval(
+                      child: cardIconUrl != null && cardIconUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: cardIconUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(
+                                color: AppColors.bg,
+                                child: Center(
+                                  child: Text(
+                                    displayName.isNotEmpty
+                                        ? displayName[0].toUpperCase()
+                                        : 'V',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => Center(
+                                child: Text(
+                                  displayName.isNotEmpty
+                                      ? displayName[0].toUpperCase()
+                                      : 'V',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                displayName.isNotEmpty
+                                    ? displayName[0].toUpperCase()
+                                    : 'V',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 ),
