@@ -13,6 +13,10 @@ class MatchHistoryLocalCache {
     await AsyncLock.run('match_history_cache', () async {
       final all = await _cache.getJson(CacheStorage.keyMatchHistoryCache) ?? {};
       all[_cacheKey(queue)] = {
+        'Subject': result.puuid,
+        'Total': result.total,
+        'BeginIndex': result.start,
+        'EndIndex': result.end,
         'History': result.matches
             .map((e) => {
                   'MatchID': e.matchId,
