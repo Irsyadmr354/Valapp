@@ -18,6 +18,9 @@ class VersionService {
   static const _cacheDuration = Duration(hours: 24);
   static const _fallback = 'release-13.02-shipping-7-5092570';
 
+  /// In-flight fetch future — shared so concurrent callers await one request.
+  Future<String>? _inFlight;
+
   /// Invalidate version cache so fresh version is fetched next time.
   Future<void> invalidate() async {
     await CacheStorage.instance.remove(CacheStorage.keyClientVersion);
@@ -26,6 +29,13 @@ class VersionService {
 
   /// Returns the current Riot client version, cached for 24 hours.
   Future<String> get() async {
+    // Deduplicate concurrent calls — return the same in-flight future
+    // to all callers so only one network request is made.
+    _inFlight ??= _fetch().whenComplete(() => _inFlight = null);
+    return _inFlight!;
+  }
+
+  Future<String> _fetch() async {
     final cache = CacheStorage.instance;
 
     // Return cached version if still fresh
@@ -49,7 +59,6 @@ class VersionService {
 
       return version;
     } catch (_) {
-      // Return cached even if stale, or fallback
       final cached = await cache.getString(CacheStorage.keyClientVersion);
       return cached ?? _fallback;
     }

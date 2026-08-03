@@ -338,7 +338,7 @@ class Storefront {
       featuredBundle: bundle,
       nightMarket: nightMarketOffers,
       accessoryStore: accessoryStore,
-      fetchedAt: DateTime.now(),
+      fetchedAt: DateTime.tryParse(json['_fetchedAt'] as String? ?? '') ?? DateTime.now(),
     );
   }
 }

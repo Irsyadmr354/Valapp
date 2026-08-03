@@ -36,7 +36,8 @@ class Mission {
       missionId: json['ID'] as String? ?? '',
       title: json['Title'] as String? ?? 'Mission',
       progressToComplete:
-          (json['ProgressToComplete'] as num?)?.toInt() ?? totalProgress.clamp(1, 999999),
+          (json['ProgressToComplete'] as num?)?.toInt() ??
+          (totalProgress > 0 ? totalProgress : 1),
       currentProgress: totalProgress,
       isCompleted: json['Complete'] as bool? ?? false,
       expirationTime: expiry != null ? DateTime.tryParse(expiry) : null,

@@ -76,11 +76,13 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
   }
 
   void _checkForToken(String url) {
+    // _isProcessing is checked synchronously (field read, not setState-read)
+    // so concurrent callbacks from onPageStarted/onPageFinished/onNavigationRequest
+    // all see the same value before any setState frame fires.
     if (_isProcessing) return;
 
-    // Riot redirects to playvalorant.com/opt_in#access_token=...
     if (url.startsWith(_redirectPrefix) && url.contains('access_token')) {
-      setState(() => _isProcessing = true);
+      _isProcessing = true; // set field directly — no setState needed here
       _handleTokenRedirect(url);
     }
   }

@@ -80,6 +80,18 @@ class BackgroundShopChecker {
       return;
     }
 
+    // Skip if the access token is clearly expired — the background task cannot
+    // perform a WebView-based reauth, so a known-expired token will always
+    // produce a 401. Bailing early avoids a wasteful network round-trip.
+    final expiresAtStr = await storage.read(SecureStorage.keyExpiresAt);
+    if (expiresAtStr != null) {
+      final expiresAt = DateTime.tryParse(expiresAtStr);
+      if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
+        debugPrint('[BackgroundShopChecker] Token expired — skipping check');
+        return;
+      }
+    }
+
     // ── Fetch storefront ────────────────────────────────────────────────────
     final Map<String, dynamic> storefront;
     final headers = {

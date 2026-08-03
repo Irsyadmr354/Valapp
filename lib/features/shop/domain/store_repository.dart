@@ -21,6 +21,10 @@ class StoreRepository {
   Future<Storefront> fetchStorefront(String shard, String puuid) async {
     final raw = await _remote.fetchStorefrontRaw(shard, puuid);
 
+    // Stamp the fetch time into the raw map before caching so that
+    // fromJson can use the real fetch time (not parse time) for the
+    // remainingSeconds calculation when loading from cache.
+    raw['_fetchedAt'] = DateTime.now().toIso8601String();
     await _cache.saveStorefront(raw);
 
     final storefront = Storefront.fromJson(raw);

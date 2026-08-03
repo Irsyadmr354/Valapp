@@ -17,16 +17,21 @@ class AccountLocalCache {
   }
 
   Future<void> saveDisplayName(String puuid, String name) async {
-    await _cache.setJson(CacheStorage.keyDisplayNameCache, {
-      'puuid': puuid,
-      'name': name,
-    });
+    // Store per-puuid so multi-account switching doesn't overwrite each other
+    final existing = await _cache.getJson(CacheStorage.keyDisplayNameCache) ?? {};
+    existing[puuid] = name;
+    await _cache.setJson(CacheStorage.keyDisplayNameCache, existing);
     await _cache.setTimestamp(CacheStorage.keyDisplayNameCacheFetchedAt);
   }
 
   Future<String?> loadDisplayName(String puuid) async {
     final raw = await _cache.getJson(CacheStorage.keyDisplayNameCache);
-    if (raw == null || raw['puuid'] != puuid) return null;
-    return raw['name'] as String?;
+    if (raw == null) return null;
+    // Support both old single-entry format {'puuid':..,'name':..} and
+    // new per-puuid map format {puuid: name}
+    if (raw.containsKey('name') && raw['puuid'] == puuid) {
+      return raw['name'] as String?;
+    }
+    return raw[puuid] as String?;
   }
 }

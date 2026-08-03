@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -99,6 +100,14 @@ class ValorantInterceptor extends Interceptor {
     // caller can slip past the cooldown check while we're doing I/O.
     _lastReauthCheckAt = now;
 
+    // Claim the in-flight slot BEFORE the first await so that any concurrent
+    // callers entering this method simultaneously will see a non-null future
+    // and await it rather than starting their own reauth round-trip.
+    // This eliminates the race window that existed when the assignment was
+    // deferred until _doProactiveReauth() was called below.
+    final completer = Completer<void>();
+    _reauthInFlight = completer.future;
+
     final expiresAtStr = await _secureStorage.read(SecureStorage.keyExpiresAt);
     final entitlementExpiresAtStr =
         await _secureStorage.read(SecureStorage.keyEntitlementExpiresAt);
@@ -127,16 +136,20 @@ class ValorantInterceptor extends Interceptor {
       needsReauth = true;
     }
 
-    if (!needsReauth) return;
+    if (!needsReauth) {
+      // Nothing to do — release the slot immediately so waiters unblock.
+      completer.complete();
+      _reauthInFlight = null;
+      return;
+    }
 
     debugPrint(
         '[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
 
-    // Store the in-flight future so concurrent callers await the same work.
-    _reauthInFlight = _doProactiveReauth();
     try {
-      await _reauthInFlight;
+      await _doProactiveReauth();
     } finally {
+      completer.complete();
       _reauthInFlight = null;
     }
   }

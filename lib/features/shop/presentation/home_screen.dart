@@ -144,11 +144,39 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final Set<String> _notifiedSkins = {};
+  bool _listenerRegistered = false;
 
   @override
   void initState() {
     super.initState();
     NotificationService.instance.requestPermissions();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // ref.listen must only be registered once — didChangeDependencies can be
+    // called multiple times (e.g. when MediaQuery or theme changes above this
+    // widget). Registering on every call would accumulate duplicate listeners
+    // that each fire the notification independently, causing duplicate alerts.
+    if (_listenerRegistered) return;
+    _listenerRegistered = true;
+
+    ref.listen<AsyncValue<Storefront?>>(_storefrontProvider, (previous, next) {
+      final storefront = next.asData?.value;
+      if (storefront == null) return;
+      final wishlist = ref.read(wishlistProvider).toSet();
+      for (final offer in storefront.dailyOffers) {
+        if (wishlist.contains(offer.skinLevelUuid) &&
+            !_notifiedSkins.contains(offer.skinLevelUuid)) {
+          _notifiedSkins.add(offer.skinLevelUuid);
+          NotificationService.instance.showWishlistAlert(
+            skinName: offer.displayName ?? 'Wishlist Skin',
+            price: offer.price,
+          );
+        }
+      }
+    });
   }
 
   @override
@@ -454,23 +482,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
 
-        // Wishlist match banner
+        // Wishlist match banner — purely declarative, no side-effects.
+        // Notifications are fired via ref.listen in didChangeDependencies.
         Builder(builder: (context) {
           final matches = storefront.dailyOffers
               .where((o) => wishlist.contains(o.skinLevelUuid))
               .toList();
           if (matches.isEmpty) return const SizedBox();
-          for (final m in matches) {
-            if (!_notifiedSkins.contains(m.skinLevelUuid)) {
-              _notifiedSkins.add(m.skinLevelUuid);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                NotificationService.instance.showWishlistAlert(
-                  skinName: m.displayName ?? 'Wishlist Skin',
-                  price: m.price,
-                );
-              });
-            }
-          }
           return _WishlistMatchBanner(matchedSkins: matches);
         }),
 

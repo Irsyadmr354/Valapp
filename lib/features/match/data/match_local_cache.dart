@@ -46,11 +46,15 @@ class MatchDetailLocalCache {
       String matchId, Map<String, dynamic> raw) async {
     await AsyncLock.run('match_detail_cache', () async {
       final all = await _cache.getJson(CacheStorage.keyMatchDetailCache) ?? {};
+      // Only count as a new entry if matchId doesn't already exist
+      final isNew = !all.containsKey(matchId);
       all[matchId] = raw;
+      // Evict oldest entries only when we've actually exceeded the cap
       const maxEntries = 30;
-      if (all.length > maxEntries) {
-        final sortedKeys = all.keys.toList();
-        for (final k in sortedKeys.take(all.length - maxEntries)) {
+      if (isNew && all.length > maxEntries) {
+        final toRemove = all.length - maxEntries;
+        final keysToRemove = all.keys.take(toRemove).toList();
+        for (final k in keysToRemove) {
           all.remove(k);
         }
       }

@@ -103,11 +103,14 @@ class ValorantAssets {
   Future<Map<String, dynamic>?> getSkinLevel(String uuid) async {
     final map = await getSkinLevelsMap();
     final item = map[uuid] as Map<String, dynamic>?;
-    if (item != null && item['chromas'] != null) {
+    if (item != null) {
+      // chromas may legitimately be null for default/event skins — that is not
+      // a signal to re-fetch. Only re-fetch if the UUID itself is absent from
+      // the map, which means the cache was built before this skin existed.
       return item;
     }
 
-    // Failsafe fallback: clear stale cache and re-fetch if chromas key was missing
+    // UUID not found at all — cache is stale. Clear and re-fetch once.
     final cache = CacheStorage.instance;
     await cache.remove(CacheStorage.keySkinMetadata);
     await cache.remove(CacheStorage.keySkinMetadataFetchedAt);

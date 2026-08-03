@@ -121,37 +121,27 @@ final apiDioProvider = FutureProvider<Dio>((ref) async {
     },
     onAuthFailed: () async {
       // A permanent reauth failure for the current account.
-      // Opsi A: remove the failed account's entry from saved list,
-      // then switch to the next account if one exists — other saved
-      // accounts are NOT wiped (unlike the old local.clear() approach).
+      // Strategy: remove the failed account from the saved list, then
+      // auto-switch to the next account if one exists. removeAccount()
+      // handles the switch internally (calls _saveInternal), so we just
+      // invalidate the credentials provider afterward to trigger a re-read.
       final local = ref.read(credentialsLocalSourceProvider);
-      final failedPuuid = await ref.read(secureStorageProvider).read(SecureStorage.keyPuuid);
-
-      // Remove only the active session tokens (not the full accounts list)
-      await local.clearActiveSessionOnly();
+      final failedPuuid =
+          await ref.read(secureStorageProvider).read(SecureStorage.keyPuuid);
 
       if (failedPuuid != null) {
-        // Remove the failed account's entry from the saved list (Opsi A)
-        final remaining = await local.getSavedAccounts();
-        final others = remaining.where((a) => a.puuid != failedPuuid).toList();
-
-        // Rewrite the saved list without the failed account
-        if (others.length < remaining.length) {
-          // Re-save the trimmed list by removing the failed puuid entry
-          await local.removeAccount(failedPuuid);
-        }
-
-        // Auto-switch to another account if available
-        final updated = await local.getSavedAccounts();
-        if (updated.isNotEmpty) {
-          await local.save(updated.first.credentials,
-              displayName: updated.first.displayName);
-          ref.invalidate(currentCredentialsProvider);
-          return;
-        }
+        // removeAccount removes the entry from the saved list AND
+        // automatically switches to the next available account (or calls
+        // clear() if none remain). No separate save() call is needed.
+        await local.removeAccount(failedPuuid);
+      } else {
+        // No puuid readable — wipe active session tokens so the app
+        // falls back to the login screen.
+        await local.clearActiveSessionOnly();
       }
 
-      // No other accounts — redirect to login
+      // Trigger re-read of credentials — routes to /login if no account
+      // remains, or reflects the newly active account if one was switched in.
       ref.invalidate(currentCredentialsProvider);
     },
   );

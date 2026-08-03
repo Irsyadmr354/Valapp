@@ -739,32 +739,12 @@ class _MatchTile extends ConsumerWidget {
     final agentsMap = ref.watch(_agentsMapProvider).asData?.value ?? {};
     final mapName = entry.getMapDisplayName(mapsMap);
 
+    // getMapsMap() pre-indexes the full URL, every path segment, and cleaned
+    // variants at cache-build time, so a single lookup on the lowercased raw
+    // key is sufficient here — no need to re-split/re-strip in build().
     final rawKey = entry.mapId.toLowerCase();
-    // Try: full path, each segment, segment without _wp/_wip suffixes, and resolved display name
-    final segments = rawKey.split('/').where((s) => s.isNotEmpty).toList();
-    Map<String, dynamic>? mapInfo;
-    // 1. Full raw path
-    mapInfo = mapsMap[rawKey] as Map<String, dynamic>?;
-    // 2. Each path segment and cleaned variants
-    if (mapInfo == null) {
-      for (final seg in segments.reversed) {
-        mapInfo = mapsMap[seg] as Map<String, dynamic>?;
-        if (mapInfo != null) break;
-        final cleaned = seg
-            .replaceAll(RegExp(r'_wp$'), '')
-            .replaceAll(RegExp(r'_wip$'), '')
-            .replaceAll(RegExp(r'_p\d*$'), '')
-            .replaceAll(RegExp(r'_\d+$'), '');
-        if (cleaned != seg) {
-          mapInfo = mapsMap[cleaned] as Map<String, dynamic>?;
-          if (mapInfo != null) break;
-        }
-      }
-    }
-    // 3. Display name from model fallback
-    if (mapInfo == null && mapName.isNotEmpty) {
-      mapInfo = mapsMap[mapName.toLowerCase()] as Map<String, dynamic>?;
-    }
+    final mapInfo = mapsMap[rawKey] as Map<String, dynamic>?;
+
     final mapSplashUrl = mapInfo?['listViewIcon'] as String? ??
         mapInfo?['splash'] as String? ??
         mapInfo?['displayIcon'] as String?;
