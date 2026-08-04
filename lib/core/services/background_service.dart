@@ -94,9 +94,19 @@ class BackgroundShopChecker {
 
     // ── Fetch storefront ────────────────────────────────────────────────────
     final Map<String, dynamic> storefront;
+
+    // X-Riot-ClientVersion is required by several Riot PD endpoints.
+    // Use the cached version (set by the main app); fall back to a known
+    // stable value so the background task does not produce 400s.
+    final clientVersion = await cache.getString(CacheStorage.keyClientVersion)
+        ?? 'release-13.02-shipping-7-5092570';
+
     final headers = {
       'Authorization': 'Bearer $accessToken',
       'X-Riot-Entitlements-JWT': entitlementToken,
+      'X-Riot-ClientVersion': clientVersion,
+      'X-Riot-ClientPlatform':
+          'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9',
       'Content-Type': 'application/json',
     };
     try {

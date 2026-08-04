@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/storage/cache_storage.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
@@ -30,10 +31,15 @@ final _storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async 
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final repo = await ref.watch(storeRepositoryProvider.future);
+  // loadCachedStorefront() now returns null if the cache is from a past
+  // rotation (elapsed time >= remainingSeconds), so cached is only non-null
+  // when the cached data is still valid for the current shop window.
   final cached = await repo.loadCachedStorefront();
   try {
     return await repo.fetchStorefront(creds.shard, creds.puuid);
   } catch (e) {
+    // Only fall back to cache if it is still valid (not expired).
+    // loadCachedStorefront() already filters out expired caches.
     if (cached != null) return cached;
     rethrow;
   }
@@ -530,8 +536,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refresh() async {
-    // Clear the notified set so wishlist alerts fire again for the new shop.
+    // Clear the notified set so wishlist alerts re-fire for the new shop.
     _notifiedSkins.clear();
+    // Invalidate cached storefront timestamp so loadCachedStorefront()
+    // won't return a stale cached response as fallback. The actual raw cache
+    // is already guarded by the expiry check in StoreLocalCache, but clearing
+    // the timestamp key is a belt-and-suspenders measure.
+    await CacheStorage.instance.remove(CacheStorage.keyDailyShop);
+    await CacheStorage.instance.remove(CacheStorage.keyDailyShopFetchedAt);
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
     await ref.read(_storefrontProvider.future);

@@ -240,17 +240,35 @@ class Storefront {
 
   bool get hasNightMarket => nightMarket.isNotEmpty;
 
-  /// Dynamically computes remaining seconds for daily shop reset,
-  /// accounting for elapsed time since fetch and falling back to 00:00 UTC (07:00 AM WIB).
+  /// Returns true if this storefront data is past its reset time and stale.
+  /// Used by the cache layer to decide whether to return cached data or force
+  /// a fresh fetch even when offline.
+  bool get isExpired {
+    final elapsed = DateTime.now().difference(fetchedAt).inSeconds;
+    final remaining = dailyOffersRemainingSeconds - elapsed;
+    return remaining <= 0;
+  }
+
+  /// Dynamically computes remaining seconds for the daily shop countdown,
+  /// accounting for elapsed time since the data was fetched.
+  ///
+  /// Returns 0 (not negative) if the shop has already passed its reset time —
+  /// this immediately triggers the CountdownTimer.onExpired callback which
+  /// calls _refresh() and re-fetches the new shop from the network.
   int get currentDailyOffersRemainingSeconds {
     final elapsed = DateTime.now().difference(fetchedAt).inSeconds;
     final remaining = dailyOffersRemainingSeconds - elapsed;
-    if (remaining > 0 && remaining <= 86400) {
-      return remaining;
-    }
+    // Clamp to 0 so CountdownTimer fires onExpired rather than showing
+    // a nonsensical negative or astronomically large number.
+    if (remaining >= 0 && remaining <= 86400) return remaining;
+    // remaining < 0: shop already reset — return 0 to fire onExpired now.
+    if (remaining < 0) return 0;
+    // remaining > 86400: something is wrong with the server value — fall back
+    // to next midnight UTC (Riot resets at 00:00 UTC = 07:00 WIB).
     final nowUtc = DateTime.now().toUtc();
-    final nextResetUtc = DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day + 1, 0, 0, 0);
-    return nextResetUtc.difference(nowUtc).inSeconds;
+    final nextResetUtc = DateTime.utc(
+        nowUtc.year, nowUtc.month, nowUtc.day + 1, 0, 0, 0);
+    return nextResetUtc.difference(nowUtc).inSeconds.clamp(0, 86400);
   }
 
   factory Storefront.fromJson(Map<String, dynamic> json) {

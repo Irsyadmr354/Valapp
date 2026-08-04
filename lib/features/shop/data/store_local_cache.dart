@@ -13,8 +13,32 @@ class StoreLocalCache {
     await _cache.setTimestamp(CacheStorage.keyDailyShopFetchedAt);
   }
 
-  Future<Map<String, dynamic>?> loadStorefrontRaw() =>
-      _cache.getJson(CacheStorage.keyDailyShop);
+  Future<Map<String, dynamic>?> loadStorefrontRaw() async {
+    final raw = await _cache.getJson(CacheStorage.keyDailyShop);
+    if (raw == null) return null;
+
+    // Check if the cached storefront has already passed its reset time.
+    // If so, return null so the caller is forced to fetch fresh data from
+    // the network rather than showing an expired shop.
+    final fetchedAtStr = raw['_fetchedAt'] as String?;
+    final remainingSec =
+        ((raw['SkinsPanelLayout'] as Map?)?
+                ['SingleItemOffersRemainingDurationInSeconds'] as num?)
+            ?.toInt() ??
+        0;
+    if (fetchedAtStr != null && remainingSec > 0) {
+      final fetchedAt = DateTime.tryParse(fetchedAtStr);
+      if (fetchedAt != null) {
+        final elapsed = DateTime.now().difference(fetchedAt).inSeconds;
+        if (elapsed >= remainingSec) {
+          // Cache is from a previous shop rotation — discard it.
+          return null;
+        }
+      }
+    }
+
+    return raw;
+  }
 
   Future<DateTime?> lastShopFetch() async {
     final ts = await _cache.getString(CacheStorage.keyDailyShopFetchedAt);
