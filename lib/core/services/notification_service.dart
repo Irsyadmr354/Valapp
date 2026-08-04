@@ -19,9 +19,14 @@ class NotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+      defaultPresentAlert: true,
+      defaultPresentSound: true,
+      defaultPresentBadge: true,
+      defaultPresentBanner: true,
+      defaultPresentList: true,
     );
 
     await _notifications.initialize(
@@ -35,6 +40,10 @@ class NotificationService {
     final androidImpl = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     await androidImpl?.requestNotificationsPermission();
+
+    final darwinImpl = _notifications.resolvePlatformSpecificImplementation<
+        DarwinFlutterLocalNotificationsPlugin>();
+    await darwinImpl?.requestPermissions(alert: true, badge: true, sound: true);
 
     final iosImpl = _notifications.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
@@ -63,7 +72,12 @@ class NotificationService {
           icon: '@mipmap/ic_launcher',
         ),
         iOS: DarwinNotificationDetails(
-            presentAlert: true, presentBadge: true, presentSound: true),
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          presentBanner: true,
+          presentList: true,
+        ),
       ),
     );
   }
@@ -121,7 +135,12 @@ class NotificationService {
           ),
         ),
         iOS: const DarwinNotificationDetails(
-            presentAlert: true, presentBadge: false, presentSound: false),
+          presentAlert: true,
+          presentBadge: false,
+          presentSound: false,
+          presentBanner: true,
+          presentList: true,
+        ),
       ),
     );
   }
