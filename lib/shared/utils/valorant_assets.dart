@@ -654,12 +654,13 @@ class ValorantAssets {
 
   // ── Contract Definitions (UUID → agent UUID mapping) ──────────────────────
 
-  /// Returns a map of contract UUID → { 'displayName', 'agentUuid', 'displayIcon', 'isFreeToPlay' }
-  /// Used to properly resolve agent contracts on the Progress screen.
+  /// Returns a map of contract UUID → { 'displayName', 'agentUuid', 'displayIcon',
+  /// 'isFreeToPlay', 'contractType' }
+  /// contractType: 'Agent' | 'BattlePass' | 'Event' | 'Other'
   Future<Map<String, dynamic>> getContractDefsMap() async {
     final cache = CacheStorage.instance;
-    const keyContractDefs = 'contract_defs_metadata';
-    const keyContractDefsFetchedAt = 'contract_defs_metadata_fetched_at';
+    const keyContractDefs = 'contract_defs_metadata_v2';
+    const keyContractDefsFetchedAt = 'contract_defs_metadata_v2_fetched_at';
 
     final isStale =
         await cache.isStale(keyContractDefsFetchedAt, _cacheDuration);
@@ -675,18 +676,47 @@ class ValorantAssets {
       for (final c in contracts) {
         final uuid = c['uuid'] as String?;
         if (uuid != null) {
-          // shipIt: agent UUID lives in c['content']['relationType'] == 'Agent'
-          // and c['content']['relationUuid']
           final content = c['content'] as Map<String, dynamic>? ?? {};
-          final relationType = content['relationType'] as String?;
+          final relationType = content['relationType'] as String? ?? '';
           final agentUuid = relationType == 'Agent'
               ? content['relationUuid'] as String?
               : null;
+
+          // Classify contract type:
+          // - 'Agent'      → relationType == 'Agent'
+          // - 'BattlePass' → displayName contains season/act keywords AND
+          //                  has many chapters (typically 6 + epilogue)
+          // - 'Event'      → relationType == 'Event' or displayName has
+          //                  'event', 'fc', 'pass' but not season/act
+          // - 'Other'      → everything else (e.g. Play to Unlock Agents)
+          final displayName =
+              (c['displayName'] as String? ?? '').toLowerCase();
+          final chapters =
+              (content['chapters'] as List<dynamic>?)?.length ?? 0;
+
+          String contractType;
+          if (relationType == 'Agent') {
+            contractType = 'Agent';
+          } else if (relationType == 'Season' ||
+              (displayName.contains('act') && chapters >= 5)) {
+            contractType = 'BattlePass';
+          } else if (relationType == 'Event' ||
+              displayName.contains('event') ||
+              displayName.contains(' fc ') ||
+              displayName.contains('fc event') ||
+              displayName.contains('anniversary') ||
+              displayName.contains('celebration')) {
+            contractType = 'Event';
+          } else {
+            contractType = 'Other';
+          }
+
           map[uuid] = {
             'displayName': c['displayName'],
             'displayIcon': c['displayIcon'],
             'agentUuid': agentUuid,
             'isFreeToPlay': c['freeRewardScheduleUuid'] != null,
+            'contractType': contractType,
           };
         }
       }

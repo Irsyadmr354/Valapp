@@ -26,8 +26,30 @@ class BattlepassCarouselModal extends ConsumerStatefulWidget {
 
 class _BattlepassCarouselModalState
     extends ConsumerState<BattlepassCarouselModal> {
-  final PageController _pageController = PageController();
+  late final PageController _pageController;
   int _currentChapterIndex = 0;
+
+  // Contract data loaded once — not in build() to avoid PageController reset
+  Map<String, dynamic>? _contractData;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _loadContract();
+  }
+
+  Future<void> _loadContract() async {
+    final assets = ref.read(valorantAssetsProvider);
+    final data = await assets.getContract(widget.contract.contractId);
+    if (mounted) {
+      setState(() {
+        _contractData = data;
+        _loading = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -37,9 +59,6 @@ class _BattlepassCarouselModalState
 
   @override
   Widget build(BuildContext context) {
-    final assets = ref.watch(valorantAssetsProvider);
-    final contractId = widget.contract.contractId;
-
     return Container(
       constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.90),
@@ -55,10 +74,8 @@ class _BattlepassCarouselModalState
       child: Column(
         children: [
           const SizedBox(height: 12),
-          // Drag handle
           Container(
-            width: 36,
-            height: 4,
+            width: 36, height: 4,
             decoration: BoxDecoration(
                 color: Colors.white24,
                 borderRadius: BorderRadius.circular(2)),
@@ -98,7 +115,6 @@ class _BattlepassCarouselModalState
             ),
           ),
           const SizedBox(height: 8),
-          // XP progress bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: ClipRRect(
@@ -114,186 +130,160 @@ class _BattlepassCarouselModalState
             ),
           ),
           const SizedBox(height: 12),
-          // Body
-          Expanded(
-            child: FutureBuilder<Map<String, dynamic>?>(
-              future: assets.getContract(contractId),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                        color: Color(0xFFFF4655)),
-                  );
-                }
+          // Body — data loaded once in initState, not in build
+          Expanded(child: _buildBody()),
+        ],
+      ),
+    );
+  }
 
-                final contractData = snapshot.data;
-                final content =
-                    contractData?['content'] as Map<String, dynamic>?;
-                final chapters =
-                    (content?['chapters'] as List<dynamic>?) ?? [];
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF4655)));
+    }
 
-                if (chapters.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No Battle Pass data available.',
-                      style: TextStyle(color: Colors.white38, fontSize: 13),
+    final content = _contractData?['content'] as Map<String, dynamic>?;
+    final chapters = (content?['chapters'] as List<dynamic>?) ?? [];
+
+    if (chapters.isEmpty) {
+      return const Center(
+        child: Text('No Battle Pass data available.',
+            style: TextStyle(color: Colors.white38, fontSize: 13)),
+      );
+    }
+
+    return Column(
+      children: [
+        // Chapter pills
+        SizedBox(
+          height: 36,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: chapters.length,
+            itemBuilder: (context, idx) {
+              final isSelected = idx == _currentChapterIndex;
+              final isEpilogue = idx == chapters.length - 1;
+              final label = isEpilogue ? 'Epilogue' : 'Ch. ${idx + 1}';
+
+              return GestureDetector(
+                onTap: () {
+                  _pageController.animateToPage(idx,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFFFF4655)
+                        : const Color(0xFF141F2D),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFFFF4655)
+                          : Colors.white10,
                     ),
-                  );
-                }
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.white60,
+                      fontSize: 11,
+                      fontWeight: isSelected
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Swipeable chapter pages
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (idx) =>
+                setState(() => _currentChapterIndex = idx),
+            itemCount: chapters.length,
+            itemBuilder: (context, chIdx) {
+              final chapter = chapters[chIdx] as Map<String, dynamic>;
+              final levels = (chapter['levels'] as List<dynamic>?) ?? [];
+              final isEpilogue = chIdx == chapters.length - 1;
 
-                return Column(
+              // Pre-compute tierOffset for this chapter
+              int tierOffset = 0;
+              for (int ci = 0; ci < chIdx; ci++) {
+                final prevChapter = chapters[ci] as Map<String, dynamic>;
+                tierOffset +=
+                    ((prevChapter['levels'] as List<dynamic>?) ?? []).length;
+              }
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Chapter pills
-                    SizedBox(
-                      height: 36,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: chapters.length,
-                        itemBuilder: (context, idx) {
-                          final isSelected = idx == _currentChapterIndex;
-                          final isEpilogue = idx == chapters.length - 1;
-                          final label = isEpilogue
-                              ? 'Epilogue'
-                              : 'Ch. ${idx + 1}';
-
-                          return GestureDetector(
-                            onTap: () {
-                              _pageController.animateToPage(idx,
-                                  duration:
-                                      const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              margin: const EdgeInsets.only(right: 8),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFFFF4655)
-                                    : const Color(0xFF141F2D),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? const Color(0xFFFF4655)
-                                      : Colors.white10,
-                                ),
-                              ),
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : Colors.white60,
-                                  fontSize: 11,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                            width: 3,
+                            height: 14,
+                            color: const Color(0xFFFF4655)),
+                        const SizedBox(width: 8),
+                        Text(
+                          isEpilogue
+                              ? 'EPILOGUE REWARDS'
+                              : 'CHAPTER ${chIdx + 1} REWARDS',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
-                    // Swipeable chapter carousel
                     Expanded(
-                      child: PageView.builder(
-                        controller: _pageController,
-                        onPageChanged: (idx) =>
-                            setState(() => _currentChapterIndex = idx),
-                        itemCount: chapters.length,
-                        itemBuilder: (context, chIdx) {
-                          final chapter =
-                              chapters[chIdx] as Map<String, dynamic>;
-                          final levels =
-                              (chapter['levels'] as List<dynamic>?) ??
-                                  [];
-                          final isEpilogue = chIdx == chapters.length - 1;
+                      child: ListView.builder(
+                        itemCount: levels.length,
+                        itemBuilder: (context, lvlIdx) {
+                          final level =
+                              levels[lvlIdx] as Map<String, dynamic>;
+                          final reward =
+                              level['reward'] as Map<String, dynamic>?;
+                          final isFree = level['isFreeItem'] == true;
+                          final tierNum = tierOffset + (lvlIdx + 1);
+                          final isUnlocked = widget
+                                  .contract.progressionLevelReached >=
+                              tierNum;
+                          final rewardUuid = reward?['uuid'] as String?;
+                          final rewardType =
+                              reward?['type'] as String? ?? '';
 
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                        width: 3,
-                                        height: 14,
-                                        color: const Color(0xFFFF4655)),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      isEpilogue
-                                          ? 'EPILOGUE REWARDS'
-                                          : 'CHAPTER ${chIdx + 1} REWARDS',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 1.2),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Expanded(
-                                  child: ListView.builder(
-                                    itemCount: levels.length,
-                                    itemBuilder: (context, lvlIdx) {
-                                      final level = levels[lvlIdx]
-                                          as Map<String, dynamic>;
-                                      final reward = level['reward']
-                                          as Map<String, dynamic>?;
-                                       final isFree =
-                                           level['isFreeItem'] == true;
-                                       int tierOffset = 0;
-                                       for (int ci = 0; ci < chIdx; ci++) {
-                                         final prevChapter =
-                                             chapters[ci] as Map<String, dynamic>;
-                                         tierOffset += ((prevChapter['levels']
-                                                     as List<dynamic>?) ??
-                                                 [])
-                                             .length;
-                                       }
-                                       final tierNum =
-                                           tierOffset + (lvlIdx + 1);
-                                       final isUnlocked = widget.contract
-                                               .progressionLevelReached >=
-                                           tierNum;
-
-                                      // Try to resolve reward display icon
-                                      final rewardUuid =
-                                          reward?['uuid'] as String?;
-                                      final rewardType =
-                                          reward?['type'] as String? ?? '';
-
-                                      return _RewardTile(
-                                        tierNum: tierNum,
-                                        rewardType: rewardType,
-                                        rewardUuid: rewardUuid,
-                                        isFree: isFree,
-                                        isUnlocked: isUnlocked,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
+                          return _RewardTile(
+                            tierNum: tierNum,
+                            rewardType: rewardType,
+                            rewardUuid: rewardUuid,
+                            isFree: isFree,
+                            isUnlocked: isUnlocked,
                           );
                         },
                       ),
                     ),
                   ],
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

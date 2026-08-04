@@ -109,19 +109,39 @@ class _ContractsContent extends ConsumerWidget {
     final contractDefs = ref.watch(_contractDefsProvider).asData?.value ?? {};
 
     // ── Battle Pass resolution ─────────────────────────────────────────────
-    // Primary: match activeSpecialContractId exactly.
-    // Fallback: find the first contract whose contractDefs entry has no
-    // agentUuid (= not an agent contract = Battle Pass / event pass).
-    // This handles the case where a new Season started and the player's
-    // activeSpecialContractId points to a contract not yet in their list
-    // (zero progress so Riot omits it from the Contracts array).
+    // Priority order:
+    // 1. activeSpecialContractId exact match
+    // 2. contractType == 'BattlePass' (seasonal act pass dengan 5+ chapters)
+    // 3. contractType == 'Event' (event pass seperti VALORANT FC)
+    // 4. Anything else non-agent (last resort)
     Contract? battlepass = contracts.activeBattlepass;
     if (battlepass == null && contractDefs.isNotEmpty) {
+      // Try BattlePass type first
       for (final c in contracts.contracts) {
         final def = contractDefs[c.contractId] as Map<String, dynamic>?;
-        if (def != null && def['agentUuid'] == null) {
+        if (def != null && def['contractType'] == 'BattlePass') {
           battlepass = c;
           break;
+        }
+      }
+      // Fallback to Event pass
+      if (battlepass == null) {
+        for (final c in contracts.contracts) {
+          final def = contractDefs[c.contractId] as Map<String, dynamic>?;
+          if (def != null && def['contractType'] == 'Event') {
+            battlepass = c;
+            break;
+          }
+        }
+      }
+      // Last resort: any non-agent contract
+      if (battlepass == null) {
+        for (final c in contracts.contracts) {
+          final def = contractDefs[c.contractId] as Map<String, dynamic>?;
+          if (def != null && def['agentUuid'] == null) {
+            battlepass = c;
+            break;
+          }
         }
       }
     }
