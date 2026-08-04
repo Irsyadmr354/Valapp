@@ -123,8 +123,11 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
         final assets = ref.read(valorantAssetsProvider);
         final localSource = ref.read(credentialsLocalSourceProvider);
 
-        final realName =
-            await source.fetchDisplayName(creds.shard, creds.puuid);
+        final realName = await source.fetchDisplayName(
+          creds.shard,
+          creds.puuid,
+          accessToken: creds.accessToken,
+        );
         String? avatarUrl;
         String? cardId;
 

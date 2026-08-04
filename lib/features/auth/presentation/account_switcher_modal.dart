@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
+import '../../../shared/utils/display_name_util.dart';
 import '../data/credentials_local_source.dart';
 
 /// Modal dialog for managing and switching between multiple saved Valorant accounts.
@@ -88,11 +89,12 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
         String? newCardId = acc.playerCardId;
         bool needsUpdate = false;
 
-        if (newName.startsWith('Account (') ||
-            newName == 'Valorant Account' ||
-            newName == 'Valorant Player') {
-          final realName =
-              await remoteSource.fetchDisplayName(acc.shard, acc.puuid);
+        if (DisplayNameUtil.isPlaceholder(newName)) {
+          final realName = await remoteSource.fetchDisplayName(
+            acc.shard,
+            acc.puuid,
+            accessToken: acc.credentials.accessToken,
+          );
           if (realName != null && realName.isNotEmpty) {
             newName = realName;
             needsUpdate = true;

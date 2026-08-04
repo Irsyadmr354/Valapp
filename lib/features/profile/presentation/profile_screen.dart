@@ -91,11 +91,33 @@ final _levelBorderProvider =
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  int _debugTapCount = 0;
+  DateTime? _lastDebugTap;
+
+  void _onDebugTap() {
+    final now = DateTime.now();
+    if (_lastDebugTap == null ||
+        now.difference(_lastDebugTap!) > const Duration(seconds: 2)) {
+      _debugTapCount = 0;
+    }
+    _lastDebugTap = now;
+    _debugTapCount++;
+    if (_debugTapCount >= 7) {
+      _debugTapCount = 0;
+      context.push('/debug/notifications');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final xpAsync = ref.watch(accountXpProvider);
     final nameAsync = ref.watch(displayNameProvider);
     final mmrAsync = ref.watch(playerMmrProvider);
@@ -153,6 +175,7 @@ class ProfileScreen extends ConsumerWidget {
                 playerCardSmallArt: cardSmallArt,
                 onSettingsPressed: () => AccountSwitcherModal.show(context),
                 onLogoutPressed: () => _confirmLogout(context, ref),
+                onTitleTap: _onDebugTap,
               ),
 
               const SizedBox(height: 12),
@@ -256,6 +279,7 @@ class _ProfileHeaderBanner extends StatelessWidget {
     required this.displayName,
     required this.onSettingsPressed,
     required this.onLogoutPressed,
+    this.onTitleTap,
     this.playerCardWideArt,
     this.playerCardSmallArt,
   });
@@ -265,6 +289,7 @@ class _ProfileHeaderBanner extends StatelessWidget {
   final String? playerCardSmallArt;
   final VoidCallback onSettingsPressed;
   final VoidCallback onLogoutPressed;
+  final VoidCallback? onTitleTap;
 
   @override
   Widget build(BuildContext context) {
@@ -347,12 +372,16 @@ class _ProfileHeaderBanner extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          const Text('AGENT PROFILE',
-                              style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2)),
+                          GestureDetector(
+                            onTap: onTitleTap,
+                            behavior: HitTestBehavior.opaque,
+                            child: const Text('AGENT PROFILE',
+                                style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.2)),
+                          ),
                         ],
                       ),
                       Row(

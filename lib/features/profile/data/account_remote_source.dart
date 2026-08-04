@@ -20,10 +20,49 @@ class AccountRemoteSource {
     );
   }
 
-  /// Resolves display name via name-service.
-  Future<String?> fetchDisplayName(String shard, String puuid) async {
+  /// Resolves display name via name-service, with Riot userinfo fallback.
+  Future<String?> fetchDisplayName(
+    String shard,
+    String puuid, {
+    String? accessToken,
+  }) async {
     final names = await fetchDisplayNames(shard, [puuid]);
-    return names[puuid];
+    final fromNameService = names[puuid];
+    if (fromNameService != null && fromNameService.isNotEmpty) {
+      return fromNameService;
+    }
+
+    if (accessToken != null && accessToken.isNotEmpty) {
+      return _fetchDisplayNameFromUserInfo(accessToken);
+    }
+    return null;
+  }
+
+  Future<String?> _fetchDisplayNameFromUserInfo(String accessToken) async {
+    try {
+      final response = await _dio.get<dynamic>(
+        'https://auth.riotgames.com/userinfo',
+        options: Options(
+          headers: {'Authorization': 'Bearer $accessToken'},
+        ),
+      );
+      final data = response.data;
+      if (data is! Map) return null;
+      final gameName = data['acct'] is Map
+          ? (data['acct'] as Map)['game_name']?.toString() ??
+              (data['acct'] as Map)['gameName']?.toString()
+          : null;
+      final tagLine = data['acct'] is Map
+          ? (data['acct'] as Map)['tag_line']?.toString() ??
+              (data['acct'] as Map)['tagLine']?.toString()
+          : null;
+      if (gameName == null || gameName.isEmpty) return null;
+      return (tagLine != null && tagLine.isNotEmpty)
+          ? '$gameName#$tagLine'
+          : gameName;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Batch resolves display names via name-service for a list of PUUIDs.

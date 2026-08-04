@@ -12,6 +12,7 @@ import '../storage/cached_fetch_result.dart';
 import '../utils/async_lock.dart';
 import '../../shared/utils/version_service.dart';
 import '../../shared/utils/valorant_assets.dart';
+import '../../shared/utils/display_name_util.dart';
 
 // ── Auth & Session ─────────────────────────────────────────────────────────────
 
@@ -352,26 +353,47 @@ final displayNameProvider =
     FutureProvider<CachedFetchResult<String>?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
+  final local = ref.watch(credentialsLocalSourceProvider);
   final source = await ref.watch(accountRemoteSourceProvider.future);
   final cache = ref.watch(accountLocalCacheProvider);
   final transaction =
       ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+
+  Future<String?> savedProfileName() async {
+    final profiles = await local.getSavedAccounts();
+    final idx = profiles.indexWhere((p) => p.puuid == creds.puuid);
+    if (idx == -1) return null;
+    final name = profiles[idx].displayName;
+    return DisplayNameUtil.isPlaceholder(name) ? null : name;
+  }
+
   try {
-    final name = await source.fetchDisplayName(creds.shard, creds.puuid);
+    final name = await source.fetchDisplayName(
+      creds.shard,
+      creds.puuid,
+      accessToken: creds.accessToken,
+    );
     if (name == null || name.isEmpty) {
       throw StateError('Display name unavailable');
     }
     if (transaction != null) {
       await cache.saveDisplayName(creds.puuid, name, transaction);
     }
+    await local.updateAccountMetadata(creds.puuid, displayName: name);
     if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
       return null;
     }
     return CachedFetchResult(name);
   } catch (_) {
     final cached = await cache.loadDisplayName(creds.puuid);
-    if (cached != null && cached.isNotEmpty) {
+    if (cached != null &&
+        cached.isNotEmpty &&
+        !DisplayNameUtil.isPlaceholder(cached)) {
       return CachedFetchResult(cached, fromCache: true);
+    }
+    final saved = await savedProfileName();
+    if (saved != null) {
+      return CachedFetchResult(saved, fromCache: true);
     }
     final fallback = creds.puuid.length >= 8
         ? 'Player (${creds.puuid.substring(0, 6)}...)'

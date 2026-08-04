@@ -14,6 +14,7 @@ import 'features/shop/presentation/wishlist_catalog_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 import 'features/contracts/presentation/contracts_screen.dart';
 import 'features/loadout/presentation/loadout_screen.dart';
+import 'features/debug/presentation/notification_debug_screen.dart';
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,9 @@ final _routerProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const WebViewLoginScreen()),
       GoRoute(
           path: '/wishlist', builder: (_, __) => const WishlistCatalogScreen()),
+      GoRoute(
+          path: '/debug/notifications',
+          builder: (_, __) => const NotificationDebugScreen()),
       GoRoute(path: '/loadout', builder: (_, __) => const LoadoutScreen()),
       GoRoute(
         path: '/match/:id',
