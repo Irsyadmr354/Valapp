@@ -389,10 +389,10 @@ class _UpdateTileShimmer extends StatelessWidget {
 
 // ── ContractsSkeleton ─────────────────────────────────────────────────────────
 
-/// Matches ContractsScreen actual layout conservatively:
-/// shows only mission tiles (always present) + a possible battlepass card.
-/// Agent contracts are hidden from skeleton because they only appear when
-/// progressionLevelReached > 0, which is not true for most users.
+/// Mirrors _ContractsContent layout exactly:
+///   1. BATTLE PASS header + tall card (with optional banner art area)
+///   2. ACTIVE MISSIONS header + 3 mission tiles
+///   3. AGENT CONTRACTS header + 6 agent contract tiles (with avatar)
 class ContractsSkeleton extends StatelessWidget {
   const ContractsSkeleton({super.key});
 
@@ -402,22 +402,114 @@ class ContractsSkeleton extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
-        // Battle Pass section header + card
+        // ── 1. Battle Pass ─────────────────────────────────────────────────
         const _ShimmerLine(width: 110, height: 12),
         const SizedBox(height: 10),
-        const _ShimmerBox(height: 220, radius: 14),
+        // Card: banner image area + content area — mirrors _BattlepassCard
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: const Column(
+            children: [
+              // Banner art placeholder
+              _ShimmerBox(height: 80, radius: 0),
+              Padding(
+                padding: EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      _ShimmerBox(width: 44, height: 44, radius: 10),
+                      SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _ShimmerLine(width: 110, height: 14),
+                          SizedBox(height: 6),
+                          _ShimmerLine(width: 60, height: 11),
+                        ],
+                      ),
+                    ]),
+                    SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _ShimmerLine(width: 90, height: 10),
+                        _ShimmerLine(width: 100, height: 10),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    _ShimmerBox(height: 8, radius: 4),
+                    SizedBox(height: 16),
+                    _ShimmerBox(height: 44, radius: 10),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 24),
 
-        // Active Missions section header + tiles
-        const _ShimmerLine(width: 130, height: 12),
+        // ── 2. Active Missions ─────────────────────────────────────────────
+        const _ShimmerLine(width: 140, height: 12),
         const SizedBox(height: 10),
-        ...List.generate(3, (_) => const Padding(
-          padding: EdgeInsets.only(bottom: 0),
-          child: _MissionTileShimmer(),
-        )),
+        ...List.generate(3, (_) => const _MissionTileShimmer()),
+        const SizedBox(height: 24),
 
+        // ── 3. Agent Contracts ─────────────────────────────────────────────
+        const _ShimmerLine(width: 150, height: 12),
+        const SizedBox(height: 10),
+        // Each tile: avatar circle + name + tier + progress bar
+        ...List.generate(6, (_) => const Padding(
+          padding: EdgeInsets.only(bottom: 10),
+          child: _AgentContractTileShimmer(),
+        )),
         const SizedBox(height: 80),
       ],
+    );
+  }
+}
+
+class _AgentContractTileShimmer extends StatelessWidget {
+  const _AgentContractTileShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: const Row(
+        children: [
+          // Agent portrait square
+          _ShimmerBox(width: 44, height: 44, radius: 10),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ShimmerLine(width: 100, height: 13),
+                SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _ShimmerLine(width: 50, height: 11),
+                    _ShimmerLine(width: 80, height: 10),
+                  ],
+                ),
+                SizedBox(height: 6),
+                _ShimmerBox(height: 5, radius: 3),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

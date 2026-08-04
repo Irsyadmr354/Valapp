@@ -96,7 +96,7 @@ class ContractsScreen extends ConsumerWidget {
   }
 }
 
-class _ContractsContent extends StatelessWidget {
+class _ContractsContent extends ConsumerWidget {
   const _ContractsContent({
     required this.contracts,
     this.showCacheBanner = false,
@@ -105,17 +105,46 @@ class _ContractsContent extends StatelessWidget {
   final bool showCacheBanner;
 
   @override
-  Widget build(BuildContext context) {
-    final battlepass = contracts.activeBattlepass;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contractDefs = ref.watch(_contractDefsProvider).asData?.value ?? {};
+
+    // ── Battle Pass resolution ─────────────────────────────────────────────
+    // Primary: match activeSpecialContractId exactly.
+    // Fallback: find the first contract whose contractDefs entry has no
+    // agentUuid (= not an agent contract = Battle Pass / event pass).
+    // This handles the case where a new Season started and the player's
+    // activeSpecialContractId points to a contract not yet in their list
+    // (zero progress so Riot omits it from the Contracts array).
+    Contract? battlepass = contracts.activeBattlepass;
+    if (battlepass == null && contractDefs.isNotEmpty) {
+      for (final c in contracts.contracts) {
+        final def = contractDefs[c.contractId] as Map<String, dynamic>?;
+        if (def != null && def['agentUuid'] == null) {
+          battlepass = c;
+          break;
+        }
+      }
+    }
+
     final missions = contracts.missions;
-    // Agent contracts = all contracts that are NOT the active battlepass.
-    // Show any contract that has been touched (level >= 0 but not locked at -1),
-    // sorted by progression level descending so most-progressed appears first.
-    final agentContracts = contracts.contracts
-        .where((c) =>
-            c.contractId != contracts.activeSpecialContractId &&
-            c.progressionLevelReached >= 0)
-        .toList()
+
+    // Agent contracts = all contracts that are NOT the resolved Battle Pass.
+    // Filter progressionLevelReached > 0 REMOVED — contracts at tier 0 must
+    // still appear so the user can see all available agent contracts.
+    // Only exclude contracts that have no agentUuid in contractDefs (event
+    // passes, "Play to Unlock" placeholders, etc.) AND are not the battlepass.
+    final agentContracts = contracts.contracts.where((c) {
+      if (battlepass != null && c.contractId == battlepass.contractId) {
+        return false;
+      }
+      // If contractDefs loaded, only keep contracts that have an agentUuid.
+      // If contractDefs not yet loaded, show everything to avoid blank screen.
+      if (contractDefs.isNotEmpty) {
+        final def = contractDefs[c.contractId] as Map<String, dynamic>?;
+        return def != null && def['agentUuid'] != null;
+      }
+      return true;
+    }).toList()
       ..sort((a, b) =>
           b.progressionLevelReached.compareTo(a.progressionLevelReached));
 
@@ -125,25 +154,24 @@ class _ContractsContent extends StatelessWidget {
       children: [
         if (showCacheBanner) const CacheDataBanner(),
 
-        // Battle Pass
+        // ── Battle Pass ──────────────────────────────────────────────────
         if (battlepass != null) ...[
           const _SectionHeader(title: 'BATTLE PASS'),
           _BattlepassCard(contract: battlepass),
           const SizedBox(height: 24),
         ],
 
-        // Active Missions
+        // ── Active Missions ──────────────────────────────────────────────
         if (missions.isNotEmpty) ...[
           const _SectionHeader(title: 'ACTIVE MISSIONS'),
           ...missions.map((m) => _MissionTile(mission: m)),
           const SizedBox(height: 24),
         ],
 
-        // Agent Contracts
+        // ── Agent Contracts ──────────────────────────────────────────────
         if (agentContracts.isNotEmpty) ...[
           const _SectionHeader(title: 'AGENT CONTRACTS'),
-          ...agentContracts.take(10).map(
-              (c) => _AgentContractTile(contract: c)),
+          ...agentContracts.map((c) => _AgentContractTile(contract: c)),
           const SizedBox(height: 24),
         ],
 
@@ -198,7 +226,8 @@ class _BattlepassCard extends ConsumerWidget {
     final progress = contract.progressionTowardsNextLevel / 10000;
     // Fetch battlepass banner art from contract defs
     final defsAsync = ref.watch(_contractDefsProvider);
-    final contractDef = defsAsync.asData?.value[contract.contractId] as Map<String, dynamic>?;
+    final contractDef =
+        defsAsync.asData?.value[contract.contractId] as Map<String, dynamic>?;
     final bannerUrl = contractDef?['displayIcon'] as String?;
 
     return Container(
@@ -213,7 +242,8 @@ class _BattlepassCard extends ConsumerWidget {
           // Banner art header
           if (bannerUrl != null && bannerUrl.isNotEmpty)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(13)),
               child: SizedBox(
                 height: 80,
                 child: Stack(
@@ -258,12 +288,15 @@ class _BattlepassCard extends ConsumerWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('BATTLE PASS',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.8)),
+                        Text(
+                          contractDef?['displayName'] as String? ??
+                              'BATTLE PASS',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.8),
+                        ),
                         const SizedBox(height: 2),
                         Text('TIER ${contract.progressionLevelReached}',
                             style: const TextStyle(
@@ -287,7 +320,9 @@ class _BattlepassCard extends ConsumerWidget {
                     Text(
                       '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
                       style: const TextStyle(
-                          color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700),
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -311,8 +346,10 @@ class _BattlepassCard extends ConsumerWidget {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: () => BattlepassCarouselModal.show(context, contract),
-                    icon: const Icon(Icons.view_carousel, color: AppColors.red, size: 18),
+                    onPressed: () =>
+                        BattlepassCarouselModal.show(context, contract),
+                    icon: const Icon(Icons.view_carousel,
+                        color: AppColors.red, size: 18),
                     label: const Text('VIEW BATTLE PASS REWARDS',
                         style: TextStyle(
                             color: Colors.white,
@@ -338,10 +375,11 @@ class _MissionTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final missionsMap = ref.watch(_missionsMapProvider).asData?.value ?? {};
     // Resolve title from valorant-api.com — fallback to what the API gave us
-    final resolvedTitle = (missionsMap[mission.missionId]?['title'] as String?)
-        ?.isNotEmpty == true
-        ? missionsMap[mission.missionId]!['title'] as String
-        : mission.title;
+    final resolvedTitle =
+        (missionsMap[mission.missionId]?['title'] as String?)?.isNotEmpty ==
+                true
+            ? missionsMap[mission.missionId]!['title'] as String
+            : mission.title;
     final progress = mission.progressFraction;
     final expiryStr = mission.expirationTime != null
         ? 'Expires ${DateFormat('MMM d').format(mission.expirationTime!)}'
@@ -349,7 +387,8 @@ class _MissionTile extends ConsumerWidget {
     // Determine daily vs weekly from expiry window
     final isDaily = mission.expirationTime != null &&
         mission.expirationTime!.difference(DateTime.now()).inHours <= 28;
-    final typeIcon = isDaily ? Icons.wb_sunny_outlined : Icons.calendar_month_outlined;
+    final typeIcon =
+        isDaily ? Icons.wb_sunny_outlined : Icons.calendar_month_outlined;
     final typeLabel = isDaily ? 'DAILY' : 'WEEKLY';
     final xpReward = mission.xpGrant > 0 ? mission.xpGrant : null;
 
@@ -365,14 +404,13 @@ class _MissionTile extends ConsumerWidget {
             children: [
               Icon(
                 mission.isCompleted ? Icons.check_circle : typeIcon,
-                color: mission.isCompleted
-                    ? AppColors.win
-                    : AppColors.red,
+                color: mission.isCompleted ? AppColors.win : AppColors.red,
                 size: 18,
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.red.withAlpha(20),
                   borderRadius: BorderRadius.circular(4),
@@ -389,20 +427,25 @@ class _MissionTile extends ConsumerWidget {
                 child: Text(
                   resolvedTitle,
                   style: TextStyle(
-                    color: mission.isCompleted ? AppColors.textMuted : Colors.white,
+                    color:
+                        mission.isCompleted ? AppColors.textMuted : Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    decoration: mission.isCompleted ? TextDecoration.lineThrough : null,
+                    decoration: mission.isCompleted
+                        ? TextDecoration.lineThrough
+                        : null,
                   ),
                 ),
               ),
               if (xpReward != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.rpAmber.withAlpha(25),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.rpAmber.withAlpha(80), width: 0.8),
+                    border: Border.all(
+                        color: AppColors.rpAmber.withAlpha(80), width: 0.8),
                   ),
                   child: Text('+${_fmtXp(xpReward)} XP',
                       style: const TextStyle(
@@ -413,7 +456,8 @@ class _MissionTile extends ConsumerWidget {
               if (expiryStr != null) ...[
                 const SizedBox(width: 6),
                 Text(expiryStr,
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 10)),
               ],
             ],
           ),
@@ -426,7 +470,9 @@ class _MissionTile extends ConsumerWidget {
                 Text(
                   '${mission.currentProgress} / ${mission.progressToComplete}',
                   style: const TextStyle(
-                      color: AppColors.red, fontSize: 11, fontWeight: FontWeight.w800),
+                      color: AppColors.red,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -450,7 +496,6 @@ class _MissionTile extends ConsumerWidget {
       xp >= 1000 ? '${(xp / 1000).toStringAsFixed(0)}k' : '$xp';
 }
 
-
 // ── Agent Contract Tile ───────────────────────────────────────────────────────
 
 class _AgentContractTile extends ConsumerWidget {
@@ -459,14 +504,16 @@ class _AgentContractTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progress = (contract.progressionTowardsNextLevel / 10000.0).clamp(0.0, 1.0);
+    final progress =
+        (contract.progressionTowardsNextLevel / 10000.0).clamp(0.0, 1.0);
 
     // Two-step lookup: contractDefs gives us agentUuid, agentsMap gives us portrait
     final contractDefsAsync = ref.watch(_contractDefsProvider);
     final agentsAsync = ref.watch(_contractAgentsProvider);
 
-    final contractDef = contractDefsAsync.asData?.value[contract.contractId]
-        as Map<String, dynamic>?;
+    final contractDef =
+        contractDefsAsync.asData?.value[contract.contractId]
+            as Map<String, dynamic>?;
     final agentUuid = contractDef?['agentUuid'] as String?;
     final agentInfo = agentUuid != null
         ? agentsAsync.asData?.value[agentUuid] as Map<String, dynamic>?
@@ -487,7 +534,8 @@ class _AgentContractTile extends ConsumerWidget {
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: AppColors.bgCard2,
               borderRadius: BorderRadius.circular(10),
@@ -500,7 +548,9 @@ class _AgentContractTile extends ConsumerWidget {
                       agentPortrait,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Icon(
-                          Icons.person_outline, color: Colors.white24, size: 22),
+                          Icons.person_outline,
+                          color: Colors.white24,
+                          size: 22),
                     ),
                   )
                 : const Center(
@@ -516,7 +566,9 @@ class _AgentContractTile extends ConsumerWidget {
                 Text(
                   agentName ?? 'Agent Contract',
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -526,10 +578,13 @@ class _AgentContractTile extends ConsumerWidget {
                   children: [
                     Text('TIER ${contract.progressionLevelReached}',
                         style: const TextStyle(
-                            color: AppColors.red, fontSize: 11, fontWeight: FontWeight.w700)),
+                            color: AppColors.red,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)),
                     Text(
                       '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 10),
                     ),
                   ],
                 ),
@@ -539,7 +594,8 @@ class _AgentContractTile extends ConsumerWidget {
                   child: LinearProgressIndicator(
                     value: progress,
                     backgroundColor: AppColors.bgCard2,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.red),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppColors.red),
                     minHeight: 5,
                   ),
                 ),

@@ -315,11 +315,29 @@ class ValorantAssets {
 
   // ── Contracts / Battle Pass ───────────────────────────────────────────────
 
+  /// In-memory cache for contract detail data keyed by contractUuid.
+  /// Persisted for the lifetime of the singleton so repeated modal opens
+  /// (e.g. closing and reopening BattlepassCarouselModal) do not hit the
+  /// network again. On-disk persistence is not needed — the data is large
+  /// and changes only when a new act releases, so cold-start re-fetch is fine.
+  final Map<String, Map<String, dynamic>> _contractCache = {};
+
   /// Returns contract metadata including chapters, levels, and reward items.
+  /// Results are cached in-memory per contractUuid to avoid redundant network
+  /// calls every time the Battle Pass modal is opened.
   Future<Map<String, dynamic>?> getContract(String contractUuid) async {
+    // Return cached result if available
+    if (_contractCache.containsKey(contractUuid)) {
+      return _contractCache[contractUuid];
+    }
     try {
-      final response = await _dio.get<Map<String, dynamic>>('$_base/contracts/$contractUuid');
-      return response.data?['data'] as Map<String, dynamic>?;
+      final response = await _dio
+          .get<Map<String, dynamic>>('$_base/contracts/$contractUuid');
+      final data = response.data?['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        _contractCache[contractUuid] = data;
+      }
+      return data;
     } catch (_) {
       return null;
     }
