@@ -389,7 +389,10 @@ class _UpdateTileShimmer extends StatelessWidget {
 
 // ── ContractsSkeleton ─────────────────────────────────────────────────────────
 
-/// Matches ContractsScreen: battlepass card + mission tiles + agent contracts.
+/// Matches ContractsScreen actual layout conservatively:
+/// shows only mission tiles (always present) + a possible battlepass card.
+/// Agent contracts are hidden from skeleton because they only appear when
+/// progressionLevelReached > 0, which is not true for most users.
 class ContractsSkeleton extends StatelessWidget {
   const ContractsSkeleton({super.key});
 
@@ -399,27 +402,21 @@ class ContractsSkeleton extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
-        // Section header
+        // Battle Pass section header + card
         const _ShimmerLine(width: 110, height: 12),
         const SizedBox(height: 10),
-        // Battlepass card
         const _ShimmerBox(height: 220, radius: 14),
         const SizedBox(height: 24),
-        // Missions header
+
+        // Active Missions section header + tiles
         const _ShimmerLine(width: 130, height: 12),
         const SizedBox(height: 10),
         ...List.generate(3, (_) => const Padding(
           padding: EdgeInsets.only(bottom: 0),
           child: _MissionTileShimmer(),
         )),
-        const SizedBox(height: 24),
-        // Agent contracts header
-        const _ShimmerLine(width: 140, height: 12),
-        const SizedBox(height: 10),
-        ...List.generate(4, (_) => const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: _ShimmerBox(height: 68, radius: 12),
-        )),
+
+        const SizedBox(height: 80),
       ],
     );
   }

@@ -92,11 +92,19 @@ class PlayerContracts {
   });
 
   Contract? get activeBattlepass {
+    if (activeSpecialContractId.isEmpty) return null;
+    // Primary: match by activeSpecialContractId (most accurate)
     try {
       return contracts.firstWhere((c) => c.contractId == activeSpecialContractId);
-    } catch (_) {
-      return null;
-    }
+    } catch (_) {}
+    // Fallback: some episodes return a different contract ID format.
+    // Return the contract with the highest progression level as the best
+    // proxy for the active battlepass — it is almost always the one the
+    // player is actively working through.
+    if (contracts.isEmpty) return null;
+    return contracts.reduce(
+      (a, b) => a.progressionLevelReached >= b.progressionLevelReached ? a : b,
+    );
   }
 
   factory PlayerContracts.fromJson(Map<String, dynamic> json) {

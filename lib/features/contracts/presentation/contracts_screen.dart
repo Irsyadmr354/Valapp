@@ -108,11 +108,13 @@ class _ContractsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final battlepass = contracts.activeBattlepass;
     final missions = contracts.missions;
-    // Agent contracts = all contracts that are NOT the active battlepass
+    // Agent contracts = all contracts that are NOT the active battlepass.
+    // Show any contract that has been touched (level >= 0 but not locked at -1),
+    // sorted by progression level descending so most-progressed appears first.
     final agentContracts = contracts.contracts
         .where((c) =>
             c.contractId != contracts.activeSpecialContractId &&
-            c.progressionLevelReached > 0)
+            c.progressionLevelReached >= 0)
         .toList()
       ..sort((a, b) =>
           b.progressionLevelReached.compareTo(a.progressionLevelReached));
