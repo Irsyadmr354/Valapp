@@ -49,7 +49,7 @@ class BackgroundService {
             ? iosWishlistBackgroundTask
             : 'valapp_wishlist_periodic_task',
         taskWishlistBackgroundCheck,
-        frequency: const Duration(hours: 3),
+        frequency: const Duration(hours: 2),
         constraints: Constraints(networkType: NetworkType.connected),
         existingWorkPolicy: ExistingWorkPolicy.replace,
       );
