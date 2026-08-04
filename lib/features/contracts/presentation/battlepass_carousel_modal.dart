@@ -60,8 +60,8 @@ class _BattlepassCarouselModalState
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.90),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.90),
       decoration: const BoxDecoration(
         color: Color(0xFF0E1622),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -75,10 +75,10 @@ class _BattlepassCarouselModalState
         children: [
           const SizedBox(height: 12),
           Container(
-            width: 36, height: 4,
+            width: 36,
+            height: 4,
             decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2)),
+                color: Colors.white24, borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 12),
           // Header
@@ -123,8 +123,8 @@ class _BattlepassCarouselModalState
                 value: (widget.contract.progressionTowardsNextLevel / 10000)
                     .clamp(0.0, 1.0),
                 backgroundColor: const Color(0xFF141F2D),
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFFFF4655)),
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(Color(0xFFFF4655)),
                 minHeight: 6,
               ),
             ),
@@ -176,17 +176,16 @@ class _BattlepassCarouselModalState
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFFFF4655)
                         : const Color(0xFF141F2D),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFFFF4655)
-                          : Colors.white10,
+                      color:
+                          isSelected ? const Color(0xFFFF4655) : Colors.white10,
                     ),
                   ),
                   child: Text(
@@ -194,9 +193,8 @@ class _BattlepassCarouselModalState
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.white60,
                       fontSize: 11,
-                      fontWeight: isSelected
-                          ? FontWeight.w800
-                          : FontWeight.w600,
+                      fontWeight:
+                          isSelected ? FontWeight.w800 : FontWeight.w600,
                     ),
                   ),
                 ),
@@ -209,8 +207,7 @@ class _BattlepassCarouselModalState
         Expanded(
           child: PageView.builder(
             controller: _pageController,
-            onPageChanged: (idx) =>
-                setState(() => _currentChapterIndex = idx),
+            onPageChanged: (idx) => setState(() => _currentChapterIndex = idx),
             itemCount: chapters.length,
             itemBuilder: (context, chIdx) {
               final chapter = chapters[chIdx] as Map<String, dynamic>;
@@ -254,18 +251,16 @@ class _BattlepassCarouselModalState
                       child: ListView.builder(
                         itemCount: levels.length,
                         itemBuilder: (context, lvlIdx) {
-                          final level =
-                              levels[lvlIdx] as Map<String, dynamic>;
+                          final level = levels[lvlIdx] as Map<String, dynamic>;
                           final reward =
                               level['reward'] as Map<String, dynamic>?;
                           final isFree = level['isFreeItem'] == true;
                           final tierNum = tierOffset + (lvlIdx + 1);
-                          final isUnlocked = widget
-                                  .contract.progressionLevelReached >=
-                              tierNum;
+                          final isUnlocked =
+                              widget.contract.progressionLevelReached >=
+                                  tierNum;
                           final rewardUuid = reward?['uuid'] as String?;
-                          final rewardType =
-                              reward?['type'] as String? ?? '';
+                          final rewardType = reward?['type'] as String? ?? '';
 
                           return _RewardTile(
                             tierNum: tierNum,
@@ -321,19 +316,13 @@ class _RewardTile extends ConsumerWidget {
     // Attempt to resolve icon from skin / spray / card asset maps
     String? iconUrl;
     if (rewardUuid != null) {
-      final skinMap =
-          ref.watch(_skinLevelsFutureProvider).asData?.value ?? {};
-      final sprayMap =
-          ref.watch(_spraysFutureProvider).asData?.value ?? {};
-      final cardMap =
-          ref.watch(_cardsFutureProvider).asData?.value ?? {};
+      final skinMap = ref.watch(_skinLevelsFutureProvider).asData?.value ?? {};
+      final sprayMap = ref.watch(_spraysFutureProvider).asData?.value ?? {};
+      final cardMap = ref.watch(_cardsFutureProvider).asData?.value ?? {};
 
-      final skinMeta =
-          skinMap[rewardUuid] as Map<String, dynamic>?;
-      final sprayMeta =
-          sprayMap[rewardUuid] as Map<String, dynamic>?;
-      final cardMeta =
-          cardMap[rewardUuid] as Map<String, dynamic>?;
+      final skinMeta = skinMap[rewardUuid] as Map<String, dynamic>?;
+      final sprayMeta = sprayMap[rewardUuid] as Map<String, dynamic>?;
+      final cardMeta = cardMap[rewardUuid] as Map<String, dynamic>?;
 
       iconUrl = skinMeta?['displayIcon'] as String? ??
           sprayMeta?['fullIcon'] as String? ??
@@ -346,9 +335,7 @@ class _RewardTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isUnlocked
-            ? const Color(0xFF141F2D)
-            : const Color(0xFF070A10),
+        color: isUnlocked ? const Color(0xFF141F2D) : const Color(0xFF070A10),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isUnlocked
@@ -372,9 +359,8 @@ class _RewardTile extends ConsumerWidget {
               child: Text(
                 '$tierNum',
                 style: TextStyle(
-                    color: isUnlocked
-                        ? const Color(0xFF00F0FF)
-                        : Colors.white38,
+                    color:
+                        isUnlocked ? const Color(0xFF00F0FF) : Colors.white38,
                     fontSize: 12,
                     fontWeight: FontWeight.w900),
               ),
@@ -395,9 +381,8 @@ class _RewardTile extends ConsumerWidget {
                 imageUrl: iconUrl,
                 fit: BoxFit.contain,
                 placeholder: (_, __) => const LoadingShimmer(height: 40),
-                errorWidget: (_, __, ___) =>
-                    const Icon(Icons.card_giftcard,
-                        color: Colors.white24, size: 20),
+                errorWidget: (_, __, ___) => const Icon(Icons.card_giftcard,
+                    color: Colors.white24, size: 20),
               ),
             ),
           // Reward info
@@ -408,8 +393,7 @@ class _RewardTile extends ConsumerWidget {
                 Text(
                   _friendlyType(rewardType),
                   style: TextStyle(
-                      color:
-                          isUnlocked ? Colors.white : Colors.white70,
+                      color: isUnlocked ? Colors.white : Colors.white70,
                       fontSize: 13,
                       fontWeight: FontWeight.w800),
                 ),
@@ -436,9 +420,8 @@ class _RewardTile extends ConsumerWidget {
                       isUnlocked
                           ? Icons.check_circle_outline
                           : Icons.lock_outline,
-                      color: isUnlocked
-                          ? const Color(0xFF00F0FF)
-                          : Colors.white24,
+                      color:
+                          isUnlocked ? const Color(0xFF00F0FF) : Colors.white24,
                       size: 13,
                     ),
                     const SizedBox(width: 4),
@@ -464,13 +447,11 @@ class _RewardTile extends ConsumerWidget {
 
 // Local asset FutureProviders for reward icon resolution
 final _skinLevelsFutureProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) =>
-        ref.watch(valorantAssetsProvider).getSkinLevelsMap());
+    FutureProvider.autoDispose<Map<String, dynamic>>(
+        (ref) => ref.watch(valorantAssetsProvider).getSkinLevelsMap());
 
-final _spraysFutureProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) =>
-        ref.watch(valorantAssetsProvider).getSpraysMap());
+final _spraysFutureProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) => ref.watch(valorantAssetsProvider).getSpraysMap());
 
-final _cardsFutureProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) =>
-        ref.watch(valorantAssetsProvider).getPlayerCardsMap());
+final _cardsFutureProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) => ref.watch(valorantAssetsProvider).getPlayerCardsMap());

@@ -76,5 +76,31 @@ void main() {
       expect(storefront.dailyOffers[0].price, 875);
       expect(storefront.dailyOffers[1].price, 0);
     });
+
+    test('skips malformed optional offers without dropping valid offers', () {
+      const offer = '11111111-1111-1111-1111-111111111111';
+      final storefront = Storefront.fromJson({
+        'SkinsPanelLayout': {
+          'SingleItemOffers': [offer, null, 12],
+          'SingleItemStoreOffers': [
+            {
+              'OfferID': offer,
+              'Cost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 875},
+            },
+          ],
+          'SingleItemOffersRemainingDurationInSeconds': 3600,
+        },
+        'BonusStore': {
+          'BonusStoreOffers': [null, 'invalid'],
+        },
+        'AccessoryStore': {
+          'AccessoryStoreOffers': [null, 1],
+        },
+      });
+
+      expect(storefront.dailyOffers.single.offerId, offer);
+      expect(storefront.nightMarket, isEmpty);
+      expect(storefront.accessoryStore?.offerIds, isEmpty);
+    });
   });
 }

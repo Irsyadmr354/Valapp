@@ -185,14 +185,16 @@ class _HomeSkeletonDotsRow extends StatelessWidget {
         const _ShimmerBox(width: 110, height: 10, radius: 4),
         const Spacer(),
         Row(
-          children: List.generate(4, (i) => Padding(
-            padding: EdgeInsets.only(left: i == 0 ? 0 : 5),
-            child: _ShimmerBox(
-              width: i == 0 ? 18 : 6,
-              height: 6,
-              radius: 3,
-            ),
-          )),
+          children: List.generate(
+              4,
+              (i) => Padding(
+                    padding: EdgeInsets.only(left: i == 0 ? 0 : 5),
+                    child: _ShimmerBox(
+                      width: i == 0 ? 18 : 6,
+                      height: 6,
+                      radius: 3,
+                    ),
+                  )),
         ),
       ],
     );
@@ -206,12 +208,14 @@ class _HomeSkeletonQuickCards extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: List.generate(3, (i) => Expanded(
-        child: Padding(
-          padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-          child: const _ShimmerBox(height: 150, radius: 14),
-        ),
-      )),
+      children: List.generate(
+          3,
+          (i) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                  child: const _ShimmerBox(height: 150, radius: 14),
+                ),
+              )),
     );
   }
 }
@@ -224,10 +228,12 @@ class _HomeSkeletonNewsRow extends StatelessWidget {
     return SizedBox(
       height: 196,
       child: Row(
-        children: List.generate(3, (i) => Padding(
-          padding: EdgeInsets.only(right: i == 2 ? 0 : 12),
-          child: const _ShimmerBox(width: 230, height: 196, radius: 14),
-        )),
+        children: List.generate(
+            3,
+            (i) => Padding(
+                  padding: EdgeInsets.only(right: i == 2 ? 0 : 12),
+                  child: const _ShimmerBox(width: 230, height: 196, radius: 14),
+                )),
       ),
     );
   }
@@ -250,10 +256,12 @@ class MatchHistorySkeleton extends StatelessWidget {
         const _ShimmerBox(height: 90, radius: 16),
         const SizedBox(height: 12),
         // Match tiles
-        ...List.generate(8, (_) => const Padding(
-          padding: EdgeInsets.only(bottom: 2),
-          child: _MatchTileShimmer(),
-        )),
+        ...List.generate(
+            8,
+            (_) => const Padding(
+                  padding: EdgeInsets.only(bottom: 2),
+                  child: _MatchTileShimmer(),
+                )),
       ],
     );
   }
@@ -348,10 +356,12 @@ class RankHistorySkeleton extends StatelessWidget {
       children: [
         const _ShimmerLine(width: 200, height: 12),
         const SizedBox(height: 14),
-        ...List.generate(10, (_) => const Padding(
-          padding: EdgeInsets.only(bottom: 0),
-          child: _UpdateTileShimmer(),
-        )),
+        ...List.generate(
+            10,
+            (_) => const Padding(
+                  padding: EdgeInsets.only(bottom: 0),
+                  child: _UpdateTileShimmer(),
+                )),
       ],
     );
   }
@@ -463,10 +473,12 @@ class ContractsSkeleton extends StatelessWidget {
         const _ShimmerLine(width: 150, height: 12),
         const SizedBox(height: 10),
         // Each tile: avatar circle + name + tier + progress bar
-        ...List.generate(6, (_) => const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: _AgentContractTileShimmer(),
-        )),
+        ...List.generate(
+            6,
+            (_) => const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: _AgentContractTileShimmer(),
+                )),
         const SizedBox(height: 80),
       ],
     );
@@ -564,18 +576,22 @@ class LoadoutSkeleton extends StatelessWidget {
         const _ShimmerBox(height: 180, radius: 16),
         const SizedBox(height: 20),
         // Weapon categories
-        ...List.generate(4, (_) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _ShimmerLine(width: 70, height: 12),
-            const SizedBox(height: 10),
-            ...List.generate(3, (__) => const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: _WeaponTileShimmer(),
-            )),
-            const SizedBox(height: 12),
-          ],
-        )),
+        ...List.generate(
+            4,
+            (_) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _ShimmerLine(width: 70, height: 12),
+                    const SizedBox(height: 10),
+                    ...List.generate(
+                        3,
+                        (__) => const Padding(
+                              padding: EdgeInsets.only(bottom: 8),
+                              child: _WeaponTileShimmer(),
+                            )),
+                    const SizedBox(height: 12),
+                  ],
+                )),
       ],
     );
   }
@@ -641,12 +657,14 @@ class ProfileSkeleton extends StatelessWidget {
         const SizedBox(height: 16),
         // 3 quick stat cards
         Row(
-          children: List.generate(3, (i) => Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-              child: const _ShimmerBox(height: 90, radius: 16),
-            ),
-          )),
+          children: List.generate(
+              3,
+              (i) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                      child: const _ShimmerBox(height: 90, radius: 16),
+                    ),
+                  )),
         ),
         const SizedBox(height: 20),
         // XP gains section
@@ -679,10 +697,12 @@ class MatchDetailSkeleton extends StatelessWidget {
           for (var t = 0; t < 2; t++) ...[
             const _ShimmerLine(width: 80, height: 12),
             const SizedBox(height: 10),
-            ...List.generate(5, (_) => const Padding(
-              padding: EdgeInsets.only(bottom: 0),
-              child: _PlayerRowShimmer(),
-            )),
+            ...List.generate(
+                5,
+                (_) => const Padding(
+                      padding: EdgeInsets.only(bottom: 0),
+                      child: _PlayerRowShimmer(),
+                    )),
             const SizedBox(height: 16),
           ],
         ],
@@ -734,20 +754,23 @@ class WishlistCatalogSkeleton extends StatelessWidget {
         Container(
           width: 72,
           decoration: const BoxDecoration(
-            border: Border(right: BorderSide(color: Colors.white10, width: 0.8)),
+            border:
+                Border(right: BorderSide(color: Colors.white10, width: 0.8)),
           ),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
           child: Column(
-            children: List.generate(8, (i) => const Padding(
-              padding: EdgeInsets.only(bottom: 10),
-              child: Column(
-                children: [
-                  _ShimmerBox(width: 24, height: 24, radius: 6),
-                  SizedBox(height: 4),
-                  _ShimmerLine(width: 44, height: 7),
-                ],
-              ),
-            )),
+            children: List.generate(
+                8,
+                (i) => const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        children: [
+                          _ShimmerBox(width: 24, height: 24, radius: 6),
+                          SizedBox(height: 4),
+                          _ShimmerLine(width: 44, height: 7),
+                        ],
+                      ),
+                    )),
           ),
         ),
         // Right grid
@@ -772,7 +795,8 @@ class WishlistCatalogSkeleton extends StatelessWidget {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _ShimmerBox(height: double.infinity, radius: 10)),
+                  Expanded(
+                      child: _ShimmerBox(height: double.infinity, radius: 10)),
                   SizedBox(height: 10),
                   _ShimmerLine(height: 12),
                 ],

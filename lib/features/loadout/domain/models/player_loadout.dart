@@ -19,7 +19,9 @@ class PlayerLoadout {
   static Map<String, dynamic> _asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) {
-      try { return Map<String, dynamic>.from(value); } catch (_) {}
+      try {
+        return Map<String, dynamic>.from(value);
+      } catch (_) {}
     }
     return {};
   }
@@ -34,9 +36,7 @@ class PlayerLoadout {
   factory PlayerLoadout.fromJson(Map<String, dynamic> json) {
     // v3 endpoint wraps everything under a "Loadout" key;
     // v2 returns the fields at root — support both.
-    final root = json.containsKey('Loadout')
-        ? _asMap(json['Loadout'])
-        : json;
+    final root = json.containsKey('Loadout') ? _asMap(json['Loadout']) : json;
 
     final identity = _asMap(root['Identity']);
     final spraysBag = _asMap(root['Sprays']);
@@ -98,14 +98,14 @@ class WeaponLoadout {
     if (rawAttachments is List) {
       for (final a in rawAttachments) {
         if (a is Map) {
-          buddyId ??= a['CharmLevelID'] as String?;
+          buddyId ??= a['CharmLevelID'] as String? ?? a['ItemID'] as String?;
         }
       }
     } else if (rawAttachments is Map) {
       // Some responses embed attachments as a Map keyed by socket UUID
       for (final v in rawAttachments.values) {
         if (v is Map) {
-          buddyId ??= v['CharmLevelID'] as String?;
+          buddyId ??= v['CharmLevelID'] as String? ?? v['ItemID'] as String?;
         }
       }
     }

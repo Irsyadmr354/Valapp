@@ -9,6 +9,7 @@ class CompetitiveUpdate {
   final int afkPenalty;
   final int gameStartMillis;
   final String? mapId;
+  final String? seasonId;
 
   const CompetitiveUpdate({
     required this.matchId,
@@ -20,6 +21,7 @@ class CompetitiveUpdate {
     required this.afkPenalty,
     required this.gameStartMillis,
     this.mapId,
+    this.seasonId,
   });
 
   DateTime get gameStartTime =>
@@ -45,11 +47,11 @@ class CompetitiveUpdate {
           (json['RankedRatingAfterUpdate'] as num?)?.toInt() ?? 0,
       rankedRatingBeforeUpdate:
           (json['RankedRatingBeforeUpdate'] as num?)?.toInt() ?? 0,
-      rankedRatingEarned:
-          (json['RankedRatingEarned'] as num?)?.toInt() ?? 0,
+      rankedRatingEarned: (json['RankedRatingEarned'] as num?)?.toInt() ?? 0,
       afkPenalty: (json['AFKPenalty'] as num?)?.toInt() ?? 0,
       gameStartMillis: (json['MatchStartTime'] as num?)?.toInt() ?? 0,
       mapId: json['MapID']?.toString(),
+      seasonId: json['SeasonID']?.toString(),
     );
   }
 }
@@ -89,33 +91,26 @@ class PlayerMmr {
 
     try {
       final queueSkills = json['QueueSkills'] as Map<String, dynamic>?;
-      final competitive =
-          queueSkills?['competitive'] as Map<String, dynamic>?;
+      final competitive = queueSkills?['competitive'] as Map<String, dynamic>?;
 
       if (competitive != null) {
-        gamesNeeded =
-            (competitive['CurrentSeasonGamesNeededForRating'] as num?)
-                    ?.toInt() ??
-                0;
+        gamesNeeded = (competitive['CurrentSeasonGamesNeededForRating'] as num?)
+                ?.toInt() ??
+            0;
 
-        // If latestUpdate tier was 0, fallback to SeasonalInfoBySeasonID
+        // Map iteration order is not chronology. Only use seasonal data when
+        // Riot identifies which season is current.
         if (currentTier == 0) {
-          final seasonal = competitive['SeasonalInfoBySeasonID']
-              as Map<String, dynamic>?;
-          if (seasonal != null && seasonal.isNotEmpty) {
-            // Find active season with non-zero tier / games
-            for (final seasonData in seasonal.values.toList().reversed) {
-              if (seasonData is Map) {
-                final tier = (seasonData['CompetitiveTier'] as num?)?.toInt() ?? 0;
-                final rr = (seasonData['RankedRating'] as num?)?.toInt() ?? 0;
-                final games = (seasonData['NumberOfGames'] as num?)?.toInt() ?? 0;
-                if (tier > 0 || games > 0) {
-                  currentTier = tier;
-                  currentRR = rr;
-                  break;
-                }
-              }
-            }
+          final rawSeasonal = competitive['SeasonalInfoBySeasonID'];
+          final seasonal = rawSeasonal is Map ? rawSeasonal : null;
+          final activeSeasonId = latestUpdate?.seasonId ??
+              competitive['CurrentSeasonID']?.toString() ??
+              json['CurrentSeasonID']?.toString();
+          final seasonData =
+              activeSeasonId == null ? null : seasonal?[activeSeasonId];
+          if (seasonData is Map) {
+            currentTier = (seasonData['CompetitiveTier'] as num?)?.toInt() ?? 0;
+            currentRR = (seasonData['RankedRating'] as num?)?.toInt() ?? 0;
           }
         }
       }
@@ -132,4 +127,3 @@ class PlayerMmr {
     );
   }
 }
-

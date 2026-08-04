@@ -84,7 +84,8 @@ class AccountHealthModal extends ConsumerWidget {
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  icon:
+                      const Icon(Icons.close, color: Colors.white54, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -255,7 +256,8 @@ class _AccountHealthBody extends StatelessWidget {
             ),
             child: const Row(
               children: [
-                Icon(Icons.check_circle_outline, color: AppColors.win, size: 20),
+                Icon(Icons.check_circle_outline,
+                    color: AppColors.win, size: 20),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -268,7 +270,8 @@ class _AccountHealthBody extends StatelessWidget {
           )
         else
           Column(
-            children: health.penalties.map((p) => _PenaltyCard(penalty: p)).toList(),
+            children:
+                health.penalties.map((p) => _PenaltyCard(penalty: p)).toList(),
           ),
 
         const SizedBox(height: 24),
@@ -301,7 +304,8 @@ class _AccountHealthBody extends StatelessWidget {
             ),
             child: const Row(
               children: [
-                Icon(Icons.person_off_outlined, color: Colors.white38, size: 20),
+                Icon(Icons.person_off_outlined,
+                    color: Colors.white38, size: 20),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -314,8 +318,9 @@ class _AccountHealthBody extends StatelessWidget {
           )
         else
           Column(
-            children:
-                health.avoidedPlayers.map((p) => _AvoidedPlayerTile(player: p)).toList(),
+            children: health.avoidedPlayers
+                .map((p) => _AvoidedPlayerTile(player: p))
+                .toList(),
           ),
 
         const SizedBox(height: 24),

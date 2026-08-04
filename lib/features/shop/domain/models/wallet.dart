@@ -24,12 +24,10 @@ class Wallet {
   factory Wallet.fromJson(Map<String, dynamic> json) {
     final balances = json['Balances'] as Map<String, dynamic>? ?? {};
     return Wallet(
-      valorantPoints:
-          (balances[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0,
+      valorantPoints: (balances[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0,
       radianitePoints:
           (balances[ValorantCurrency.rpUuid] as num?)?.toInt() ?? 0,
-      kingdomCredits:
-          (balances[ValorantCurrency.kcUuid] as num?)?.toInt() ?? 0,
+      kingdomCredits: (balances[ValorantCurrency.kcUuid] as num?)?.toInt() ?? 0,
       freeAgentCurrency:
           (balances[ValorantCurrency.freeAgentUuid] as num?)?.toInt() ?? 0,
     );

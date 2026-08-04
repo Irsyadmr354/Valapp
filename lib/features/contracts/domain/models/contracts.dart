@@ -18,15 +18,19 @@ class Mission {
     this.xpGrant = 0,
   });
 
-  double get progressFraction =>
-      progressToComplete > 0 ? currentProgress / progressToComplete : 0.0;
+  double get progressFraction => isCompleted
+      ? 1.0
+      : progressToComplete > 0
+          ? currentProgress / progressToComplete
+          : 0.0;
 
   factory Mission.fromJson(Map<String, dynamic> json) {
     final expiry = json['ExpirationTime'] as String?;
 
     // Objectives is a Map<objectiveId, progressValue>
     // Sum all objective progress values
-    final objectives = json['Objectives'] as Map<String, dynamic>? ?? {};
+    final rawObjectives = json['Objectives'];
+    final objectives = rawObjectives is Map ? rawObjectives : const {};
     int totalProgress = 0;
     for (final val in objectives.values) {
       totalProgress += (val as num?)?.toInt() ?? 0;
@@ -35,9 +39,7 @@ class Mission {
     return Mission(
       missionId: json['ID'] as String? ?? '',
       title: json['Title'] as String? ?? 'Mission',
-      progressToComplete:
-          (json['ProgressToComplete'] as num?)?.toInt() ??
-          (totalProgress > 0 ? totalProgress : 1),
+      progressToComplete: (json['ProgressToComplete'] as num?)?.toInt() ?? 0,
       currentProgress: totalProgress,
       isCompleted: json['Complete'] as bool? ?? false,
       expirationTime: expiry != null ? DateTime.tryParse(expiry) : null,
@@ -64,17 +66,16 @@ class Contract {
       Map<String, dynamic> json, String? activeSpecialContractId) {
     return Contract(
       contractId: json['ContractDefinitionID'] as String? ?? '',
-      progressionLevelReached:
-          (json['ContractProgression']?['HighestRewardedLevel']?[
-                  'ProgressionLevel'] as num?)
+      progressionLevelReached: (json['ContractProgression']
+                  ?['HighestRewardedLevel']?['ProgressionLevel'] as num?)
               ?.toInt() ??
-              0,
+          0,
       progressionTowardsNextLevel:
-          (json['ContractProgression']?['ProgressionTowardsNextLevel']
-                  as num?)
-              ?.toInt() ??
+          (json['ContractProgression']?['ProgressionTowardsNextLevel'] as num?)
+                  ?.toInt() ??
               0,
-      isActiveBattlepass: json['ContractDefinitionID'] == activeSpecialContractId,
+      isActiveBattlepass:
+          json['ContractDefinitionID'] == activeSpecialContractId,
     );
   }
 }
@@ -95,26 +96,26 @@ class PlayerContracts {
     if (activeSpecialContractId.isEmpty) return null;
     // Primary: match by activeSpecialContractId (most accurate)
     try {
-      return contracts.firstWhere((c) => c.contractId == activeSpecialContractId);
+      return contracts
+          .firstWhere((c) => c.contractId == activeSpecialContractId);
     } catch (_) {}
-    // Fallback: some episodes return a different contract ID format.
-    // Return the contract with the highest progression level as the best
-    // proxy for the active battlepass — it is almost always the one the
-    // player is actively working through.
-    if (contracts.isEmpty) return null;
-    return contracts.reduce(
-      (a, b) => a.progressionLevelReached >= b.progressionLevelReached ? a : b,
-    );
+    return null;
   }
 
   factory PlayerContracts.fromJson(Map<String, dynamic> json) {
     final activeContractId = json['ActiveSpecialContract'] as String? ?? '';
-    final contracts = (json['Contracts'] as List<dynamic>? ?? [])
-        .map((e) => Contract.fromJson(
-            e as Map<String, dynamic>, activeContractId))
+    final contracts = (json['Contracts'] is List
+            ? json['Contracts'] as List
+            : const <dynamic>[])
+        .whereType<Map>()
+        .map((e) =>
+            Contract.fromJson(Map<String, dynamic>.from(e), activeContractId))
         .toList();
-    final missions = (json['Missions'] as List<dynamic>? ?? [])
-        .map((e) => Mission.fromJson(e as Map<String, dynamic>))
+    final missions = (json['Missions'] is List
+            ? json['Missions'] as List
+            : const <dynamic>[])
+        .whereType<Map>()
+        .map((e) => Mission.fromJson(Map<String, dynamic>.from(e)))
         .toList();
     return PlayerContracts(
       activeSpecialContractId: activeContractId,

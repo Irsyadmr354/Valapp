@@ -10,18 +10,24 @@ import '../domain/models/contracts.dart';
 import 'battlepass_carousel_modal.dart';
 
 final _contractsProvider =
-    FutureProvider.autoDispose<CachedFetchResult<PlayerContracts>?>((ref) async {
+    FutureProvider.autoDispose<CachedFetchResult<PlayerContracts>?>(
+        (ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final source = await ref.watch(contractsRemoteSourceProvider.future);
   final cache = ref.watch(contractsLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
   try {
     final raw = await source.fetchContractsRaw(creds.shard, creds.puuid);
     final contracts = PlayerContracts.fromJson(raw);
-    await cache.saveContracts(raw);
+    if (transaction != null) {
+      await cache.saveContracts(raw,
+          puuid: creds.puuid, transaction: transaction);
+    }
     return CachedFetchResult(contracts);
   } catch (_) {
-    final cached = await cache.loadContracts();
+    final cached = await cache.loadContracts(puuid: creds.puuid);
     if (cached != null) return CachedFetchResult(cached, fromCache: true);
     rethrow;
   }
@@ -75,7 +81,10 @@ class ContractsScreen extends ConsumerWidget {
       body: RefreshIndicator(
         color: AppColors.red,
         backgroundColor: AppColors.bgCard2,
-        onRefresh: () async => ref.invalidate(_contractsProvider),
+        onRefresh: () async {
+          ref.invalidate(_contractsProvider);
+          await ref.read(_contractsProvider.future);
+        },
         child: contractsAsync.when(
           data: (result) => result == null
               ? const Center(
@@ -269,7 +278,8 @@ class _BattlepassCard extends ConsumerWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(bannerUrl, fit: BoxFit.cover,
+                    Image.network(bannerUrl,
+                        fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
                             Container(color: AppColors.bgCard2)),
                     DecoratedBox(
@@ -400,7 +410,18 @@ class _MissionTile extends ConsumerWidget {
                 true
             ? missionsMap[mission.missionId]!['title'] as String
             : mission.title;
-    final progress = mission.progressFraction;
+    final definition = missionsMap[mission.missionId];
+    final definitionTarget = definition is Map
+        ? (definition['progressToComplete'] as num?)?.toInt()
+        : null;
+    final progressTarget = mission.progressToComplete > 0
+        ? mission.progressToComplete
+        : definitionTarget ?? 0;
+    final progress = mission.isCompleted
+        ? 1.0
+        : progressTarget > 0
+            ? mission.currentProgress / progressTarget
+            : 0.0;
     final expiryStr = mission.expirationTime != null
         ? 'Expires ${DateFormat('MMM d').format(mission.expirationTime!)}'
         : null;
@@ -429,8 +450,7 @@ class _MissionTile extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.red.withAlpha(20),
                   borderRadius: BorderRadius.circular(4),
@@ -447,13 +467,13 @@ class _MissionTile extends ConsumerWidget {
                 child: Text(
                   resolvedTitle,
                   style: TextStyle(
-                    color:
-                        mission.isCompleted ? AppColors.textMuted : Colors.white,
+                    color: mission.isCompleted
+                        ? AppColors.textMuted
+                        : Colors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    decoration: mission.isCompleted
-                        ? TextDecoration.lineThrough
-                        : null,
+                    decoration:
+                        mission.isCompleted ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
@@ -488,7 +508,9 @@ class _MissionTile extends ConsumerWidget {
               children: [
                 const SizedBox(),
                 Text(
-                  '${mission.currentProgress} / ${mission.progressToComplete}',
+                  progressTarget > 0
+                      ? '${mission.currentProgress} / $progressTarget'
+                      : '${mission.currentProgress}',
                   style: const TextStyle(
                       color: AppColors.red,
                       fontSize: 11,
@@ -531,9 +553,8 @@ class _AgentContractTile extends ConsumerWidget {
     final contractDefsAsync = ref.watch(_contractDefsProvider);
     final agentsAsync = ref.watch(_contractAgentsProvider);
 
-    final contractDef =
-        contractDefsAsync.asData?.value[contract.contractId]
-            as Map<String, dynamic>?;
+    final contractDef = contractDefsAsync.asData?.value[contract.contractId]
+        as Map<String, dynamic>?;
     final agentUuid = contractDef?['agentUuid'] as String?;
     final agentInfo = agentUuid != null
         ? agentsAsync.asData?.value[agentUuid] as Map<String, dynamic>?

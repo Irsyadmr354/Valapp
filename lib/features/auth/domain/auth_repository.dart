@@ -3,6 +3,7 @@ import '../../../core/storage/secure_storage.dart';
 import '../data/auth_remote_source.dart';
 import '../data/credentials_local_source.dart';
 import '../data/silent_webview_reauth.dart';
+import '../data/oauth_flow.dart';
 import '../domain/models/credentials.dart';
 import '../../../core/exceptions/auth_exception.dart';
 
@@ -17,10 +18,6 @@ class AuthRepository {
   final AuthRemoteSource _remote;
   final CredentialsLocalSource _local;
 
-  // ── Load stored credentials ────────────────────────────────────────────────
-
-  Future<Credentials?> loadCredentials() => _local.load();
-
   // ── Login from WebView ─────────────────────────────────────────────────────
 
   /// Called after WebView login — tokens already parsed, just fetch
@@ -30,10 +27,8 @@ class AuthRepository {
     required String idToken,
     required int expiresIn,
   }) async {
-    final entitlementToken =
-        await _remote.fetchEntitlementToken(accessToken);
-    final geoData =
-        await _remote.fetchRegionAndShard(accessToken, idToken);
+    final entitlementToken = await _remote.fetchEntitlementToken(accessToken);
+    final geoData = await _remote.fetchRegionAndShard(accessToken, idToken);
     final puuid = AuthRemoteSource.extractPuuid(accessToken);
 
     final credentials = Credentials(
@@ -62,33 +57,44 @@ class AuthRepository {
   /// so the `ssid` session cookie from the initial WebView login is automatically
   /// available to SilentWebviewReauth. This is why WebView reauth is tried FIRST.
   Future<Credentials> reauth() async {
+    final old = await _local.load();
+    if (old == null) throw const TokenExpiredException();
+
     String? uri;
+    final attempt = OAuthAttempt.create();
 
     // PRIMARY: WebView-based reauth — uses shared WKWebView cookie store (ssid)
     try {
-      uri = await SilentWebviewReauth.instance.refreshTokens();
+      uri = await SilentWebviewReauth.instance.refreshTokens(attempt);
     } catch (e) {
       debugPrint('[AuthRepo] WebView reauth failed: $e');
 
       // FALLBACK: Dio HTTP cookie reauth — uses PersistCookieJar
       try {
-        uri = await _remote.cookieReauth();
+        uri = await _remote.cookieReauth(attempt);
+      } on InvalidSessionException {
+        rethrow;
       } catch (e2) {
         debugPrint('[AuthRepo] Dio cookie reauth also failed: $e2');
-        throw const TokenExpiredException();
+        throw const TransientReauthException();
       }
     }
 
-    final tokens = AuthRemoteSource.parseTokensFromUri(uri);
+    final tokens = OAuthFlow.parseTokenRedirect(
+      uri,
+      expectedState: attempt.state,
+      expectedNonce: attempt.nonce,
+    );
     final accessToken = tokens['access_token']!;
     final idToken = tokens['id_token']!;
     final expiresIn = int.parse(tokens['expires_in']!);
+    final refreshedPuuid = AuthRemoteSource.extractPuuid(accessToken);
+    if (refreshedPuuid != old.puuid) {
+      debugPrint('[AuthRepo] Reauth returned a token for another account');
+      throw StateError('Reauth returned credentials for another account');
+    }
 
-    final old = await _local.load();
-    if (old == null) throw const TokenExpiredException();
-
-    final entitlementToken =
-        await _remote.fetchEntitlementToken(accessToken);
+    final entitlementToken = await _remote.fetchEntitlementToken(accessToken);
 
     final updated = old.copyWith(
       accessToken: accessToken,
@@ -100,8 +106,13 @@ class AuthRepository {
       ),
     );
 
-    await _local.save(updated);
-    debugPrint('[AuthRepo] Reauth SUCCESS — new token expires at ${updated.expiresAt}');
+    final saved = await _local.saveIfCurrent(old, updated);
+    if (!saved) {
+      debugPrint('[AuthRepo] Active session changed during reauth');
+      throw StateError('Active session changed during reauth');
+    }
+    debugPrint(
+        '[AuthRepo] Reauth SUCCESS — new token expires at ${updated.expiresAt}');
     return updated;
   }
 

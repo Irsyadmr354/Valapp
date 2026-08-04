@@ -73,7 +73,8 @@ class FeaturedBundle {
     for (final e in rawItems) {
       if (e is Map) {
         final itemObj = e['Item'] as Map?;
-        final id = itemObj?['ItemID']?.toString() ?? e['ItemID']?.toString() ?? '';
+        final id =
+            itemObj?['ItemID']?.toString() ?? e['ItemID']?.toString() ?? '';
         final baseCost = (e['BasePrice'] as num?)?.toInt() ??
             (e['Cost']?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
             0;
@@ -97,7 +98,8 @@ class FeaturedBundle {
       bundleUuid: json['DataAssetID'] as String? ?? json['ID'] as String? ?? '',
       durationRemainingSeconds:
           (json['DurationRemainingInSeconds'] as num?)?.toInt() ??
-          (json['BundleRemainingDurationInSeconds'] as num?)?.toInt() ?? 0,
+              (json['BundleRemainingDurationInSeconds'] as num?)?.toInt() ??
+              0,
       itemIds: itemIds,
       items: bundleItems,
       itemPrices: itemPrices,
@@ -173,20 +175,19 @@ class NightMarketOffer {
     }
 
     final rawCost = offer['Cost'] as Map<String, dynamic>? ?? {};
-    final basePrice =
-        (rawCost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
+    final basePrice = (rawCost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
 
     final discCost = json['DiscountCosts'] as Map<String, dynamic>? ?? {};
     final discountedPrice =
         (discCost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
 
     final rawDiscount = (json['DiscountPercent'] as num?)?.toDouble() ?? 0.0;
-    final discountPercent = rawDiscount > 1
-        ? rawDiscount.round()
-        : (rawDiscount * 100).round();
+    final discountPercent =
+        rawDiscount > 1 ? rawDiscount.round() : (rawDiscount * 100).round();
 
     return NightMarketOffer(
-      offerId: offer['OfferID'] as String? ?? json['BonusOfferID'] as String? ?? '',
+      offerId:
+          offer['OfferID'] as String? ?? json['BonusOfferID'] as String? ?? '',
       skinLevelUuid: skinLevelUuid,
       basePrice: basePrice,
       discountedPrice: discountedPrice,
@@ -194,7 +195,6 @@ class NightMarketOffer {
     );
   }
 }
-
 
 /// Accessory store — daily rotating accessories (sprays, cards, etc.)
 class AccessoryStore {
@@ -213,7 +213,8 @@ class AccessoryStore {
           (json['AccessoryStoreRemainingDurationInSeconds'] as num?)?.toInt() ??
               0,
       offerIds: offers
-          .map((e) => e['Offer']?['OfferID'] as String? ?? '')
+          .whereType<Map>()
+          .map((e) => (e['Offer'] as Map?)?['OfferID'] as String? ?? '')
           .where((id) => id.isNotEmpty)
           .toList(),
     );
@@ -239,6 +240,15 @@ class Storefront {
   });
 
   bool get hasNightMarket => nightMarket.isNotEmpty;
+
+  DateTime get dailyOffersDeadline =>
+      fetchedAt.add(Duration(seconds: dailyOffersRemainingSeconds));
+
+  String get dailyOffersIdentity {
+    final ids = dailyOffers.map((offer) => offer.skinLevelUuid).toList()
+      ..sort();
+    return ids.join(',');
+  }
 
   /// Returns true if this storefront data is past its reset time and stale.
   /// Used by the cache layer to decide whether to return cached data or force
@@ -266,18 +276,17 @@ class Storefront {
     // remaining > 86400: something is wrong with the server value — fall back
     // to next midnight UTC (Riot resets at 00:00 UTC = 07:00 WIB).
     final nowUtc = DateTime.now().toUtc();
-    final nextResetUtc = DateTime.utc(
-        nowUtc.year, nowUtc.month, nowUtc.day + 1, 0, 0, 0);
+    final nextResetUtc =
+        DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day + 1, 0, 0, 0);
     return nextResetUtc.difference(nowUtc).inSeconds.clamp(0, 86400);
   }
 
   factory Storefront.fromJson(Map<String, dynamic> json) {
-    final skinPanel =
-        json['SkinsPanelLayout'] as Map<String, dynamic>? ?? {};
-    final singleItemOfferIds =
-        (skinPanel['SingleItemOffers'] as List<dynamic>?)
-                ?.cast<String>() ??
-            [];
+    final skinPanel = json['SkinsPanelLayout'] as Map<String, dynamic>? ?? {};
+    final singleItemOfferIds = (skinPanel['SingleItemOffers'] as List<dynamic>?)
+            ?.whereType<String>()
+            .toList() ??
+        [];
     final singleItemStoreOffers =
         (skinPanel['SingleItemStoreOffers'] as List<dynamic>?) ?? [];
     final remainingSec =
@@ -293,8 +302,7 @@ class Storefront {
       final offerId = storeOffer['OfferID'] as String?;
       if (offerId == null || offerId.isEmpty) continue;
       final cost = storeOffer['Cost'] as Map<String, dynamic>? ?? {};
-      final price =
-          (cost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
+      final price = (cost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0;
       offerPrices[offerId] = price;
     }
 
@@ -327,19 +335,23 @@ class Storefront {
     if (fbJson != null) {
       final bundlesList = fbJson['Bundles'] as List<dynamic>?;
       if (bundlesList != null && bundlesList.isNotEmpty) {
-        bundle = FeaturedBundle.fromJson(
-            bundlesList.first as Map<String, dynamic>);
+        final firstBundle = bundlesList.whereType<Map>().firstOrNull;
+        if (firstBundle != null) {
+          bundle =
+              FeaturedBundle.fromJson(Map<String, dynamic>.from(firstBundle));
+        }
       } else if (fbJson['Bundle'] != null && fbJson['Bundle'] is Map) {
-        bundle = FeaturedBundle.fromJson(
-            fbJson['Bundle'] as Map<String, dynamic>);
+        bundle =
+            FeaturedBundle.fromJson(fbJson['Bundle'] as Map<String, dynamic>);
       }
     }
 
     // Night market
     final bonusStore = json['BonusStore'] as Map<String, dynamic>?;
-    final nightMarketOffers = (bonusStore?['BonusStoreOffers'] as List<dynamic>?)
-            ?.map((e) =>
-                NightMarketOffer.fromJson(e as Map<String, dynamic>))
+    final nightMarketOffers = (bonusStore?['BonusStoreOffers']
+                as List<dynamic>?)
+            ?.whereType<Map>()
+            .map((e) => NightMarketOffer.fromJson(Map<String, dynamic>.from(e)))
             .toList() ??
         [];
 
@@ -356,7 +368,8 @@ class Storefront {
       featuredBundle: bundle,
       nightMarket: nightMarketOffers,
       accessoryStore: accessoryStore,
-      fetchedAt: DateTime.tryParse(json['_fetchedAt'] as String? ?? '') ?? DateTime.now(),
+      fetchedAt: DateTime.tryParse(json['_fetchedAt'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 }

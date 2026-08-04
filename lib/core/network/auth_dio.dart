@@ -7,10 +7,10 @@ const _riotUserAgent =
 
 /// Creates a [Dio] instance dedicated to `auth.riotgames.com` requests.
 /// - Attaches the required Riot User-Agent header on every request.
-/// - Manages cookies via the shared [PersistCookieJar].
+/// - Manages cookies via the shared in-memory [CookieJar].
 /// - Does NOT follow redirects automatically so we can read the `location`
 ///   header for token extraction during cookie reauth.
-Dio createAuthDio(PersistCookieJar cookieJar) {
+Dio createAuthDio(CookieJar cookieJar) {
   final dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 15),

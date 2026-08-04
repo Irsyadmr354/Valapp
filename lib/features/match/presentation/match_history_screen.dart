@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
+import '../../../core/utils/async_lock.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
@@ -41,6 +42,8 @@ final _matchHistoryProvider =
   final queue = ref.watch(_queueFilterProvider);
   final source = await ref.watch(matchRemoteSourceProvider.future);
   final cache = ref.watch(matchHistoryLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
 
   // ── Step 1: fetch/load history quickly (no detail calls here) ────────────
   MatchHistoryResult result;
@@ -53,9 +56,12 @@ final _matchHistoryProvider =
       queue: queue,
     );
     result = MatchHistoryResult.fromJson(raw);
-    await cache.saveHistory(result, queue: queue);
+    if (transaction != null) {
+      await cache.saveHistory(result,
+          queue: queue, puuid: creds.puuid, transaction: transaction);
+    }
   } catch (_) {
-    final cached = await cache.loadHistory(queue: queue);
+    final cached = await cache.loadHistory(queue: queue, puuid: creds.puuid);
     if (cached != null) {
       result = cached;
       fromCache = true;
@@ -70,7 +76,8 @@ final _matchHistoryProvider =
   final detailCache = ref.watch(matchDetailLocalCacheProvider);
   final quickEnriched = <MatchHistoryEntry>[];
   for (final entry in result.matches) {
-    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
+    final detailRaw =
+        await detailCache.loadMatchDetailRaw(entry.matchId, puuid: creds.puuid);
     if (detailRaw == null) {
       quickEnriched.add(entry);
       continue;
@@ -80,26 +87,29 @@ final _matchHistoryProvider =
       final player = details.players
           .cast<PlayerStats?>()
           .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
-      if (player == null) { quickEnriched.add(entry); continue; }
+      if (player == null) {
+        quickEnriched.add(entry);
+        continue;
+      }
 
       MatchResult matchResult = details.resultForPlayer(creds.puuid);
 
-      String? scoreStr;
-      if (details.roundResults.isNotEmpty) {
-        final pt = player.teamId.toLowerCase();
-        final my = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == pt).length;
-        scoreStr = '$my – ${details.roundResults.length - my}';
-      }
+      // Score string via the shared helper (same as enrichedMatchHistoryProvider).
+      final scoreStr = details.scoreStringForPlayer(creds.puuid);
 
       final sorted = List<PlayerStats>.from(details.players)
         ..sort((a, b) => b.score.compareTo(a.score));
       final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
 
       quickEnriched.add(entry.copyWithStats(
-        kills: player.kills, deaths: player.deaths, assists: player.assists,
-        isMvp: isMvp, matchScore: scoreStr, result: matchResult,
-        agentId: player.agentId, mapId: details.mapId,
+        kills: player.kills,
+        deaths: player.deaths,
+        assists: player.assists,
+        isMvp: isMvp,
+        matchScore: scoreStr,
+        result: matchResult,
+        agentId: player.agentId,
+        mapId: details.mapId,
       ));
     } catch (_) {
       quickEnriched.add(entry);
@@ -108,8 +118,10 @@ final _matchHistoryProvider =
 
   return CachedFetchResult(
     MatchHistoryResult(
-      puuid: result.puuid, total: result.total,
-      start: result.start, end: result.end,
+      puuid: result.puuid,
+      total: result.total,
+      start: result.start,
+      end: result.end,
       matches: quickEnriched,
     ),
     fromCache: fromCache,
@@ -130,6 +142,8 @@ final _backgroundEnrichmentProvider =
 
   final source = await ref.watch(matchRemoteSourceProvider.future);
   final detailCache = ref.watch(matchDetailLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
 
   // Skip matchIds that already failed in this session to prevent
   // infinite retry loops when a match detail is permanently unavailable.
@@ -147,21 +161,37 @@ final _backgroundEnrichmentProvider =
   const batchSize = 5;
   for (var i = 0; i < missing.length; i += batchSize) {
     final batch = missing.skip(i).take(batchSize).toList();
-    await Future.wait(batch.map((entry) async {
-      // Skip if already cached (race-free check)
-      final existing = await detailCache.loadMatchDetailRaw(entry.matchId);
-      if (existing != null) return;
-      try {
-          final raw =
-              await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
-          await detailCache.saveMatchDetail(entry.matchId, raw);
-          anyNewData = true;
-        } catch (_) {
-          // Mark as failed so we don't retry this matchId in the same session
-          ref.read(_failedEnrichmentIdsProvider.notifier).update(
-              (ids) => {...ids, entry.matchId});
-        }
-    }));
+    await Future.wait(batch.map((entry) => AsyncLock.run(
+          'match_detail_${entry.matchId}',
+          () async {
+            final existing = await detailCache.loadMatchDetailRaw(entry.matchId,
+                puuid: creds.puuid);
+            if (existing != null ||
+                !ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+              return;
+            }
+            try {
+              final raw =
+                  await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
+              if (!ref
+                  .read(cacheStorageProvider)
+                  .isActiveSession(creds.puuid)) {
+                return;
+              }
+              if (transaction != null) {
+                await detailCache.saveMatchDetail(entry.matchId, raw,
+                    puuid: creds.puuid, transaction: transaction);
+              }
+              anyNewData = true;
+            } catch (_) {
+              if (ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+                ref
+                    .read(_failedEnrichmentIdsProvider.notifier)
+                    .update((ids) => {...ids, entry.matchId});
+              }
+            }
+          },
+        )));
   }
 
   // Trigger re-render only if we actually fetched new data.
@@ -169,7 +199,8 @@ final _backgroundEnrichmentProvider =
   // cause this provider to re-run immediately after _matchHistoryProvider
   // rebuilds, potentially looping if the fresh history still has unknowns.
   // Being autoDispose, this provider is re-created naturally by the screen.
-  if (anyNewData) {
+  if (anyNewData &&
+      ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
     ref.invalidate(_matchHistoryProvider);
   }
 });
@@ -218,7 +249,8 @@ class MatchHistoryScreen extends ConsumerWidget {
                 color: hasResultFilter ? AppColors.red : Colors.white54,
                 size: 22),
             tooltip: 'Filter by Result',
-            onPressed: () => _showResultFilterSheet(context, ref, selectedResult),
+            onPressed: () =>
+                _showResultFilterSheet(context, ref, selectedResult),
           ),
         ],
         bottom: PreferredSize(
@@ -238,22 +270,31 @@ class MatchHistoryScreen extends ConsumerWidget {
           // Reset failed enrichment set so pull-to-refresh retries everything
           ref.read(_failedEnrichmentIdsProvider.notifier).state = {};
           ref.invalidate(_matchHistoryProvider);
+          // Await the refresh so the spinner stays until the fetch finishes.
+          await ref.read(_matchHistoryProvider.future);
         },
         child: historyAsync.when(
           data: (result) {
             if (result == null || result.data.matches.isEmpty) {
-              return const Center(
-                child: Text('No matches found.',
-                    style: TextStyle(color: Colors.white38, fontSize: 13)),
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 180),
+                  Icon(Icons.sports_esports_outlined,
+                      color: Colors.white24, size: 44),
+                  SizedBox(height: 12),
+                  Center(
+                    child: Text('No matches found. Pull down to refresh.',
+                        style: TextStyle(color: Colors.white38, fontSize: 13)),
+                  ),
+                ],
               );
             }
             // Apply result filter if set
             final allMatches = result.data.matches;
             final matches = selectedResult == null
                 ? allMatches
-                : allMatches
-                    .where((m) => m.result == selectedResult)
-                    .toList();
+                : allMatches.where((m) => m.result == selectedResult).toList();
             if (matches.isEmpty) {
               return Center(
                 child: Column(
@@ -264,14 +305,13 @@ class MatchHistoryScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Text(
                       'No ${_resultLabel(selectedResult!)} matches found.',
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 13),
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 13),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
-                      onPressed: () => ref
-                          .read(_resultFilterProvider.notifier)
-                          .state = null,
+                      onPressed: () =>
+                          ref.read(_resultFilterProvider.notifier).state = null,
                       child: const Text('Clear filter',
                           style: TextStyle(color: AppColors.red)),
                     ),
@@ -307,49 +347,57 @@ class MatchHistoryScreen extends ConsumerWidget {
             );
           },
           loading: () => const MatchHistorySkeleton(),
-          error: (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.history_toggle_off,
-                      color: Colors.white38, size: 48),
-                  const SizedBox(height: 12),
-                  const Text('Unable to load match history',
-                      style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  const Text('Pull down to refresh or tap retry below.',
-                      style:
-                          TextStyle(color: Colors.white38, fontSize: 12)),
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: () {
-                      ref.invalidate(currentCredentialsProvider);
-                      ref.invalidate(_matchHistoryProvider);
-                    },
-                    style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF4655)),
-                    child: const Text('Retry'),
-                  ),
-                ],
+          error: (e, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(top: 120),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    const Icon(Icons.history_toggle_off,
+                        color: Colors.white38, size: 48),
+                    const SizedBox(height: 12),
+                    const Text('Unable to load match history',
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    const Text('Pull down to refresh or tap retry below.',
+                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: () {
+                        ref.invalidate(currentCredentialsProvider);
+                        ref.invalidate(_matchHistoryProvider);
+                      },
+                      style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF4655)),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
     );
   }
+
   void _showResultFilterSheet(
       BuildContext context, WidgetRef ref, MatchResult? current) {
     const options = [
-      (null,                  'All Results',  Colors.white70,   Icons.apps_rounded),
-      (MatchResult.victory,   'Victory',      AppColors.win,    Icons.emoji_events_rounded),
-      (MatchResult.defeat,    'Defeat',       AppColors.loss,   Icons.close_rounded),
-      (MatchResult.draw,      'Draw',         Colors.white38,   Icons.remove_rounded),
+      (null, 'All Results', Colors.white70, Icons.apps_rounded),
+      (
+        MatchResult.victory,
+        'Victory',
+        AppColors.win,
+        Icons.emoji_events_rounded
+      ),
+      (MatchResult.defeat, 'Defeat', AppColors.loss, Icons.close_rounded),
+      (MatchResult.draw, 'Draw', Colors.white38, Icons.remove_rounded),
     ];
 
     showModalBottomSheet<void>(
@@ -392,8 +440,8 @@ class MatchHistoryScreen extends ConsumerWidget {
                 },
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: isSelected ? color.withAlpha(30) : AppColors.bg,
                     borderRadius: BorderRadius.circular(12),
@@ -410,9 +458,8 @@ class MatchHistoryScreen extends ConsumerWidget {
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.white70,
                             fontSize: 14,
-                            fontWeight: isSelected
-                                ? FontWeight.w800
-                                : FontWeight.w600,
+                            fontWeight:
+                                isSelected ? FontWeight.w800 : FontWeight.w600,
                           )),
                       const Spacer(),
                       if (isSelected)
@@ -430,8 +477,8 @@ class MatchHistoryScreen extends ConsumerWidget {
 
   String _resultLabel(MatchResult r) => switch (r) {
         MatchResult.victory => 'Victory',
-        MatchResult.defeat  => 'Defeat',
-        MatchResult.draw    => 'Draw',
+        MatchResult.defeat => 'Defeat',
+        MatchResult.draw => 'Draw',
         MatchResult.unknown => 'Unknown',
       };
 }
@@ -488,12 +535,9 @@ class _StatsSummaryBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use all matches as the total — include unknown (unenriched) entries
     final total = matches.length;
-    final won =
-        matches.where((m) => m.result == MatchResult.victory).length;
-    final lost =
-        matches.where((m) => m.result == MatchResult.defeat).length;
-    final draw =
-        matches.where((m) => m.result == MatchResult.draw).length;
+    final won = matches.where((m) => m.result == MatchResult.victory).length;
+    final lost = matches.where((m) => m.result == MatchResult.defeat).length;
+    final draw = matches.where((m) => m.result == MatchResult.draw).length;
     final unknown =
         matches.where((m) => m.result == MatchResult.unknown).length;
     // Win rate over matches with known results
@@ -501,15 +545,13 @@ class _StatsSummaryBanner extends StatelessWidget {
     final winRate = knownTotal > 0 ? won / knownTotal : 0.0;
 
     // K/D across matches that have stats
-    final matchesWithStats =
-        matches.where((m) => m.kills != null).toList();
+    final matchesWithStats = matches.where((m) => m.kills != null).toList();
     final totalKills =
         matchesWithStats.fold<int>(0, (s, m) => s + (m.kills ?? 0));
     final totalDeaths =
         matchesWithStats.fold<int>(0, (s, m) => s + (m.deaths ?? 0));
-    final kd = totalDeaths > 0
-        ? totalKills / totalDeaths
-        : totalKills.toDouble();
+    final kd =
+        totalDeaths > 0 ? totalKills / totalDeaths : totalKills.toDouble();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -538,14 +580,13 @@ class _StatsSummaryBanner extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _StatCount(value: won, label: 'WON',
-                        color: AppColors.win),
+                    _StatCount(value: won, label: 'WON', color: AppColors.win),
                     const SizedBox(width: 14),
-                    _StatCount(value: lost, label: 'LOST',
-                        color: AppColors.loss),
+                    _StatCount(
+                        value: lost, label: 'LOST', color: AppColors.loss),
                     const SizedBox(width: 14),
-                    _StatCount(value: draw, label: 'DRAW',
-                        color: Colors.white38),
+                    _StatCount(
+                        value: draw, label: 'DRAW', color: Colors.white38),
                     if (unknown > 0) ...[
                       const SizedBox(width: 14),
                       Column(
@@ -555,7 +596,8 @@ class _StatsSummaryBanner extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(
-                                width: 10, height: 10,
+                                width: 10,
+                                height: 10,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   color: AppColors.textMuted,
@@ -693,8 +735,7 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _RingPainter old) =>
-      old.progress != progress;
+  bool shouldRepaint(covariant _RingPainter old) => old.progress != progress;
 }
 
 class _StatCount extends StatelessWidget {
@@ -712,7 +753,9 @@ class _StatCount extends StatelessWidget {
         Text(
           '$value',
           style: TextStyle(
-              color: color, fontSize: 22, fontWeight: FontWeight.w900,
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
               height: 1.0),
         ),
         Text(label,
@@ -768,9 +811,8 @@ class _MatchTile extends ConsumerWidget {
 
     final score = entry.matchScore;
     final hasKda = entry.kills != null;
-    final kdaStr = hasKda
-        ? '${entry.kills} / ${entry.deaths} / ${entry.assists}'
-        : null;
+    final kdaStr =
+        hasKda ? '${entry.kills} / ${entry.deaths} / ${entry.assists}' : null;
     final kdoStr = hasKda && (entry.deaths ?? 0) > 0
         ? ((entry.kills! + (entry.assists ?? 0)) / (entry.deaths!))
             .toStringAsFixed(2)
@@ -779,7 +821,8 @@ class _MatchTile extends ConsumerWidget {
 
     // Agent icon from agentId field (added in match history enrichment)
     final agentId = entry.agentId;
-    final agentInfo = agentId != null ? agentsMap[agentId] as Map<String, dynamic>? : null;
+    final agentInfo =
+        agentId != null ? agentsMap[agentId] as Map<String, dynamic>? : null;
     final agentIconUrl = agentInfo?['displayIcon'] as String?;
 
     return InkWell(
@@ -797,7 +840,8 @@ class _MatchTile extends ConsumerWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: SizedBox(
-                    width: 72, height: 56,
+                    width: 72,
+                    height: 56,
                     child: mapSplashUrl != null && mapSplashUrl.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: mapSplashUrl,
@@ -812,7 +856,9 @@ class _MatchTile extends ConsumerWidget {
                   ),
                 ),
                 Positioned(
-                  bottom: 0, left: 0, right: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     decoration: BoxDecoration(
@@ -834,9 +880,11 @@ class _MatchTile extends ConsumerWidget {
                 ),
                 if (score != null)
                   Positioned(
-                    top: 4, left: 4,
+                    top: 4,
+                    left: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.black.withAlpha(160),
                         borderRadius: BorderRadius.circular(4),
@@ -855,12 +903,14 @@ class _MatchTile extends ConsumerWidget {
             // Agent icon (small circle)
             if (agentIconUrl != null && agentIconUrl.isNotEmpty)
               Container(
-                width: 30, height: 30,
+                width: 30,
+                height: 30,
                 margin: const EdgeInsets.only(right: 8),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.bgCard2,
-                  border: Border.all(color: resultColor.withAlpha(80), width: 1),
+                  border:
+                      Border.all(color: resultColor.withAlpha(80), width: 1),
                 ),
                 child: ClipOval(
                   child: CachedNetworkImage(
@@ -877,11 +927,13 @@ class _MatchTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: resultColor.withAlpha(30),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: resultColor.withAlpha(80), width: 0.6),
+                      border: Border.all(
+                          color: resultColor.withAlpha(80), width: 0.6),
                     ),
                     child: Text(
                       entry.queueDisplayName.toUpperCase(),
@@ -933,11 +985,13 @@ class _MatchTile extends ConsumerWidget {
                   if (isMvp)
                     Container(
                       margin: const EdgeInsets.only(top: 3),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFD700).withAlpha(35),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFFFFD700), width: 0.8),
+                        border: Border.all(
+                            color: const Color(0xFFFFD700), width: 0.8),
                       ),
                       child: const Text('MVP',
                           style: TextStyle(
@@ -958,8 +1012,6 @@ class _MatchTile extends ConsumerWidget {
     );
   }
 }
-
-
 
 // ── Map Fallback placeholder ──────────────────────────────────────────────────
 // Shown when map splash image is unavailable — styled dark card with map name.
@@ -1022,7 +1074,8 @@ class _StripePainter extends CustomPainter {
     const spacing = 8.0;
     var x = -size.height.toDouble();
     while (x < size.width + size.height) {
-      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), paint);
+      canvas.drawLine(
+          Offset(x, 0), Offset(x + size.height, size.height), paint);
       x += spacing;
     }
   }

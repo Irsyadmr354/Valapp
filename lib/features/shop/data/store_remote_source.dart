@@ -1,22 +1,10 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
+import '../../../core/network/api_response_decoder.dart';
 import '../domain/models/wallet.dart';
 
 class StoreRemoteSource {
   const StoreRemoteSource(this._dio);
   final Dio _dio;
-
-  Map<String, dynamic> _toMap(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    if (data is String) {
-      try {
-        final decoded = jsonDecode(data);
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      } catch (_) {}
-    }
-    return {};
-  }
 
   Future<Map<String, dynamic>> fetchStorefrontRaw(
       String shard, String puuid) async {
@@ -26,34 +14,33 @@ class StoreRemoteSource {
         'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
         data: {},
       );
-      return _toMap(response.data);
+      return _validateStorefront(response.data, 'storefront v3');
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404 ||
-          e.response?.statusCode == 405 ||
-          e.response?.statusCode == 400) {
-        // Fall back to v2 if v3 fails
+      if (e.response?.statusCode == 404 || e.response?.statusCode == 405) {
         final response = await _dio.post<dynamic>(
           'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
           data: {},
         );
-        return _toMap(response.data);
+        return _validateStorefront(response.data, 'storefront v2');
       }
       rethrow;
     }
   }
 
   Future<Map<String, int>> fetchPrices(String shard) async {
-    final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/store/v1/offers/',
-    );
-    final data = _toMap(response.data);
-    final offers = (data['Offers'] as List<dynamic>?) ?? [];
+    final url = 'https://pd.$shard.a.pvp.net/store/v1/offers/';
+    final response = await _dio.get<dynamic>(url);
+    final data = ApiResponseDecoder.decodeMap(response.data, source: url);
+    ApiResponseDecoder.requireShape(data, source: url, lists: ['Offers']);
+    final offers = data['Offers'] as List<dynamic>;
 
     final map = <String, int>{};
     for (final offer in offers) {
       if (offer is Map) {
         final id = offer['OfferID'] as String?;
-        final costs = offer['Cost'] as Map<String, dynamic>?;
+        final rawCosts = offer['Cost'];
+        final costs =
+            rawCosts is Map ? Map<String, dynamic>.from(rawCosts) : null;
         if (id != null && costs != null) {
           final vp = (costs[ValorantCurrency.vpUuid] as num?)?.toInt();
           if (vp != null) map[id] = vp;
@@ -64,10 +51,26 @@ class StoreRemoteSource {
   }
 
   Future<Wallet> fetchWallet(String shard, String puuid) async {
-    final response = await _dio.get<dynamic>(
-      'https://pd.$shard.a.pvp.net/store/v1/wallet/$puuid',
+    final url = 'https://pd.$shard.a.pvp.net/store/v1/wallet/$puuid';
+    final response = await _dio.get<dynamic>(url);
+    final data = ApiResponseDecoder.decodeMap(response.data, source: url);
+    ApiResponseDecoder.requireShape(data, source: url, maps: ['Balances']);
+    return Wallet.fromJson(data);
+  }
+
+  Map<String, dynamic> _validateStorefront(dynamic body, String source) {
+    final data = ApiResponseDecoder.decodeMap(body, source: source);
+    ApiResponseDecoder.requireShape(
+      data,
+      source: source,
+      maps: ['SkinsPanelLayout'],
     );
-    return Wallet.fromJson(_toMap(response.data));
+    final panel = Map<String, dynamic>.from(data['SkinsPanelLayout'] as Map);
+    ApiResponseDecoder.requireShape(
+      panel,
+      source: '$source SkinsPanelLayout',
+      lists: ['SingleItemOffers'],
+    );
+    return data;
   }
 }
-

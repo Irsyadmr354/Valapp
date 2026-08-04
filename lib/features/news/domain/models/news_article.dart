@@ -5,7 +5,7 @@ class NewsArticle {
   final String description;
   final String url;
   final String? bannerUrl;
-  final String category;   // e.g. "game-updates", "esports", "announcements"
+  final String category; // e.g. "game-updates", "esports", "announcements"
   final DateTime? publishedAt;
 
   const NewsArticle({
@@ -45,10 +45,10 @@ class NewsArticle {
     // Url handling — API returns relative paths
     final rawUrl = node['url'] as String? ??
         node['path'] as String? ??
-        node['link']?['url'] as String? ?? '';
-    final fullUrl = rawUrl.startsWith('http')
-        ? rawUrl
-        : 'https://playvalorant.com$rawUrl';
+        node['link']?['url'] as String? ??
+        '';
+    final fullUrl =
+        rawUrl.startsWith('http') ? rawUrl : 'https://playvalorant.com$rawUrl';
 
     // Banner image
     String? bannerUrl;
@@ -72,8 +72,7 @@ class NewsArticle {
     final category = node['category'] as String? ??
         (node['tags'] as List<dynamic>?)
             ?.whereType<Map>()
-            .firstWhere(
-                (t) => t['type'] == 'category',
+            .firstWhere((t) => t['type'] == 'category',
                 orElse: () => {'title': 'news'})['title']
             ?.toString() ??
         'news';
@@ -84,7 +83,8 @@ class NewsArticle {
           fullUrl.hashCode.toString(),
       title: node['title'] as String? ?? '',
       description: node['description'] as String? ??
-          node['external_link'] as String? ?? '',
+          node['external_link'] as String? ??
+          '',
       url: fullUrl,
       bannerUrl: bannerUrl,
       category: category,

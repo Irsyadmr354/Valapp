@@ -17,41 +17,40 @@ final _loadoutProvider =
   if (creds == null) return null;
   final source = await ref.watch(loadoutRemoteSourceProvider.future);
   final cache = ref.watch(loadoutLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
   try {
     final raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
     final loadout = PlayerLoadout.fromJson(raw);
-    await cache.saveLoadout(raw);
+    if (transaction != null) {
+      await cache.saveLoadout(raw,
+          puuid: creds.puuid, transaction: transaction);
+    }
     return CachedFetchResult(loadout);
   } catch (_) {
-    final cached = await cache.loadLoadout();
+    final cached = await cache.loadLoadout(puuid: creds.puuid);
     if (cached != null) return CachedFetchResult(cached, fromCache: true);
     rethrow;
   }
 });
 
-final _skinMetaProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getSkinLevelsMap());
+final _skinMetaProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) async => ref.watch(valorantAssetsProvider).getSkinLevelsMap());
 
-final _playerCardsProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getPlayerCardsMap());
+final _playerCardsProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) async => ref.watch(valorantAssetsProvider).getPlayerCardsMap());
 
-final _spraysProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getSpraysMap());
+final _spraysProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) async => ref.watch(valorantAssetsProvider).getSpraysMap());
 
-final _titlesProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getPlayerTitlesMap());
+final _titlesProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) async => ref.watch(valorantAssetsProvider).getPlayerTitlesMap());
 
-final _buddiesProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getBuddiesMap());
+final _buddiesProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) async => ref.watch(valorantAssetsProvider).getBuddiesMap());
 
-final _weaponsBaseProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getWeaponsMap());
+final _weaponsBaseProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) async => ref.watch(valorantAssetsProvider).getWeaponsMap());
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -82,7 +81,10 @@ class LoadoutScreen extends ConsumerWidget {
       body: RefreshIndicator(
         color: AppColors.red,
         backgroundColor: AppColors.bgCard2,
-        onRefresh: () async => ref.invalidate(_loadoutProvider),
+        onRefresh: () async {
+          ref.invalidate(_loadoutProvider);
+          await ref.read(_loadoutProvider.future);
+        },
         child: loadoutAsync.when(
           data: (result) => result == null
               ? const Center(
@@ -109,14 +111,14 @@ class LoadoutScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   Text(e.toString(),
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 12),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: () => ref.invalidate(_loadoutProvider),
-                    style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.red),
+                    style:
+                        FilledButton.styleFrom(backgroundColor: AppColors.red),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -132,13 +134,13 @@ class LoadoutScreen extends ConsumerWidget {
 // ── Weapon category grouping ──────────────────────────────────────────────────
 
 const _weaponCategories = <String, List<String>>{
-  'PISTOLS':   ['Classic', 'Shorty', 'Frenzy', 'Ghost', 'Sheriff'],
-  'SMGs':      ['Stinger', 'Spectre'],
-  'RIFLES':    ['Bulldog', 'Guardian', 'Phantom', 'Vandal'],
-  'SHOTGUNS':  ['Bucky', 'Judge'],
-  'SNIPERS':   ['Marshal', 'Outlaw', 'Operator'],
-  'HEAVY':     ['Ares', 'Odin'],
-  'MELEE':     ['Melee'],
+  'PISTOLS': ['Classic', 'Shorty', 'Frenzy', 'Ghost', 'Sheriff'],
+  'SMGs': ['Stinger', 'Spectre'],
+  'RIFLES': ['Bulldog', 'Guardian', 'Phantom', 'Vandal'],
+  'SHOTGUNS': ['Bucky', 'Judge'],
+  'SNIPERS': ['Marshal', 'Outlaw', 'Operator'],
+  'HEAVY': ['Ares', 'Odin'],
+  'MELEE': ['Melee'],
 };
 
 String _categoryFor(String weaponName) {
@@ -160,16 +162,22 @@ class _LoadoutContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final skinMap   = ref.watch(_skinMetaProvider).asData?.value ?? {};
-    final cardMap   = ref.watch(_playerCardsProvider).asData?.value ?? {};
-    final sprayMap  = ref.watch(_spraysProvider).asData?.value ?? {};
-    final titleMap  = ref.watch(_titlesProvider).asData?.value ?? {};
-    final buddyMap  = ref.watch(_buddiesProvider).asData?.value ?? {};
-    final baseMap   = ref.watch(_weaponsBaseProvider).asData?.value ?? {};
+    final skinMap = ref.watch(_skinMetaProvider).asData?.value ?? {};
+    final cardMap = ref.watch(_playerCardsProvider).asData?.value ?? {};
+    final sprayMap = ref.watch(_spraysProvider).asData?.value ?? {};
+    final titleMap = ref.watch(_titlesProvider).asData?.value ?? {};
+    final buddyMap = ref.watch(_buddiesProvider).asData?.value ?? {};
+    final baseMap = ref.watch(_weaponsBaseProvider).asData?.value ?? {};
 
-    final cardInfo  = loadout.playerCardId != null ? cardMap[loadout.playerCardId] as Map<String, dynamic>? : null;
-    final sprayInfo = loadout.sprayId != null ? sprayMap[loadout.sprayId] as Map<String, dynamic>? : null;
-    final titleInfo = loadout.playerTitleId != null ? titleMap[loadout.playerTitleId] as Map<String, dynamic>? : null;
+    final cardInfo = loadout.playerCardId != null
+        ? cardMap[loadout.playerCardId] as Map<String, dynamic>?
+        : null;
+    final sprayInfo = loadout.sprayId != null
+        ? sprayMap[loadout.sprayId] as Map<String, dynamic>?
+        : null;
+    final titleInfo = loadout.playerTitleId != null
+        ? titleMap[loadout.playerTitleId] as Map<String, dynamic>?
+        : null;
 
     // Group weapons by category
     final grouped = <String, List<WeaponLoadout>>{};
@@ -196,7 +204,8 @@ class _LoadoutContent extends ConsumerWidget {
         const _SectionHeader(title: 'IDENTITY'),
         _IdentityCard(
           cardInfo: cardInfo,
-          titleText: titleInfo?['titleText'] as String? ?? titleInfo?['displayName'] as String?,
+          titleText: titleInfo?['titleText'] as String? ??
+              titleInfo?['displayName'] as String?,
           sprayInfo: sprayInfo,
         ),
         const SizedBox(height: 20),
@@ -207,8 +216,12 @@ class _LoadoutContent extends ConsumerWidget {
           for (final w in entry.value)
             _WeaponSkinTile(
               weapon: w,
-              skinInfo: w.skinLevelId != null ? skinMap[w.skinLevelId] as Map<String, dynamic>? : null,
-              buddyInfo: w.buddyId != null ? buddyMap[w.buddyId] as Map<String, dynamic>? : null,
+              skinInfo: w.skinLevelId != null
+                  ? skinMap[w.skinLevelId] as Map<String, dynamic>?
+                  : null,
+              buddyInfo: w.buddyId != null
+                  ? buddyMap[w.buddyId] as Map<String, dynamic>?
+                  : null,
               defaultWeaponInfo: baseMap[w.weaponId] as Map<String, dynamic>?,
             ),
           const SizedBox(height: 12),
@@ -242,8 +255,7 @@ class _IdentityCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: AppColors.red.withAlpha(80), width: 1),
+        border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -255,17 +267,15 @@ class _IdentityCard extends StatelessWidget {
         children: [
           // Player Card art
           ClipRRect(
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(15)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
             child: wideArt != null
                 ? CachedNetworkImage(
                     imageUrl: wideArt,
                     height: 100,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) =>
-                        const LoadingShimmer(height: 100),
-                    errorWidget: (_, __, ___) => Container(
-                        height: 100, color: AppColors.bgCard),
+                    placeholder: (_, __) => const LoadingShimmer(height: 100),
+                    errorWidget: (_, __, ___) =>
+                        Container(height: 100, color: AppColors.bgCard),
                   )
                 : Container(height: 100, color: AppColors.bgCard),
           ),
@@ -314,8 +324,7 @@ class _IdentityCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.bgCard,
                         borderRadius: BorderRadius.circular(8),
-                        border:
-                            Border.all(color: Colors.white12, width: 0.8),
+                        border: Border.all(color: Colors.white12, width: 0.8),
                       ),
                       child: sprayIcon != null
                           ? CachedNetworkImage(
@@ -334,8 +343,8 @@ class _IdentityCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       sprayInfo?['displayName'] as String? ?? 'Default',
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 9),
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 9),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -382,7 +391,9 @@ class _WeaponSkinTile extends StatelessWidget {
 
     final tierUuid = isDefault ? null : skinInfo?['contentTierUuid'] as String?;
     final tierColor = TierColors.forName(tierUuid);
-    final tierLabel = isDefault ? 'Default' : TierColors.tierLabel(tierUuid).replaceAll(' Edition', '');
+    final tierLabel = isDefault
+        ? 'Default'
+        : TierColors.tierLabel(tierUuid).replaceAll(' Edition', '');
 
     // Chroma indicator — non-default chroma equipped?
     final hasNonDefaultChroma = weapon.chromaId != null &&
@@ -414,9 +425,7 @@ class _WeaponSkinTile extends StatelessWidget {
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDefault
-              ? AppColors.border
-              : tierColor.withAlpha(120),
+          color: isDefault ? AppColors.border : tierColor.withAlpha(120),
           width: isDefault ? 0.8 : 1.2,
         ),
       ),
@@ -424,7 +433,8 @@ class _WeaponSkinTile extends StatelessWidget {
         children: [
           // Weapon image
           Container(
-            width: 82, height: 48,
+            width: 82,
+            height: 48,
             decoration: BoxDecoration(
               color: isDefault ? AppColors.bgCard2 : tierColor.withAlpha(20),
               borderRadius: BorderRadius.circular(8),
@@ -435,10 +445,13 @@ class _WeaponSkinTile extends StatelessWidget {
                     fit: BoxFit.contain,
                     placeholder: (_, __) => const LoadingShimmer(height: 48),
                     errorWidget: (_, __, ___) => const Icon(
-                        Icons.shield_outlined, color: Colors.white24, size: 28),
+                        Icons.shield_outlined,
+                        color: Colors.white24,
+                        size: 28),
                   )
-                : const Center(child: Icon(Icons.shield_outlined,
-                    color: Colors.white24, size: 28)),
+                : const Center(
+                    child: Icon(Icons.shield_outlined,
+                        color: Colors.white24, size: 28)),
           ),
           const SizedBox(width: 12),
           // Skin name + tier + chroma dot
@@ -460,7 +473,8 @@ class _WeaponSkinTile extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      width: 8, height: 8,
+                      width: 8,
+                      height: 8,
                       decoration: BoxDecoration(
                         color: isDefault ? AppColors.textMuted : tierColor,
                         shape: BoxShape.circle,
@@ -491,7 +505,8 @@ class _WeaponSkinTile extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 6, height: 6,
+                              width: 6,
+                              height: 6,
                               decoration: BoxDecoration(
                                 color: chromaColor ?? AppColors.rpAmber,
                                 shape: BoxShape.circle,
@@ -517,7 +532,8 @@ class _WeaponSkinTile extends StatelessWidget {
             Column(
               children: [
                 Container(
-                  width: 34, height: 34,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: AppColors.bgCard2,
                     borderRadius: BorderRadius.circular(8),
@@ -529,7 +545,8 @@ class _WeaponSkinTile extends StatelessWidget {
                     placeholder: (_, __) => const LoadingShimmer(height: 34),
                     errorWidget: (_, __, ___) => const Icon(
                         Icons.emoji_nature_outlined,
-                        color: Colors.white24, size: 18),
+                        color: Colors.white24,
+                        size: 18),
                   ),
                 ),
                 if (buddyName != null)

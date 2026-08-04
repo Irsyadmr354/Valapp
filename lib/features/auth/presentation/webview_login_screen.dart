@@ -3,9 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/storage/cache_storage.dart';
 import '../../../core/exceptions/auth_exception.dart';
-import '../data/auth_remote_source.dart';
+import '../data/oauth_flow.dart';
 
 /// Opens Riot's real login page in a WebView and intercepts the redirect
 /// that contains the access_token. This avoids CAPTCHA entirely because
@@ -14,8 +13,7 @@ class WebViewLoginScreen extends ConsumerStatefulWidget {
   const WebViewLoginScreen({super.key});
 
   @override
-  ConsumerState<WebViewLoginScreen> createState() =>
-      _WebViewLoginScreenState();
+  ConsumerState<WebViewLoginScreen> createState() => _WebViewLoginScreenState();
 }
 
 class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
@@ -23,16 +21,7 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
   bool _isLoading = true;
   bool _isProcessing = false;
   String? _errorMessage;
-
-  static const _loginUrl =
-      'https://auth.riotgames.com/authorize'
-      '?client_id=play-valorant-web-prod'
-      '&nonce=1'
-      '&redirect_uri=https://playvalorant.com/opt_in'
-      '&response_type=token%20id_token'
-      '&scope=account%20openid';
-
-  static const _redirectPrefix = 'https://playvalorant.com/opt_in';
+  late OAuthAttempt _attempt;
 
   @override
   void initState() {
@@ -49,21 +38,29 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
+            if (!mounted) return;
             setState(() => _isLoading = true);
             _checkForToken(url);
           },
           onPageFinished: (url) {
+            if (!mounted) return;
             setState(() => _isLoading = false);
             _checkForToken(url);
           },
           onNavigationRequest: (request) {
-            _checkForToken(request.url);
+            final uri = Uri.tryParse(request.url);
+            if (uri != null && OAuthFlow.isRedirectUri(uri)) {
+              _checkForToken(request.url);
+              return NavigationDecision.prevent;
+            }
             return NavigationDecision.navigate;
           },
           onWebResourceError: (error) {
+            if (!mounted) return;
             // Ignore errors for the redirect URI — it doesn't actually load
             final url = error.url ?? '';
-            if (!url.startsWith(_redirectPrefix)) {
+            final uri = Uri.tryParse(url);
+            if (uri == null || !OAuthFlow.isRedirectUri(uri)) {
               setState(() {
                 _isLoading = false;
                 _errorMessage = 'Network error: ${error.description}';
@@ -71,8 +68,13 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
             }
           },
         ),
-      )
-      ..loadRequest(Uri.parse(_loginUrl));
+      );
+    _startAttempt();
+  }
+
+  void _startAttempt() {
+    _attempt = OAuthAttempt.create();
+    _controller.loadRequest(_attempt.authorizeUri);
   }
 
   void _checkForToken(String url) {
@@ -81,47 +83,54 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
     // all see the same value before any setState frame fires.
     if (_isProcessing) return;
 
-    if (url.startsWith(_redirectPrefix) && url.contains('access_token')) {
+    final uri = Uri.tryParse(url);
+    if (uri != null && OAuthFlow.isRedirectUri(uri)) {
       _isProcessing = true; // set field directly — no setState needed here
       _handleTokenRedirect(url);
     }
   }
 
   Future<void> _handleTokenRedirect(String redirectUrl) async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final tokens = AuthRemoteSource.parseTokensFromUri(redirectUrl);
+      final tokens = OAuthFlow.parseTokenRedirect(
+        redirectUrl,
+        expectedState: _attempt.state,
+        expectedNonce: _attempt.nonce,
+      );
       final accessToken = tokens['access_token']!;
       final idToken = tokens['id_token']!;
       final expiresIn = int.parse(tokens['expires_in']!);
 
       final repo = await ref.read(authRepositoryProvider.future);
+      if (!mounted) return;
       final creds = await repo.completeLoginFromWebView(
         accessToken: accessToken,
         idToken: idToken,
         expiresIn: expiresIn,
       );
 
-      // Wipe cached user data from old session
-      await CacheStorage.instance.clearUserCache();
-
       // Attempt to resolve real Riot ID display name and Player Card Avatar for multi-account profile
       try {
         final source = await ref.read(accountRemoteSourceProvider.future);
-        final loadoutSource = await ref.read(loadoutRemoteSourceProvider.future);
+        final loadoutSource =
+            await ref.read(loadoutRemoteSourceProvider.future);
         final assets = ref.read(valorantAssetsProvider);
         final localSource = ref.read(credentialsLocalSourceProvider);
 
-        final realName = await source.fetchDisplayName(creds.shard, creds.puuid);
+        final realName =
+            await source.fetchDisplayName(creds.shard, creds.puuid);
         String? avatarUrl;
         String? cardId;
 
         try {
-          final rawLoadout = await loadoutSource.fetchLoadoutRaw(creds.shard, creds.puuid);
+          final rawLoadout =
+              await loadoutSource.fetchLoadoutRaw(creds.shard, creds.puuid);
           final loadoutRoot = rawLoadout.containsKey('Loadout')
               ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
               : rawLoadout;
@@ -133,30 +142,24 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
               rawLoadout['PlayerCardID'] as String?;
           if (cardId != null && cardId.isNotEmpty) {
             final cardsMap = await assets.getPlayerCardsMap();
-            final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
-            avatarUrl = cardInfo?['smallArt'] as String? ?? cardInfo?['displayIcon'] as String?;
+            final cardInfo = (cardsMap[cardId] ??
+                cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
+            avatarUrl = cardInfo?['smallArt'] as String? ??
+                cardInfo?['displayIcon'] as String?;
           }
         } catch (_) {}
 
         await localSource.save(
           creds,
-          displayName: (realName != null && realName.isNotEmpty) ? realName : null,
+          displayName:
+              (realName != null && realName.isNotEmpty) ? realName : null,
           playerCardId: cardId,
           avatarUrl: avatarUrl,
         );
       } catch (_) {}
 
       // Invalidate credentials & session providers so router and UI pick up the new session
-      ref.invalidate(currentCredentialsProvider);
-      ref.invalidate(apiDioProvider);
-      ref.invalidate(storeRemoteSourceProvider);
-      ref.invalidate(storeRepositoryProvider);
-      ref.invalidate(matchRemoteSourceProvider);
-      ref.invalidate(mmrRemoteSourceProvider);
-      ref.invalidate(contractsRemoteSourceProvider);
-      ref.invalidate(accountRemoteSourceProvider);
-      ref.invalidate(restrictionsRemoteSourceProvider);
-      ref.invalidate(loadoutRemoteSourceProvider);
+      ref.read(sessionActionsProvider).invalidateSession();
 
       if (mounted) {
         if (Navigator.of(context).canPop()) {
@@ -185,95 +188,104 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
   }
 
   @override
+  void dispose() {
+    _controller.loadRequest(Uri.parse('about:blank'));
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F1923),
-      appBar: AppBar(
+    return PopScope(
+      canPop: !_isProcessing,
+      child: Scaffold(
         backgroundColor: const Color(0xFF0F1923),
-        title: const Text(
-          'Login with Riot',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0F1923),
+          title: const Text(
+            'Login with Riot',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            onPressed: _isProcessing ? null : () => context.pop(),
+          ),
+          actions: [
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFFF4655),
+                  ),
+                ),
+              ),
+          ],
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => context.pop(),
+        body: Stack(
+          children: [
+            // WebView
+            if (_errorMessage == null && !_isProcessing)
+              WebViewWidget(controller: _controller),
+
+            // Processing overlay
+            if (_isProcessing)
+              Container(
+                color: const Color(0xFF0F1923),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFFFF4655)),
+                      SizedBox(height: 20),
+                      Text(
+                        'Logging in...',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Error state
+            if (_errorMessage != null)
+              Container(
+                color: const Color(0xFF0F1923),
+                padding: const EdgeInsets.all(32),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Color(0xFFFF4655), size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton(
+                        onPressed: () {
+                          setState(() {
+                            _errorMessage = null;
+                            _isProcessing = false;
+                          });
+                          _startAttempt();
+                        },
+                        style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFFFF4655)),
+                        child: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
-        actions: [
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFFFF4655),
-                ),
-              ),
-            ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // WebView
-          if (_errorMessage == null && !_isProcessing)
-            WebViewWidget(controller: _controller),
-
-          // Processing overlay
-          if (_isProcessing)
-            Container(
-              color: const Color(0xFF0F1923),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Color(0xFFFF4655)),
-                    SizedBox(height: 20),
-                    Text(
-                      'Logging in...',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Error state
-          if (_errorMessage != null)
-            Container(
-              color: const Color(0xFF0F1923),
-              padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        color: Color(0xFFFF4655), size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: () {
-                        setState(() {
-                          _errorMessage = null;
-                          _isProcessing = false;
-                        });
-                        _controller.loadRequest(Uri.parse(_loginUrl));
-                      },
-                      style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF4655)),
-                      child: const Text('Try Again'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

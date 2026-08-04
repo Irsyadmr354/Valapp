@@ -60,7 +60,8 @@ class ValorantAssets {
     for (final skin in skins) {
       final levels = skin['levels'] as List<dynamic>? ?? [];
       final skinUuid = skin['uuid'] as String?;
-      final weaponType = skinUuid != null ? (weaponTypeMap[skinUuid] ?? '') : '';
+      final weaponType =
+          skinUuid != null ? (weaponTypeMap[skinUuid] ?? '') : '';
 
       // Find the best icon: prefer level 1 (index 0), fall back to any level
       // with a non-null icon. Melee skins sometimes have a null icon on level 1.
@@ -141,8 +142,7 @@ class ValorantAssets {
         ? (allSeasons.last['tiers'] as List<dynamic>? ?? [])
         : <dynamic>[];
 
-    await cache.setJson(
-        CacheStorage.keyCompetitiveTiers, tiers);
+    await cache.setJson(CacheStorage.keyCompetitiveTiers, tiers);
     await cache.setTimestamp(CacheStorage.keyCompetitiveTiersFetchedAt);
     return tiers;
   }
@@ -175,8 +175,7 @@ class ValorantAssets {
     }
 
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>('$_base/bundles');
+      final response = await _dio.get<Map<String, dynamic>>('$_base/bundles');
       final bundles = (response.data?['data'] as List<dynamic>?) ?? [];
 
       final map = <String, dynamic>{};
@@ -246,7 +245,8 @@ class ValorantAssets {
         final uuid = m['uuid']?.toString();
         final displayName = m['displayName']?.toString() ?? '';
         final mapUrl = m['mapUrl']?.toString() ?? '';
-        final splash = m['splash']?.toString() ?? m['listViewIcon']?.toString() ?? '';
+        final splash =
+            m['splash']?.toString() ?? m['listViewIcon']?.toString() ?? '';
         final displayIcon = m['displayIcon']?.toString() ?? '';
 
         final info = {
@@ -273,7 +273,8 @@ class ValorantAssets {
           map[lowerUrl] = info;
 
           // Index by every path segment (handles /Game/Maps/Duality/Duality)
-          final segments = lowerUrl.split('/').where((s) => s.isNotEmpty).toList();
+          final segments =
+              lowerUrl.split('/').where((s) => s.isNotEmpty).toList();
           for (final seg in segments) {
             if (seg.isEmpty) continue;
             map[seg] = info;
@@ -356,8 +357,8 @@ class ValorantAssets {
       if (cached != null) return cached;
     }
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
-          '$_base/agents?isPlayableCharacter=true');
+      final response = await _dio
+          .get<Map<String, dynamic>>('$_base/agents?isPlayableCharacter=true');
       final agents = (response.data?['data'] as List<dynamic>?) ?? [];
       final map = <String, dynamic>{};
       for (final a in agents) {
@@ -433,8 +434,7 @@ class ValorantAssets {
       if (cached != null) return cached;
     }
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>('$_base/sprays');
+      final response = await _dio.get<Map<String, dynamic>>('$_base/sprays');
       final sprays = (response.data?['data'] as List<dynamic>?) ?? [];
       final map = <String, dynamic>{};
       for (final s in sprays) {
@@ -503,8 +503,8 @@ class ValorantAssets {
     if (!isStale) {
       final cached = await cache.getJson(keySeasons);
       if (cached != null) {
-        return Map<String, String>.from(cached.map(
-            (k, v) => MapEntry(k, v?.toString() ?? '')));
+        return Map<String, String>.from(
+            cached.map((k, v) => MapEntry(k, v?.toString() ?? '')));
       }
     }
     try {
@@ -518,16 +518,18 @@ class ValorantAssets {
       for (final s in seasons) {
         final start = DateTime.tryParse(s['startTime']?.toString() ?? '') ??
             DateTime(2020);
-        final end = DateTime.tryParse(s['endTime']?.toString() ?? '') ??
-            DateTime(2099);
+        final end =
+            DateTime.tryParse(s['endTime']?.toString() ?? '') ?? DateTime(2099);
         if (!now.isAfter(start) || !now.isBefore(end)) continue;
 
         final type = s['type']?.toString() ?? '';
         final name = s['displayName']?.toString() ?? '';
-        if (type.toLowerCase().contains('episode') || type == 'EAresSeasonType::Episode') {
+        if (type.toLowerCase().contains('episode') ||
+            type == 'EAresSeasonType::Episode') {
           final num = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
           episode = num.isNotEmpty ? 'EPISODE $num' : name.toUpperCase();
-        } else if (type.toLowerCase().contains('act') || type == 'EAresSeasonType::Act') {
+        } else if (type.toLowerCase().contains('act') ||
+            type == 'EAresSeasonType::Act') {
           final num = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
           act = num.isNotEmpty ? 'ACT $num' : name.toUpperCase();
         }
@@ -537,18 +539,25 @@ class ValorantAssets {
       if (episode.isEmpty || act.isEmpty) {
         final sortedSeasons = List<dynamic>.from(seasons);
         sortedSeasons.sort((a, b) {
-          final aStart = DateTime.tryParse(a['startTime']?.toString() ?? '') ?? DateTime(2020);
-          final bStart = DateTime.tryParse(b['startTime']?.toString() ?? '') ?? DateTime(2020);
+          final aStart = DateTime.tryParse(a['startTime']?.toString() ?? '') ??
+              DateTime(2020);
+          final bStart = DateTime.tryParse(b['startTime']?.toString() ?? '') ??
+              DateTime(2020);
           return bStart.compareTo(aStart);
         });
 
         for (final s in sortedSeasons) {
           final type = s['type']?.toString() ?? '';
           final name = s['displayName']?.toString() ?? '';
-          if (episode.isEmpty && (type.toLowerCase().contains('episode') || type == 'EAresSeasonType::Episode')) {
+          if (episode.isEmpty &&
+              (type.toLowerCase().contains('episode') ||
+                  type == 'EAresSeasonType::Episode')) {
             final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-            episode = numStr.isNotEmpty ? 'EPISODE $numStr' : name.toUpperCase();
-          } else if (act.isEmpty && (type.toLowerCase().contains('act') || type == 'EAresSeasonType::Act')) {
+            episode =
+                numStr.isNotEmpty ? 'EPISODE $numStr' : name.toUpperCase();
+          } else if (act.isEmpty &&
+              (type.toLowerCase().contains('act') ||
+                  type == 'EAresSeasonType::Act')) {
             final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
             act = numStr.isNotEmpty ? 'ACT $numStr' : name.toUpperCase();
           }
@@ -669,8 +678,7 @@ class ValorantAssets {
       if (cached != null) return cached;
     }
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>('$_base/contracts');
+      final response = await _dio.get<Map<String, dynamic>>('$_base/contracts');
       final contracts = (response.data?['data'] as List<dynamic>?) ?? [];
       final map = <String, dynamic>{};
       for (final c in contracts) {
@@ -689,10 +697,8 @@ class ValorantAssets {
           // - 'Event'      → relationType == 'Event' or displayName has
           //                  'event', 'fc', 'pass' but not season/act
           // - 'Other'      → everything else (e.g. Play to Unlock Agents)
-          final displayName =
-              (c['displayName'] as String? ?? '').toLowerCase();
-          final chapters =
-              (content['chapters'] as List<dynamic>?)?.length ?? 0;
+          final displayName = (c['displayName'] as String? ?? '').toLowerCase();
+          final chapters = (content['chapters'] as List<dynamic>?)?.length ?? 0;
 
           String contractType;
           if (relationType == 'Agent') {
@@ -745,8 +751,7 @@ class ValorantAssets {
       if (cached != null) return cached;
     }
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>('$_base/missions');
+      final response = await _dio.get<Map<String, dynamic>>('$_base/missions');
       final missions = (response.data?['data'] as List<dynamic>?) ?? [];
       final map = <String, dynamic>{};
       for (final m in missions) {
@@ -775,7 +780,8 @@ class ValorantAssets {
   /// [{ 'uuid', 'displayName', 'startingLevel', 'displayIcon', 'smallPlayerCardAppearance' }]
   Future<List<Map<String, dynamic>>> getLevelBordersList() async {
     final cache = CacheStorage.instance;
-    const keyBorders = 'level_borders_metadata_v2'; // v2 — fixes displayIcon field
+    const keyBorders =
+        'level_borders_metadata_v2'; // v2 — fixes displayIcon field
     const keyBordersFetchedAt = 'level_borders_metadata_v2_fetched_at';
 
     final isStale = await cache.isStale(keyBordersFetchedAt, _cacheDuration);
@@ -828,8 +834,7 @@ class ValorantAssets {
       if (cached != null) return cached;
     }
     try {
-      final response =
-          await _dio.get<Map<String, dynamic>>('$_base/buddies');
+      final response = await _dio.get<Map<String, dynamic>>('$_base/buddies');
       final buddies = (response.data?['data'] as List<dynamic>?) ?? [];
       final map = <String, dynamic>{};
       for (final b in buddies) {
@@ -864,6 +869,3 @@ class ValorantAssets {
     }
   }
 }
-
-
-

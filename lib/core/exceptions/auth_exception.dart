@@ -9,30 +9,17 @@ class AuthException implements Exception {
 
 /// Thrown when access token and cookies are both expired — user must re-login.
 class TokenExpiredException extends AuthException {
-  const TokenExpiredException()
-      : super('Token expired. Please login again.');
+  const TokenExpiredException() : super('Token expired. Please login again.');
 }
 
-/// Thrown when Riot returns a CAPTCHA challenge.
-class CaptchaRequiredException extends AuthException {
-  const CaptchaRequiredException()
-      : super('CAPTCHA required. Please try again later.');
+/// A definitive server rejection. The stored session must not be retried.
+class InvalidSessionException extends AuthException {
+  const InvalidSessionException(
+      [super.message = 'Session is no longer valid.']);
 }
 
-/// Thrown when username or password is incorrect.
-class InvalidCredentialsException extends AuthException {
-  const InvalidCredentialsException()
-      : super('Invalid username or password.');
-}
-
-/// Thrown when 2FA code is wrong or expired.
-class InvalidMfaCodeException extends AuthException {
-  const InvalidMfaCodeException()
-      : super('Invalid or expired 2FA code.');
-}
-
-/// Thrown when cookie reauth fails and cookies are expired.
-class CookiesExpiredException extends AuthException {
-  const CookiesExpiredException()
-      : super('Session cookies have expired. Please login again.');
+/// Reauthentication may succeed later; stored credentials must be preserved.
+class TransientReauthException extends AuthException {
+  const TransientReauthException(
+      [super.message = 'Reauthentication unavailable.']);
 }

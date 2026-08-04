@@ -25,6 +25,14 @@ class SecureStorage {
   static const keyExpiresAt = 'token_expires_at';
   static const keyEntitlementExpiresAt = 'entitlement_expires_at';
 
+  /// Single JSON blob holding ALL active-session fields. Written atomically
+  /// (one [write]) as the source of truth so credentials are never observed in
+  /// a partially-written state (P0: the previous 8-key `Future.wait` could
+  /// leave a torn session if interrupted mid-way). The individual keys above
+  /// are kept in sync as a fast read path for the interceptor/background task
+  /// and as a migration fallback.
+  static const keyActiveSession = 'active_session_snapshot_v2';
+
   /// Conservative estimate — Riot does not expose entitlement token TTL.
   /// Tune here if stale-400 errors persist after proactive refresh.
   static const entitlementTokenLifetime = Duration(minutes: 55);
@@ -41,42 +49,6 @@ class SecureStorage {
   Future<void> delete(String key) => _storage.delete(key: key);
 
   Future<void> deleteAll() => _storage.deleteAll();
-
-  /// Returns true if all required auth credentials are present.
-  Future<bool> hasCredentials() async {
-    final accessToken = await _storage.read(key: keyAccessToken);
-    final entitlementToken = await _storage.read(key: keyEntitlementToken);
-    final puuid = await _storage.read(key: keyPuuid);
-    return accessToken != null &&
-        entitlementToken != null &&
-        puuid != null;
-  }
-
-  /// Returns whether the stored access token is still valid (> 5 min left).
-  Future<bool> isTokenValid() async {
-    final expiresAtStr = await _storage.read(key: keyExpiresAt);
-    if (expiresAtStr == null) return false;
-    try {
-      final expiresAt = DateTime.parse(expiresAtStr);
-      return DateTime.now()
-          .isBefore(expiresAt.subtract(proactiveRefreshWindow));
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Returns whether the entitlement token is still within its estimated lifetime.
-  Future<bool> isEntitlementTokenValid() async {
-    final expiresAtStr = await _storage.read(key: keyEntitlementExpiresAt);
-    if (expiresAtStr == null) return false;
-    try {
-      final expiresAt = DateTime.parse(expiresAtStr);
-      return DateTime.now()
-          .isBefore(expiresAt.subtract(proactiveRefreshWindow));
-    } catch (_) {
-      return false;
-    }
-  }
 
   Future<void> writeEntitlementExpiry(DateTime expiresAt) => write(
         keyEntitlementExpiresAt,

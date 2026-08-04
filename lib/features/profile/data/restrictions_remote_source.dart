@@ -1,22 +1,10 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
+import '../../../core/network/api_response_decoder.dart';
 import '../domain/models/account_health.dart';
 
 class RestrictionsRemoteSource {
   const RestrictionsRemoteSource(this._dio);
   final Dio _dio;
-
-  Map<String, dynamic> _toMap(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    if (data is String) {
-      try {
-        final decoded = jsonDecode(data);
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      } catch (_) {}
-    }
-    return {};
-  }
 
   Future<AccountHealth> fetchAccountHealth(String shard, String puuid) async {
     final cleanShard = shard.toLowerCase();
@@ -29,7 +17,8 @@ class RestrictionsRemoteSource {
           .get<dynamic>(
             'https://pd.$cleanShard.a.pvp.net/restrictions/v3/penalties',
           )
-          .then((r) => _toMap(r.data))
+          .then((r) => ApiResponseDecoder.decodeMap(r.data,
+              source: 'restrictions/v3/penalties'))
           .catchError((_) {
         hasErrors = true;
         return <String, dynamic>{};
@@ -38,7 +27,8 @@ class RestrictionsRemoteSource {
           .get<dynamic>(
             'https://pd.$cleanShard.a.pvp.net/restrictions/v1/avoidList',
           )
-          .then((r) => _toMap(r.data))
+          .then((r) => ApiResponseDecoder.decodeMap(r.data,
+              source: 'restrictions/v1/avoidList'))
           .catchError((_) {
         hasErrors = true;
         return <String, dynamic>{};
@@ -47,7 +37,8 @@ class RestrictionsRemoteSource {
           .get<dynamic>(
             'https://pd.$cleanShard.a.pvp.net/restrictions/v1/activeFutureInterventions',
           )
-          .then((r) => _toMap(r.data))
+          .then((r) => ApiResponseDecoder.decodeMap(r.data,
+              source: 'restrictions/v1/activeFutureInterventions'))
           .catchError((_) {
         hasErrors = true;
         return <String, dynamic>{};

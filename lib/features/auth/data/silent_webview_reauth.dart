@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import 'oauth_flow.dart';
 
 /// Performs silent background token refresh using the native WebView engine's
 /// shared cookie store. On iOS, all WKWebView instances share cookies via
@@ -10,16 +11,6 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 class SilentWebviewReauth {
   SilentWebviewReauth._();
   static final instance = SilentWebviewReauth._();
-
-  static const _authorizeUrl =
-      'https://auth.riotgames.com/authorize'
-      '?client_id=play-valorant-web-prod'
-      '&nonce=1'
-      '&redirect_uri=https://playvalorant.com/opt_in'
-      '&response_type=token%20id_token'
-      '&scope=account%20openid';
-
-  static const _redirectPrefix = 'https://playvalorant.com/opt_in';
 
   /// Strong reference to prevent the WebViewController from being
   /// garbage-collected before the navigation completes.
@@ -31,7 +22,7 @@ class SilentWebviewReauth {
 
   /// Performs background silent token refresh using native WebView session cookies.
   /// Returns the redirect URI containing the fresh `access_token`.
-  Future<String> refreshTokens() async {
+  Future<String> refreshTokens(OAuthAttempt attempt) async {
     // Prevent concurrent reauth attempts
     if (_isRunning) {
       throw Exception('Silent reauth already in progress');
@@ -77,7 +68,8 @@ class SilentWebviewReauth {
             onWebResourceError: (err) {
               final url = err.url ?? '';
               // Ignore errors for the redirect URI — it's not a real page
-              if (url.startsWith(_redirectPrefix)) return;
+              final uri = Uri.tryParse(url);
+              if (uri != null && OAuthFlow.isRedirectUri(uri)) return;
               // Only fail on main frame errors, not sub-resource (CSS/JS) errors
               if (err.isForMainFrame == true && !completer.isCompleted) {
                 debugPrint(
@@ -89,7 +81,7 @@ class SilentWebviewReauth {
             },
           ),
         )
-        ..loadRequest(Uri.parse(_authorizeUrl));
+        ..loadRequest(attempt.authorizeUri);
 
       debugPrint('[SilentReauth] Started silent WebView reauth...');
 
@@ -107,7 +99,8 @@ class SilentWebviewReauth {
   }
 
   bool _checkUrl(String url, Completer<String> completer) {
-    if (url.startsWith(_redirectPrefix) && url.contains('access_token')) {
+    final uri = Uri.tryParse(url);
+    if (uri != null && OAuthFlow.isRedirectUri(uri)) {
       debugPrint('[SilentReauth] SUCCESS — got redirect with access_token');
       if (!completer.isCompleted) {
         completer.complete(url);

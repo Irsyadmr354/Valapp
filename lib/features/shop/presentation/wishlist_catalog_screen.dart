@@ -19,12 +19,14 @@ final _allSkinsListProvider =
 
   map.forEach((levelUuid, skinData) {
     if (skinData is Map<String, dynamic>) {
-      final skinName =
-          skinData['skinName']?.toString() ?? skinData['displayName']?.toString() ?? '';
+      final skinName = skinData['skinName']?.toString() ??
+          skinData['displayName']?.toString() ??
+          '';
       final displayIcon = skinData['displayIcon']?.toString();
 
       final lowerName = skinName.toLowerCase().trim();
-      final weaponType = (skinData['weaponType'] as String? ?? '').toLowerCase();
+      final weaponType =
+          (skinData['weaponType'] as String? ?? '').toLowerCase();
       // Exclude purely generic/unbranded entries:
       //   - anything starting with "standard" (placeholder weapon skins)
       //   - entries with no icon
@@ -62,7 +64,8 @@ final _allSkinsListProvider =
 /// handles melee skins whose names do NOT contain the word "melee" (e.g.
 /// "Sovereign Sword", "Knife of the Last Khan"). Falls back to name-contains
 /// matching for any skin where weaponType is unavailable.
-bool _matchesWeaponId(String skinName, String weaponId, {String weaponType = ''}) {
+bool _matchesWeaponId(String skinName, String weaponId,
+    {String weaponType = ''}) {
   final id = weaponId.toLowerCase();
   if (weaponType.isNotEmpty) {
     return weaponType == id;
@@ -74,7 +77,8 @@ Color _getTierColor(String? tierUuid) {
   // Intentional: Premium uses AppColors.red in the catalog (brand consistency).
   // All other tiers delegate to the shared TierColors utility.
   const premiumUuidFragment = '60bca009';
-  if (tierUuid != null && tierUuid.toLowerCase().contains(premiumUuidFragment)) {
+  if (tierUuid != null &&
+      tierUuid.toLowerCase().contains(premiumUuidFragment)) {
     return AppColors.red;
   }
   return TierColors.tierColorForUuid(tierUuid);
@@ -85,42 +89,52 @@ String _getTierLabel(String? tierUuid) => TierColors.tierLabelForUuid(tierUuid);
 // ── Sidebar category definitions ──────────────────────────────────────────────
 
 class _SidebarItem {
-  const _SidebarItem({required this.id, required this.label, required this.icon});
+  const _SidebarItem(
+      {required this.id, required this.label, required this.icon});
   final String id;
   final String label;
   final IconData icon;
 }
 
 const _sidebarItems = [
-  _SidebarItem(id: 'ALL',       label: 'ALL',      icon: Icons.grid_view_rounded),
+  _SidebarItem(id: 'ALL', label: 'ALL', icon: Icons.grid_view_rounded),
   // ── Pistols ──
-  _SidebarItem(id: 'CLASSIC',   label: 'CLASSIC',  icon: Icons.radio_button_unchecked),
-  _SidebarItem(id: 'SHORTY',    label: 'SHORTY',   icon: Icons.horizontal_rule_rounded),
-  _SidebarItem(id: 'FRENZY',    label: 'FRENZY',   icon: Icons.bolt_rounded),
-  _SidebarItem(id: 'GHOST',     label: 'GHOST',    icon: Icons.nightlight_round),
-  _SidebarItem(id: 'SHERIFF',   label: 'SHERIFF',  icon: Icons.star_outline_rounded),
+  _SidebarItem(
+      id: 'CLASSIC', label: 'CLASSIC', icon: Icons.radio_button_unchecked),
+  _SidebarItem(
+      id: 'SHORTY', label: 'SHORTY', icon: Icons.horizontal_rule_rounded),
+  _SidebarItem(id: 'FRENZY', label: 'FRENZY', icon: Icons.bolt_rounded),
+  _SidebarItem(id: 'GHOST', label: 'GHOST', icon: Icons.nightlight_round),
+  _SidebarItem(
+      id: 'SHERIFF', label: 'SHERIFF', icon: Icons.star_outline_rounded),
   // ── SMGs ──
-  _SidebarItem(id: 'STINGER',   label: 'STINGER',  icon: Icons.speed_rounded),
-  _SidebarItem(id: 'SPECTRE',   label: 'SPECTRE',  icon: Icons.wind_power_rounded),
+  _SidebarItem(id: 'STINGER', label: 'STINGER', icon: Icons.speed_rounded),
+  _SidebarItem(id: 'SPECTRE', label: 'SPECTRE', icon: Icons.wind_power_rounded),
   // ── Rifles ──
-  _SidebarItem(id: 'BULLDOG',   label: 'BULLDOG',  icon: Icons.adjust_rounded),
-  _SidebarItem(id: 'GUARDIAN',  label: 'GUARDIAN', icon: Icons.shield_outlined),
-  _SidebarItem(id: 'PHANTOM',   label: 'PHANTOM',  icon: Icons.visibility_off_outlined),
-  _SidebarItem(id: 'VANDAL',    label: 'VANDAL',   icon: Icons.military_tech_outlined),
+  _SidebarItem(id: 'BULLDOG', label: 'BULLDOG', icon: Icons.adjust_rounded),
+  _SidebarItem(id: 'GUARDIAN', label: 'GUARDIAN', icon: Icons.shield_outlined),
+  _SidebarItem(
+      id: 'PHANTOM', label: 'PHANTOM', icon: Icons.visibility_off_outlined),
+  _SidebarItem(
+      id: 'VANDAL', label: 'VANDAL', icon: Icons.military_tech_outlined),
   // ── Snipers ──
-  _SidebarItem(id: 'MARSHAL',   label: 'MARSHAL',  icon: Icons.center_focus_weak_rounded),
-  _SidebarItem(id: 'OUTLAW',    label: 'OUTLAW',   icon: Icons.gps_fixed_rounded),
-  _SidebarItem(id: 'OPERATOR',  label: 'OPERATOR', icon: Icons.center_focus_strong_outlined),
+  _SidebarItem(
+      id: 'MARSHAL', label: 'MARSHAL', icon: Icons.center_focus_weak_rounded),
+  _SidebarItem(id: 'OUTLAW', label: 'OUTLAW', icon: Icons.gps_fixed_rounded),
+  _SidebarItem(
+      id: 'OPERATOR',
+      label: 'OPERATOR',
+      icon: Icons.center_focus_strong_outlined),
   // ── Shotguns ──
-  _SidebarItem(id: 'BUCKY',     label: 'BUCKY',    icon: Icons.flash_on_rounded),
-  _SidebarItem(id: 'JUDGE',     label: 'JUDGE',    icon: Icons.electric_bolt_rounded),
+  _SidebarItem(id: 'BUCKY', label: 'BUCKY', icon: Icons.flash_on_rounded),
+  _SidebarItem(id: 'JUDGE', label: 'JUDGE', icon: Icons.electric_bolt_rounded),
   // ── Heavy ──
-  _SidebarItem(id: 'ARES',      label: 'ARES',     icon: Icons.rotate_right_rounded),
-  _SidebarItem(id: 'ODIN',      label: 'ODIN',     icon: Icons.settings_rounded),
+  _SidebarItem(id: 'ARES', label: 'ARES', icon: Icons.rotate_right_rounded),
+  _SidebarItem(id: 'ODIN', label: 'ODIN', icon: Icons.settings_rounded),
   // ── Melee ──
-  _SidebarItem(id: 'MELEE',     label: 'MELEE',    icon: Icons.architecture_rounded),
+  _SidebarItem(id: 'MELEE', label: 'MELEE', icon: Icons.architecture_rounded),
   // ── Wishlist ──
-  _SidebarItem(id: 'WISHLIST',  label: 'WISHLIST', icon: Icons.bookmark_rounded),
+  _SidebarItem(id: 'WISHLIST', label: 'WISHLIST', icon: Icons.bookmark_rounded),
 ];
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -141,12 +155,24 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
   final _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> _tierOptions = [
-    {'id': 'ALL',       'label': 'ALL EDITIONS',              'color': const Color(0xB3FFFFFF)},
-    {'id': 'Ultra',     'label': 'ULTRA EDITION',             'color': const Color(0xFFFAD663)},
-    {'id': 'Exclusive', 'label': 'EXCLUSIVE EDITION',         'color': const Color(0xFFF5955B)},
-    {'id': 'Premium',   'label': 'PREMIUM EDITION',           'color': AppColors.red},
-    {'id': 'Deluxe',    'label': 'DELUXE EDITION',            'color': const Color(0xFF009587)},
-    {'id': 'Select',    'label': 'SELECT EDITION',            'color': const Color(0xFF5A9FE2)},
+    {'id': 'ALL', 'label': 'ALL EDITIONS', 'color': const Color(0xB3FFFFFF)},
+    {'id': 'Ultra', 'label': 'ULTRA EDITION', 'color': const Color(0xFFFAD663)},
+    {
+      'id': 'Exclusive',
+      'label': 'EXCLUSIVE EDITION',
+      'color': const Color(0xFFF5955B)
+    },
+    {'id': 'Premium', 'label': 'PREMIUM EDITION', 'color': AppColors.red},
+    {
+      'id': 'Deluxe',
+      'label': 'DELUXE EDITION',
+      'color': const Color(0xFF009587)
+    },
+    {
+      'id': 'Select',
+      'label': 'SELECT EDITION',
+      'color': const Color(0xFF5A9FE2)
+    },
   ];
 
   @override
@@ -173,8 +199,11 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
             Row(
               children: [
                 const Text('FILTER EDITION TIER',
-                    style: TextStyle(color: Colors.white, fontSize: 16,
-                        fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0)),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
@@ -193,7 +222,8 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                 },
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isSelected ? color.withAlpha(40) : AppColors.bg,
                     borderRadius: BorderRadius.circular(12),
@@ -204,17 +234,22 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                   ),
                   child: Row(
                     children: [
-                      Container(width: 12, height: 12,
-                          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                      Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                              color: color, shape: BoxShape.circle)),
                       const SizedBox(width: 12),
                       Text(opt['label'] as String,
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.white70,
                             fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                            fontWeight:
+                                isSelected ? FontWeight.w800 : FontWeight.w600,
                           )),
                       const Spacer(),
-                      if (isSelected) Icon(Icons.check_circle, color: color, size: 18),
+                      if (isSelected)
+                        Icon(Icons.check_circle, color: color, size: 18),
                     ],
                   ),
                 ),
@@ -254,12 +289,18 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('SKIN CATALOG & WISHLIST',
-                            style: TextStyle(color: Colors.white, fontSize: 16,
-                                fontWeight: FontWeight.w900, letterSpacing: 0.8)),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.8)),
                         SizedBox(height: 2),
                         Text('COLLECT. CUSTOMIZE. DOMINATE.',
-                            style: TextStyle(color: AppColors.red, fontSize: 9,
-                                fontWeight: FontWeight.w800, letterSpacing: 1.0)),
+                            style: TextStyle(
+                                color: AppColors.red,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.0)),
                       ],
                     ),
                   ),
@@ -267,27 +308,38 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                   GestureDetector(
                     onTap: () => setState(() => _selectedCategory = 'WISHLIST'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: AppColors.bgCard2,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
-                        boxShadow: [BoxShadow(color: AppColors.red.withAlpha(25), blurRadius: 10)],
+                        border: Border.all(
+                            color: AppColors.red.withAlpha(80), width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                              color: AppColors.red.withAlpha(25),
+                              blurRadius: 10)
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.bookmark_rounded, color: AppColors.red, size: 14),
+                          const Icon(Icons.bookmark_rounded,
+                              color: AppColors.red, size: 14),
                           const SizedBox(width: 6),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text('${wishlist.length}',
-                                  style: const TextStyle(color: Colors.white,
-                                      fontSize: 14, fontWeight: FontWeight.w900)),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900)),
                               const Text('VIEW WISHLIST >',
-                                  style: TextStyle(color: AppColors.red, fontSize: 8,
+                                  style: TextStyle(
+                                      color: AppColors.red,
+                                      fontSize: 8,
                                       fontWeight: FontWeight.w900)),
                             ],
                           ),
@@ -314,11 +366,13 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                       ),
                       child: TextField(
                         controller: _searchController,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 13),
                         onChanged: (v) => setState(() => _searchQuery = v),
                         decoration: InputDecoration(
                           hintText: 'Search skin name',
-                          hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                          hintStyle: const TextStyle(
+                              color: Colors.white38, fontSize: 13),
                           prefixIcon: const Icon(Icons.search_rounded,
                               color: Colors.white38, size: 20),
                           suffixIcon: _searchQuery.isNotEmpty
@@ -332,7 +386,8 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                 )
                               : null,
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 11),
                         ),
                       ),
                     ),
@@ -348,17 +403,24 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                         color: AppColors.bgCard2,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _selectedTierFilter != 'ALL' ? AppColors.red : AppColors.border,
+                          color: _selectedTierFilter != 'ALL'
+                              ? AppColors.red
+                              : AppColors.border,
                           width: 1,
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.tune_rounded, color: AppColors.red, size: 18),
+                          const Icon(Icons.tune_rounded,
+                              color: AppColors.red, size: 18),
                           const SizedBox(width: 6),
                           Text(
-                            _selectedTierFilter == 'ALL' ? 'TIERS' : _selectedTierFilter.toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontSize: 11,
+                            _selectedTierFilter == 'ALL'
+                                ? 'TIERS'
+                                : _selectedTierFilter.toUpperCase(),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(width: 4),
@@ -371,8 +433,8 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                   const SizedBox(width: 8),
                   // Sort A–Z / TIER
                   GestureDetector(
-                    onTap: () => setState(
-                        () => _sortMode = _sortMode == 'name' ? 'tier' : 'name'),
+                    onTap: () => setState(() =>
+                        _sortMode = _sortMode == 'name' ? 'tier' : 'name'),
                     child: Container(
                       height: 42,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -380,16 +442,21 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                         color: AppColors.bgCard2,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _sortMode == 'tier' ? AppColors.red : AppColors.border,
+                          color: _sortMode == 'tier'
+                              ? AppColors.red
+                              : AppColors.border,
                           width: 1,
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.sort_rounded, color: AppColors.red, size: 18),
+                          const Icon(Icons.sort_rounded,
+                              color: AppColors.red, size: 18),
                           const SizedBox(width: 4),
                           Text(_sortMode == 'name' ? 'A–Z' : 'TIER',
-                              style: const TextStyle(color: Colors.white, fontSize: 11,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w800)),
                         ],
                       ),
@@ -410,7 +477,8 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                     width: 72,
                     decoration: const BoxDecoration(
                       color: AppColors.bg,
-                      border: Border(right: BorderSide(color: Colors.white10, width: 0.8)),
+                      border: Border(
+                          right: BorderSide(color: Colors.white10, width: 0.8)),
                     ),
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -422,17 +490,24 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
 
                         // Section dividers before first item of each group
                         final showDivider = item.id == 'CLASSIC' ||
-                            item.id == 'STINGER' || item.id == 'BULLDOG' ||
-                            item.id == 'MARSHAL' || item.id == 'BUCKY' ||
-                            item.id == 'ARES'    || item.id == 'MELEE'  ||
+                            item.id == 'STINGER' ||
+                            item.id == 'BULLDOG' ||
+                            item.id == 'MARSHAL' ||
+                            item.id == 'BUCKY' ||
+                            item.id == 'ARES' ||
+                            item.id == 'MELEE' ||
                             item.id == 'WISHLIST';
 
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (showDivider)
-                              const Divider(height: 8, thickness: 0.5,
-                                  color: Colors.white10, indent: 10, endIndent: 10),
+                              const Divider(
+                                  height: 8,
+                                  thickness: 0.5,
+                                  color: Colors.white10,
+                                  indent: 10,
+                                  endIndent: 10),
                             GestureDetector(
                               onTap: () =>
                                   setState(() => _selectedCategory = item.id),
@@ -440,14 +515,16 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                 duration: const Duration(milliseconds: 150),
                                 margin: const EdgeInsets.symmetric(
                                     vertical: 2, horizontal: 5),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? AppColors.red.withAlpha(40)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                   border: isSelected
-                                      ? Border.all(color: AppColors.red, width: 1)
+                                      ? Border.all(
+                                          color: AppColors.red, width: 1)
                                       : null,
                                 ),
                                 child: Column(
@@ -456,7 +533,9 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     Icon(
                                       item.icon,
                                       color: isSelected
-                                          ? (isWishlist ? AppColors.red : AppColors.red)
+                                          ? (isWishlist
+                                              ? AppColors.red
+                                              : AppColors.red)
                                           : Colors.white38,
                                       size: 18,
                                     ),
@@ -464,7 +543,9 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     Text(
                                       item.label,
                                       style: TextStyle(
-                                        color: isSelected ? Colors.white : Colors.white38,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.white38,
                                         fontSize: 7,
                                         fontWeight: isSelected
                                             ? FontWeight.w900
@@ -490,30 +571,41 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                     child: skinsAsync.when(
                       data: (skins) {
                         final filteredSkins = skins.where((skin) {
-                          final name = (skin['displayName'] as String).toLowerCase();
+                          final name =
+                              (skin['displayName'] as String).toLowerCase();
                           final levelUuid = skin['skinLevelUuid'] as String;
                           final skinUuid = skin['skinUuid'] as String;
                           final tierUuid = skin['contentTierUuid'] as String?;
-                          final tierLabel = _getTierLabel(tierUuid).toLowerCase();
+                          final tierLabel =
+                              _getTierLabel(tierUuid).toLowerCase();
 
                           // Sidebar category / weapon filter
                           if (_selectedCategory == 'WISHLIST') {
                             if (!wishlist.contains(levelUuid) &&
-                                !wishlist.contains(skinUuid)) { return false; }
+                                !wishlist.contains(skinUuid)) {
+                              return false;
+                            }
                           } else if (_selectedCategory != 'ALL') {
                             final wt = skin['weaponType'] as String? ?? '';
-                            if (!_matchesWeaponId(name, _selectedCategory, weaponType: wt)) { return false; }
+                            if (!_matchesWeaponId(name, _selectedCategory,
+                                weaponType: wt)) {
+                              return false;
+                            }
                           }
 
                           // Edition tier filter
                           if (_selectedTierFilter != 'ALL') {
-                            if (!tierLabel.contains(
-                                _selectedTierFilter.toLowerCase())) { return false; }
+                            if (!tierLabel
+                                .contains(_selectedTierFilter.toLowerCase())) {
+                              return false;
+                            }
                           }
 
                           // Search
                           if (_searchQuery.isNotEmpty) {
-                            if (!name.contains(_searchQuery.toLowerCase())) return false;
+                            if (!name.contains(_searchQuery.toLowerCase())) {
+                              return false;
+                            }
                           }
 
                           return true;
@@ -558,8 +650,10 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     color: Colors.white24, size: 48),
                                 SizedBox(height: 12),
                                 Text('No Skins Found',
-                                    style: TextStyle(color: Colors.white54,
-                                        fontSize: 14, fontWeight: FontWeight.w700)),
+                                    style: TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700)),
                               ],
                             ),
                           );
@@ -578,19 +672,21 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                       color: AppColors.red.withAlpha(25),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                          color: AppColors.red.withAlpha(80), width: 0.8),
+                                          color: AppColors.red.withAlpha(80),
+                                          width: 0.8),
                                     ),
                                     child: Text(
                                       '${filteredSkins.length} SKINS',
-                                      style: const TextStyle(color: AppColors.red,
-                                          fontSize: 10, fontWeight: FontWeight.w900,
+                                      style: const TextStyle(
+                                          color: AppColors.red,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
                                           letterSpacing: 0.5),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-
                             Expanded(
                               child: GridView.builder(
                                 padding: const EdgeInsets.all(10),
@@ -604,13 +700,16 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                 itemCount: filteredSkins.length,
                                 itemBuilder: (context, idx) {
                                   final item = filteredSkins[idx];
-                                  final levelUuid = item['skinLevelUuid'] as String;
+                                  final levelUuid =
+                                      item['skinLevelUuid'] as String;
                                   final skinUuid = item['skinUuid'] as String;
                                   final name = item['displayName'] as String;
                                   final iconUrl = item['displayIcon'] as String;
-                                  final tierUuid = item['contentTierUuid'] as String?;
-                                  final isWishlisted = wishlist.contains(levelUuid) ||
-                                      wishlist.contains(skinUuid);
+                                  final tierUuid =
+                                      item['contentTierUuid'] as String?;
+                                  final isWishlisted =
+                                      wishlist.contains(levelUuid) ||
+                                          wishlist.contains(skinUuid);
                                   final tierColor = _getTierColor(tierUuid);
 
                                   return _SkinCatalogGridCard(
@@ -711,7 +810,8 @@ class _SkinCatalogGridCard extends StatelessWidget {
                     Align(
                       alignment: Alignment.topRight,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.red.withAlpha(40),
                           borderRadius: BorderRadius.circular(4),
@@ -719,8 +819,11 @@ class _SkinCatalogGridCard extends StatelessWidget {
                         ),
                         child: const Text(
                           'WISHLIST',
-                          style: TextStyle(color: AppColors.red, fontSize: 7,
-                              fontWeight: FontWeight.w900, letterSpacing: 0.4),
+                          style: TextStyle(
+                              color: AppColors.red,
+                              fontSize: 7,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.4),
                         ),
                       ),
                     ),
@@ -735,7 +838,8 @@ class _SkinCatalogGridCard extends StatelessWidget {
                             const LoadingShimmer(height: 60),
                         errorWidget: (_, __, ___) => const Icon(
                             Icons.military_tech_outlined,
-                            color: Colors.white24, size: 28),
+                            color: Colors.white24,
+                            size: 28),
                       ),
                     ),
                   ),
@@ -743,7 +847,9 @@ class _SkinCatalogGridCard extends StatelessWidget {
                   // Skin name — no tier label below it
                   Text(
                     name,
-                    style: const TextStyle(color: Colors.white, fontSize: 12,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
                         fontWeight: FontWeight.w900),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

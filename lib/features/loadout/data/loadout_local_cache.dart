@@ -5,21 +5,31 @@ class LoadoutLocalCache {
   const LoadoutLocalCache(this._cache);
   final CacheStorage _cache;
 
-  static const _keyLoadout = 'player_loadout';
+  Future<void> saveLoadout(Map<String, dynamic> raw,
+      {required String puuid, required CacheTransaction transaction}) async {
+    await _cache.runUserTransaction(transaction, () async {
+      await _cache.setJson(
+          CacheStorage.userKeyFor(LoadoutLocalCache.keyLoadout, puuid), raw);
+    });
+  }
 
-  Future<void> saveLoadout(Map<String, dynamic> raw) =>
-      _cache.setJson(_keyLoadout, raw);
+  Future<Map<String, dynamic>?> loadLoadoutRaw({required String puuid}) async {
+    return _cache
+        .getJson(CacheStorage.userKeyFor(LoadoutLocalCache.keyLoadout, puuid));
+  }
 
-  Future<Map<String, dynamic>?> loadLoadoutRaw() =>
-      _cache.getJson(_keyLoadout);
-
-  Future<PlayerLoadout?> loadLoadout() async {
-    final raw = await _cache.getJson(_keyLoadout);
+  Future<PlayerLoadout?> loadLoadout({required String puuid}) async {
+    final raw = await _cache
+        .getJson(CacheStorage.userKeyFor(LoadoutLocalCache.keyLoadout, puuid));
     if (raw == null) return null;
     try {
       return PlayerLoadout.fromJson(raw);
     } catch (_) {
+      await _cache
+          .remove(CacheStorage.userKeyFor(LoadoutLocalCache.keyLoadout, puuid));
       return null;
     }
   }
+
+  static const keyLoadout = 'player_loadout';
 }

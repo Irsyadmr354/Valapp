@@ -54,4 +54,41 @@ void main() {
       expect(update.isDraw, isTrue);
     });
   });
+
+  group('PlayerMmr active season', () {
+    test('uses the explicitly active season instead of map insertion order',
+        () {
+      final mmr = PlayerMmr.fromJson({
+        'Subject': 'player',
+        'CurrentSeasonID': 'active-season',
+        'QueueSkills': {
+          'competitive': {
+            'SeasonalInfoBySeasonID': {
+              'active-season': {'CompetitiveTier': 17, 'RankedRating': 42},
+              'older-but-last': {'CompetitiveTier': 25, 'RankedRating': 99},
+            },
+          },
+        },
+      });
+
+      expect(mmr.currentTier, 17);
+      expect(mmr.currentRankedRating, 42);
+    });
+
+    test('does not guess a season when no active season is identified', () {
+      final mmr = PlayerMmr.fromJson({
+        'Subject': 'player',
+        'QueueSkills': {
+          'competitive': {
+            'SeasonalInfoBySeasonID': {
+              'old-season': {'CompetitiveTier': 25, 'RankedRating': 99},
+            },
+          },
+        },
+      });
+
+      expect(mmr.currentTier, 0);
+      expect(mmr.currentRankedRating, 0);
+    });
+  });
 }

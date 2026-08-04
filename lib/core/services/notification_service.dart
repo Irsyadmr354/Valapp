@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../storage/cache_storage.dart';
 
 /// Helper service for triggering native system smartphone notifications.
 class NotificationService {
@@ -18,9 +19,9 @@ class NotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     await _notifications.initialize(
@@ -31,16 +32,13 @@ class NotificationService {
 
   Future<void> requestPermissions() async {
     await init();
-    final androidImpl = _notifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidImpl = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     await androidImpl?.requestNotificationsPermission();
 
-    final iosImpl = _notifications
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
-    await iosImpl?.requestPermissions(
-        alert: true, badge: true, sound: true);
+    final iosImpl = _notifications.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   // ── Wishlist match alert ───────────────────────────────────────────────────
@@ -56,7 +54,8 @@ class NotificationService {
       '$skinName is available today for ${price > 0 ? '$price VP' : 'an unknown price'}!',
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          _wishlistChannelId, 'Wishlist Alerts',
+          _wishlistChannelId,
+          'Wishlist Alerts',
           channelDescription:
               'Alerts when your wishlisted skin appears in the shop',
           importance: Importance.high,
@@ -67,6 +66,24 @@ class NotificationService {
             presentAlert: true, presentBadge: true, presentSound: true),
       ),
     );
+  }
+
+  Future<bool> showWishlistAlertOnce({
+    required String shopIdentity,
+    required String skinId,
+    required String skinName,
+    required int price,
+    String? puuid,
+  }) async {
+    final account = puuid ?? CacheStorage.instance.activePuuid;
+    final claimed = await CacheStorage.instance.claimWishlistNotification(
+      puuid: account,
+      shopIdentity: shopIdentity,
+      skinId: skinId,
+    );
+    if (!claimed) return false;
+    await showWishlistAlert(skinName: skinName, price: price);
+    return true;
   }
 
   // ── Daily shop reset notification ─────────────────────────────────────────
@@ -92,7 +109,8 @@ class NotificationService {
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          _shopChannelId, 'Shop Reset',
+          _shopChannelId,
+          'Shop Reset',
           channelDescription: 'Notification when your daily shop resets',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,

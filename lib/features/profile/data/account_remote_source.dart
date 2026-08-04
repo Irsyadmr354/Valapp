@@ -1,34 +1,23 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../domain/models/account_xp.dart';
+import '../../../core/network/api_response_decoder.dart';
 
 class AccountRemoteSource {
   const AccountRemoteSource(this._dio);
   final Dio _dio;
 
-  Map<String, dynamic> _toMap(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    if (data is String) {
-      try {
-        final decoded = jsonDecode(data);
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      } catch (_) {}
-    }
-    return {};
-  }
-
-  Future<AccountXp> fetchAccountXp(String shard, String puuid) async {
-    return AccountXp.fromJson(await fetchAccountXpRaw(shard, puuid));
-  }
-
   Future<Map<String, dynamic>> fetchAccountXpRaw(
       String shard, String puuid) async {
     final cleanShard = shard.toLowerCase();
-    final response = await _dio.get<dynamic>(
-      'https://pd.$cleanShard.a.pvp.net/account-xp/v1/players/$puuid',
+    final url = 'https://pd.$cleanShard.a.pvp.net/account-xp/v1/players/$puuid';
+    final response = await _dio.get<dynamic>(url);
+    final data = ApiResponseDecoder.decodeMap(response.data, source: url);
+    return ApiResponseDecoder.requireShape(
+      data,
+      source: url,
+      maps: ['Progress'],
+      lists: ['History'],
+      strings: ['Subject'],
     );
-    return _toMap(response.data);
   }
 
   /// Resolves display name via name-service.
@@ -50,32 +39,31 @@ class AccountRemoteSource {
           data: puuids,
         );
         data = response.data;
-      } catch (_) {
+      } on DioException catch (error) {
+        final status = error.response?.statusCode;
+        if (status != 404 && status != 405) rethrow;
         final response = await _dio.put<dynamic>(
           'https://pd.$cleanShard.a.pvp.net/name-service/v2/players',
           data: puuids,
         );
         data = response.data;
       }
-      if (data is String) {
-        try {
-          data = jsonDecode(data);
-        } catch (_) {}
-      }
-
-      List<dynamic> list = [];
-      if (data is List) {
-        list = data;
-      } else if (data is Map) {
-        list = data.values.toList();
-      }
+      final list = ApiResponseDecoder.decodeList(
+        data,
+        source: 'name-service players',
+      );
 
       final result = <String, String>{};
       for (final entry in list) {
         if (entry is Map) {
-          final subject = entry['Subject']?.toString() ?? entry['puuid']?.toString() ?? '';
-          final gameName = entry['GameName']?.toString() ?? entry['gameName']?.toString() ?? '';
-          final tagLine = entry['TagLine']?.toString() ?? entry['tagLine']?.toString() ?? '';
+          final subject =
+              entry['Subject']?.toString() ?? entry['puuid']?.toString() ?? '';
+          final gameName = entry['GameName']?.toString() ??
+              entry['gameName']?.toString() ??
+              '';
+          final tagLine = entry['TagLine']?.toString() ??
+              entry['tagLine']?.toString() ??
+              '';
           final displayName = entry['DisplayName']?.toString() ?? '';
 
           String finalName = '';
@@ -95,6 +83,4 @@ class AccountRemoteSource {
       return {};
     }
   }
-
 }
-

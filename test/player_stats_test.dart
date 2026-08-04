@@ -36,7 +36,8 @@ void main() {
       );
 
       expect(stats.isPerfectKda, isTrue);
-      expect(stats.kda, equals(25.0)); // (20 + 5) / 1 = 25.0 without division by 0 crash
+      expect(stats.kda,
+          equals(25.0)); // (20 + 5) / 1 = 25.0 without division by 0 crash
     });
 
     test('KDA when roundsPlayed == 0', () {

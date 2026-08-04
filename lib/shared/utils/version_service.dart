@@ -16,7 +16,6 @@ class VersionService {
 
   static const _versionUrl = 'https://valorant-api.com/v1/version';
   static const _cacheDuration = Duration(hours: 24);
-  static const _fallback = 'release-13.02-shipping-7-5092570';
 
   /// In-flight fetch future — shared so concurrent callers await one request.
   Future<String>? _inFlight;
@@ -51,8 +50,12 @@ class VersionService {
     // Fetch fresh version
     try {
       final response = await _dio.get<Map<String, dynamic>>(_versionUrl);
-      final version =
-          response.data?['data']?['riotClientVersion'] as String? ?? _fallback;
+      final version = response.data?['data']?['riotClientVersion'] as String?;
+      if (version == null ||
+          version.isEmpty ||
+          !version.startsWith('release-')) {
+        throw const FormatException('Invalid Riot client version response');
+      }
 
       await cache.setString(CacheStorage.keyClientVersion, version);
       await cache.setTimestamp(CacheStorage.keyClientVersionFetchedAt);
@@ -60,7 +63,8 @@ class VersionService {
       return version;
     } catch (_) {
       final cached = await cache.getString(CacheStorage.keyClientVersion);
-      return cached ?? _fallback;
+      if (cached != null && cached.isNotEmpty) return cached;
+      throw StateError('No verified Riot client version is available');
     }
   }
 }

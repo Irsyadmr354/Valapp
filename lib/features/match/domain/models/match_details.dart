@@ -27,8 +27,7 @@ class MatchInfo {
   DateTime get gameStartTime =>
       DateTime.fromMillisecondsSinceEpoch(gameStartMillis);
 
-  Duration get gameDuration =>
-      Duration(milliseconds: gameLengthMillis);
+  Duration get gameDuration => Duration(milliseconds: gameLengthMillis);
 
   factory MatchInfo.fromJson(Map<String, dynamic> json) {
     return MatchInfo(
@@ -74,20 +73,23 @@ class PlayerStats {
   double get kda =>
       roundsPlayed > 0 ? (kills + assists) / (deaths > 0 ? deaths : 1) : 0.0;
 
-  double get averageScore =>
-      roundsPlayed > 0 ? score / roundsPlayed : 0.0;
+  double get averageScore => roundsPlayed > 0 ? score / roundsPlayed : 0.0;
 
   factory PlayerStats.fromJson(Map<String, dynamic> json) {
     final stats = json['stats'] as Map<String, dynamic>? ?? {};
-    final gameName = json['gameName']?.toString() ?? json['GameName']?.toString() ?? '';
-    final tagLine = json['tagLine']?.toString() ?? json['TagLine']?.toString() ?? '';
+    final gameName =
+        json['gameName']?.toString() ?? json['GameName']?.toString() ?? '';
+    final tagLine =
+        json['tagLine']?.toString() ?? json['TagLine']?.toString() ?? '';
     final name = gameName.isNotEmpty ? '$gameName#$tagLine' : '';
 
     return PlayerStats(
       puuid: json['subject']?.toString() ?? json['Subject']?.toString() ?? '',
       displayName: name,
       teamId: json['teamId']?.toString() ?? json['TeamId']?.toString() ?? '',
-      agentId: json['characterId']?.toString() ?? json['CharacterId']?.toString() ?? '',
+      agentId: json['characterId']?.toString() ??
+          json['CharacterId']?.toString() ??
+          '',
       kills: (stats['kills'] as num?)?.toInt() ?? 0,
       deaths: (stats['deaths'] as num?)?.toInt() ?? 0,
       assists: (stats['assists'] as num?)?.toInt() ?? 0,
@@ -122,16 +124,14 @@ class RoundResult {
       roundResult: json['roundResult'] as String? ?? '',
       roundCeremony: json['roundCeremony'] as String? ?? '',
       winningTeam: json['winningTeam'] as String? ?? '',
-      plantTime:
-          (json['bombPlanter'] != null
+      plantTime: (json['bombPlanter'] != null
               ? (json['plantRoundTime'] as num?)?.toInt()
               : null) ??
-              0,
-      defuseTime:
-          (json['bombDefuser'] != null
+          0,
+      defuseTime: (json['bombDefuser'] != null
               ? (json['defuseRoundTime'] as num?)?.toInt()
               : null) ??
-              0,
+          0,
     );
   }
 }
@@ -149,15 +149,6 @@ class MatchDetails {
   });
 
   String get mapId => matchInfo.mapId;
-
-  /// Returns stats for a specific player by PUUID.
-  PlayerStats? playerStats(String puuid) {
-    try {
-      return players.firstWhere((p) => p.puuid == puuid);
-    } catch (_) {
-      return null;
-    }
-  }
 
   /// Returns a copy of MatchDetails with resolved player names.
   MatchDetails copyWithResolvedNames(Map<String, String> namesMap) {
@@ -187,8 +178,8 @@ class MatchDetails {
   }
 
   factory MatchDetails.fromJson(Map<String, dynamic> json) {
-    final matchInfo = MatchInfo.fromJson(
-        json['matchInfo'] as Map<String, dynamic>? ?? {});
+    final matchInfo =
+        MatchInfo.fromJson(json['matchInfo'] as Map<String, dynamic>? ?? {});
     final players = (json['players'] as List<dynamic>? ?? [])
         .map((e) => PlayerStats.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -199,7 +190,6 @@ class MatchDetails {
         matchInfo: matchInfo, players: players, roundResults: rounds);
   }
 }
-
 
 // ── Match Result Extension ────────────────────────────────────────────────────
 
@@ -212,20 +202,48 @@ class MatchDetails {
 /// VAL-MATCH-V1 endpoint does). We therefore derive result from
 /// roundResults, which is accurate for all standard game modes.
 extension MatchResultCalculator on MatchDetails {
+  ({int mine, int opponents})? _roundWinsForPlayer(String puuid) {
+    final player = players
+        .cast<PlayerStats?>()
+        .firstWhere((p) => p?.puuid == puuid, orElse: () => null);
+    if (player == null || player.teamId.isEmpty || roundResults.isEmpty) {
+      return null;
+    }
+    final playerTeam = player.teamId.toLowerCase();
+    final winners = roundResults
+        .map((round) => round.winningTeam.toLowerCase())
+        .where((team) => team.isNotEmpty);
+    return (
+      mine: winners.where((team) => team == playerTeam).length,
+      opponents: winners.where((team) => team != playerTeam).length,
+    );
+  }
+
   /// Returns the match outcome for [puuid] based on round wins/losses.
   /// Returns [MatchResult.unknown] if the player is not found or there are
   /// no round results (e.g. Deathmatch, or incomplete data).
   MatchResult resultForPlayer(String puuid) {
-    final player = players.cast<PlayerStats?>()
-        .firstWhere((p) => p?.puuid == puuid, orElse: () => null);
-    if (player == null || roundResults.isEmpty) { return MatchResult.unknown; }
-
-    final pt = player.teamId.toLowerCase();
-    final myWins = roundResults
-        .where((r) => r.winningTeam.toLowerCase() == pt).length;
-    final oppWins = roundResults.length - myWins;
-    if (myWins > oppWins) { return MatchResult.victory; }
-    if (myWins < oppWins) { return MatchResult.defeat; }
+    final wins = _roundWinsForPlayer(puuid);
+    if (wins == null) return MatchResult.unknown;
+    final myWins = wins.mine;
+    final oppWins = wins.opponents;
+    if (myWins == 0 && oppWins == 0) return MatchResult.unknown;
+    if (myWins > oppWins) {
+      return MatchResult.victory;
+    }
+    if (myWins < oppWins) {
+      return MatchResult.defeat;
+    }
     return MatchResult.draw;
+  }
+
+  /// Builds the round-score string (e.g. "13 – 8") for [puuid].
+  /// Returns null when the player is not found or there are no round results.
+  /// Single source of truth for the score string — used by the shared
+  /// enriched-history provider and the match history screen.
+  String? scoreStringForPlayer(String puuid) {
+    final wins = _roundWinsForPlayer(puuid);
+    if (wins == null || (wins.mine == 0 && wins.opponents == 0)) return null;
+    return '${wins.mine} – ${wins.opponents}';
   }
 }

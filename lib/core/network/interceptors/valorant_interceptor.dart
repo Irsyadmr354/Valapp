@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/exceptions/auth_exception.dart';
 import '../../storage/secure_storage.dart';
+import '../../../features/auth/data/credentials_local_source.dart';
 import '../../../shared/utils/version_service.dart';
 
 /// Automatically injects Valorant auth headers on every API request:
@@ -16,6 +17,8 @@ import '../../../shared/utils/version_service.dart';
 class ValorantInterceptor extends Interceptor {
   final SecureStorage _secureStorage;
   final VersionService _versionService;
+  late final CredentialsLocalSource _credentials =
+      CredentialsLocalSource(_secureStorage);
 
   /// Callback invoked when a 401 cannot be recovered — triggers re-login.
   final Future<void> Function() onAuthFailed;
@@ -36,8 +39,7 @@ class ValorantInterceptor extends Interceptor {
 
   /// Shared Dio instance used when retrying a request after reauth.
   /// Created lazily and reused to avoid allocating a new instance per retry.
-  late final Dio _retryDio = Dio()
-    ..interceptors.add(_JsonDecodeInterceptor());
+  late final Dio _retryDio = Dio();
 
   /// Tracks when we last ran the proactive reauth check so we don't re-read
   /// SecureStorage on every single API request. The check is skipped if it
@@ -49,6 +51,7 @@ class ValorantInterceptor extends Interceptor {
   /// proactive reauth, every other concurrent request awaits this same
   /// future instead of starting a duplicate reauth round-trip.
   Future<void>? _reauthInFlight;
+  Future<void>? _proactiveCheckInFlight;
 
   @override
   void onRequest(
@@ -56,16 +59,13 @@ class ValorantInterceptor extends Interceptor {
     try {
       await _maybeProactiveReauth();
 
-      final accessToken = await _secureStorage.read(SecureStorage.keyAccessToken);
-      final entitlementToken =
-          await _secureStorage.read(SecureStorage.keyEntitlementToken);
+      final credentials = await _credentials.load();
       final clientVersion = await _versionService.get();
 
-      if (accessToken != null) {
-        options.headers['Authorization'] = 'Bearer $accessToken';
-      }
-      if (entitlementToken != null) {
-        options.headers['X-Riot-Entitlements-JWT'] = entitlementToken;
+      if (credentials != null) {
+        options.headers['Authorization'] = 'Bearer ${credentials.accessToken}';
+        options.headers['X-Riot-Entitlements-JWT'] =
+            credentials.entitlementToken;
       }
       options.headers['X-Riot-ClientVersion'] = clientVersion;
       options.headers['X-Riot-ClientPlatform'] = _clientPlatform;
@@ -82,12 +82,11 @@ class ValorantInterceptor extends Interceptor {
   }
 
   Future<void> _maybeProactiveReauth() async {
-    // If another request already kicked off the reauth, piggyback on it
-    // instead of starting a second one in parallel.
-    if (_reauthInFlight != null) {
-      await _reauthInFlight;
-      return;
-    }
+    final reauth = _reauthInFlight;
+    if (reauth != null) return reauth;
+
+    final existingCheck = _proactiveCheckInFlight;
+    if (existingCheck != null) return existingCheck;
 
     // Skip if we already checked recently — avoids two SecureStorage reads
     // and a potential reauth round-trip on every concurrent API call.
@@ -100,66 +99,43 @@ class ValorantInterceptor extends Interceptor {
     // caller can slip past the cooldown check while we're doing I/O.
     _lastReauthCheckAt = now;
 
-    // Claim the in-flight slot BEFORE the first await so that any concurrent
-    // callers entering this method simultaneously will see a non-null future
-    // and await it rather than starting their own reauth round-trip.
-    // This eliminates the race window that existed when the assignment was
-    // deferred until _doProactiveReauth() was called below.
-    final completer = Completer<void>();
-    _reauthInFlight = completer.future;
-
-    final expiresAtStr = await _secureStorage.read(SecureStorage.keyExpiresAt);
-    final entitlementExpiresAtStr =
-        await _secureStorage.read(SecureStorage.keyEntitlementExpiresAt);
-
-    var needsReauth = false;
-
-    if (expiresAtStr != null) {
-      final expiresAt = DateTime.tryParse(expiresAtStr);
-      if (expiresAt != null &&
-          DateTime.now().isAfter(
-              expiresAt.subtract(SecureStorage.proactiveRefreshWindow))) {
-        needsReauth = true;
-      }
-    }
-
-    if (entitlementExpiresAtStr != null) {
-      final entitlementExpiresAt =
-          DateTime.tryParse(entitlementExpiresAtStr);
-      if (entitlementExpiresAt != null &&
-          DateTime.now().isAfter(entitlementExpiresAt
-              .subtract(SecureStorage.proactiveRefreshWindow))) {
-        needsReauth = true;
-      }
-    } else {
-      // No entitlement expiry tracked — treat as potentially stale.
-      needsReauth = true;
-    }
-
-    if (!needsReauth) {
-      // Nothing to do — release the slot immediately so waiters unblock.
-      completer.complete();
-      _reauthInFlight = null;
-      return;
-    }
-
-    debugPrint(
-        '[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
-
+    final operation = _checkAndMaybeReauth();
+    _proactiveCheckInFlight = operation;
     try {
-      await _doProactiveReauth();
+      await operation;
     } finally {
-      completer.complete();
-      _reauthInFlight = null;
+      if (identical(_proactiveCheckInFlight, operation)) {
+        _proactiveCheckInFlight = null;
+      }
     }
   }
 
-  Future<void> _doProactiveReauth() async {
+  Future<void> _checkAndMaybeReauth() async {
+    final credentials = await _credentials.load();
+    if (credentials == null) return;
+
+    final needsReauth =
+        credentials.isExpired || credentials.isEntitlementExpired;
+
+    if (!needsReauth) return;
+    debugPrint(
+        '[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
+    await _runSharedReauth();
+    debugPrint('[ValorantInterceptor] Proactive reauth completed');
+  }
+
+  Future<void> _runSharedReauth() async {
+    final inFlight = _reauthInFlight;
+    if (inFlight != null) return inFlight;
+
+    final operation = onReauth();
+    _reauthInFlight = operation;
     try {
-      await onReauth();
-      debugPrint('[ValorantInterceptor] Proactive reauth completed');
-    } catch (e) {
-      debugPrint('[ValorantInterceptor] Proactive reauth failed: $e');
+      await operation;
+    } finally {
+      if (identical(_reauthInFlight, operation)) {
+        _reauthInFlight = null;
+      }
     }
   }
 
@@ -193,13 +169,11 @@ class ValorantInterceptor extends Interceptor {
   bool _isLikelyAuthError(DioException err) {
     final data = err.response?.data;
     if (data == null) {
-      // Empty 400 on pd.* endpoints is commonly a stale entitlement token.
-      return true;
+      return false;
     }
 
-    final body = data is String
-        ? data.toLowerCase()
-        : jsonEncode(data).toLowerCase();
+    final body =
+        data is String ? data.toLowerCase() : jsonEncode(data).toLowerCase();
 
     const authHints = [
       'entitlement',
@@ -208,10 +182,8 @@ class ValorantInterceptor extends Interceptor {
       'bad claims',
       'invalid_token',
       'invalid token',
-      'token',
       'forbidden',
       'authentication',
-      'auth',
     ];
 
     return authHints.any(body.contains);
@@ -222,26 +194,22 @@ class ValorantInterceptor extends Interceptor {
     ErrorInterceptorHandler handler, {
     required String retryFlag,
   }) async {
-    final alreadyRetried = err.requestOptions.extra[retryFlag] as bool? ?? false;
+    final alreadyRetried =
+        err.requestOptions.extra[retryFlag] as bool? ?? false;
     if (alreadyRetried) return false;
 
     debugPrint(
         '[ValorantInterceptor] Got ${err.response?.statusCode} (auth) — attempting reauth...');
     try {
-      await onReauth();
+      await _runSharedReauth();
       err.requestOptions.extra[retryFlag] = true;
 
-      final freshAccessToken =
-          await _secureStorage.read(SecureStorage.keyAccessToken);
-      final freshEntitlement =
-          await _secureStorage.read(SecureStorage.keyEntitlementToken);
-      if (freshAccessToken != null) {
+      final freshCredentials = await _credentials.load();
+      if (freshCredentials != null) {
         err.requestOptions.headers['Authorization'] =
-            'Bearer $freshAccessToken';
-      }
-      if (freshEntitlement != null) {
+            'Bearer ${freshCredentials.accessToken}';
         err.requestOptions.headers['X-Riot-Entitlements-JWT'] =
-            freshEntitlement;
+            freshCredentials.entitlementToken;
       }
 
       final retryDio = _retryDio;
@@ -255,31 +223,10 @@ class ValorantInterceptor extends Interceptor {
           '[ValorantInterceptor] Reauth failed (will preserve session for retry): $e');
       // Do not clear credentials on transient errors or timeouts — keep session intact.
       // Only clear if error is explicitly an unrecoverable auth rejection.
-      if (e is AuthException && e.message.contains('invalid_grant')) {
+      if (e is TokenExpiredException || e is InvalidSessionException) {
         await onAuthFailed();
       }
       return false;
     }
-  }
-}
-
-/// Minimal interceptor that decodes string JSON responses into Maps/Lists,
-/// needed for the retry Dio instance used after reauth.
-class _JsonDecodeInterceptor extends Interceptor {
-  @override
-  void onResponse(Response response, ResponseInterceptorHandler handler) {
-    if (response.data is String) {
-      final str = (response.data as String).trim();
-      if (str.startsWith('{') || str.startsWith('[')) {
-        try {
-          response.data = _jsonDecode(str);
-        } catch (_) {}
-      }
-    }
-    handler.next(response);
-  }
-
-  dynamic _jsonDecode(String str) {
-    return (const JsonDecoder()).convert(str);
   }
 }

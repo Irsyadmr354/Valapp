@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
-import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
@@ -17,65 +17,6 @@ import '../../match/domain/models/match_history.dart';
 import '../../rank/domain/models/player_mmr.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
-
-final _accountXpProvider =
-    FutureProvider.autoDispose<CachedFetchResult<AccountXp>?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(accountRemoteSourceProvider.future);
-  final cache = ref.watch(accountLocalCacheProvider);
-  try {
-    final raw = await source.fetchAccountXpRaw(creds.shard, creds.puuid);
-    final xp = AccountXp.fromJson(raw);
-    await cache.saveAccountXp(raw);
-    return CachedFetchResult(xp);
-  } catch (_) {
-    final cached = await cache.loadAccountXp();
-    if (cached != null) return CachedFetchResult(cached, fromCache: true);
-    rethrow;
-  }
-});
-
-final _displayNameProvider =
-    FutureProvider.autoDispose<CachedFetchResult<String>?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(accountRemoteSourceProvider.future);
-  final cache = ref.watch(accountLocalCacheProvider);
-  try {
-    final name = await source.fetchDisplayName(creds.shard, creds.puuid);
-    if (name != null && name.isNotEmpty) {
-      await cache.saveDisplayName(creds.puuid, name);
-      return CachedFetchResult(name);
-    }
-    throw StateError('Display name unavailable');
-  } catch (_) {
-    final cached = await cache.loadDisplayName(creds.puuid);
-    if (cached != null && cached.isNotEmpty) {
-      return CachedFetchResult(cached, fromCache: true);
-    }
-    if (creds.puuid.length >= 8) {
-      return CachedFetchResult('Player (${creds.puuid.substring(0, 6)}...)');
-    }
-    return const CachedFetchResult('Valorant Player');
-  }
-});
-
-final _profileMmrProvider =
-    FutureProvider.autoDispose<PlayerMmr?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(mmrRemoteSourceProvider.future);
-  final cache = ref.watch(mmrLocalCacheProvider);
-  try {
-    final raw = await source.fetchMmrRaw(creds.shard, creds.puuid);
-    final mmr = PlayerMmr.fromJson(raw);
-    await cache.saveMmr(raw);
-    return mmr;
-  } catch (_) {
-    return cache.loadMmr();
-  }
-});
 
 final _profileMatchesProvider =
     FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
@@ -117,7 +58,7 @@ class _LevelBorderInfo {
 final _levelBorderProvider =
     FutureProvider.autoDispose<_LevelBorderInfo?>((ref) async {
   try {
-    final xpResult = await ref.watch(_accountXpProvider.future);
+    final xpResult = await ref.watch(accountXpProvider.future);
     if (xpResult == null) return null;
     final level = xpResult.data.level;
 
@@ -130,8 +71,7 @@ final _levelBorderProvider =
     Map<String, dynamic>? next;
 
     for (var i = 0; i < borders.length; i++) {
-      final startLevel =
-          (borders[i]['startingLevel'] as num?)?.toInt() ?? 0;
+      final startLevel = (borders[i]['startingLevel'] as num?)?.toInt() ?? 0;
       if (startLevel <= level) {
         current = borders[i];
         // Next border = the following entry
@@ -156,9 +96,9 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final xpAsync = ref.watch(_accountXpProvider);
-    final nameAsync = ref.watch(_displayNameProvider);
-    final mmrAsync = ref.watch(_profileMmrProvider);
+    final xpAsync = ref.watch(accountXpProvider);
+    final nameAsync = ref.watch(displayNameProvider);
+    final mmrAsync = ref.watch(playerMmrProvider);
     final matchesAsync = ref.watch(_profileMatchesProvider);
     final cardAsync = ref.watch(_profileCardProvider);
 
@@ -176,7 +116,7 @@ class ProfileScreen extends ConsumerWidget {
 
     final displayName = nameAsync.asData?.value?.data;
     final xpData = xpAsync.asData?.value?.data;
-    final mmrData = mmrAsync.asData?.value;
+    final mmrData = mmrAsync.asData?.value?.data;
     final matchesData = matchesAsync.asData?.value;
 
     final cardInfo = cardAsync.asData?.value;
@@ -190,10 +130,15 @@ class ProfileScreen extends ConsumerWidget {
           color: AppColors.red,
           backgroundColor: AppColors.bgCard2,
           onRefresh: () async {
-            ref.invalidate(_accountXpProvider);
-            ref.invalidate(_displayNameProvider);
-            ref.invalidate(_profileMmrProvider);
+            ref.invalidate(accountXpProvider);
+            ref.invalidate(displayNameProvider);
+            ref.invalidate(playerMmrProvider);
             ref.invalidate(_profileMatchesProvider);
+            // Await the refresh so the spinner stays until fetches finish.
+            await ref.read(accountXpProvider.future);
+            await ref.read(displayNameProvider.future);
+            await ref.read(playerMmrProvider.future);
+            await ref.read(_profileMatchesProvider.future);
           },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -270,17 +215,29 @@ class ProfileScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child:
+                const Text('Cancel', style: TextStyle(color: Colors.white54)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
               Navigator.of(ctx).pop();
               final repo = await ref.read(authRepositoryProvider.future);
               await repo.logout();
+              // Also wipe the persisted Riot cookie jar (ssid etc.) so a
+              // subsequent reauth can't silently re-login the "ghost" session.
+              try {
+                final jar = await ref.read(cookieJarProvider.future);
+                await jar.deleteAll();
+              } catch (_) {}
+              // Dio and native WebViews have independent cookie stores.
+              try {
+                await WebViewCookieManager().clearCookies();
+              } catch (_) {}
               await CacheStorage.instance.clearAll();
               ref.invalidate(currentCredentialsProvider);
             },
@@ -343,7 +300,8 @@ class _ProfileHeaderBanner extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      AppColors.bgCard2.withAlpha(playerCardWideArt != null ? 160 : 220),
+                      AppColors.bgCard2
+                          .withAlpha(playerCardWideArt != null ? 160 : 220),
                       AppColors.bgCard2.withAlpha(240),
                     ],
                   ),
@@ -352,9 +310,11 @@ class _ProfileHeaderBanner extends StatelessWidget {
             ),
             // Red radial glow top-right
             Positioned(
-              right: -20, top: -20,
+              right: -20,
+              top: -20,
               child: Container(
-                width: 140, height: 140,
+                width: 140,
+                height: 140,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
@@ -379,7 +339,8 @@ class _ProfileHeaderBanner extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            width: 6, height: 6,
+                            width: 6,
+                            height: 6,
                             decoration: BoxDecoration(
                               color: AppColors.red,
                               borderRadius: BorderRadius.circular(2),
@@ -428,11 +389,13 @@ class _ProfileHeaderBanner extends StatelessWidget {
                       Stack(
                         children: [
                           Container(
-                            width: 64, height: 64,
+                            width: 64,
+                            height: 64,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: AppColors.redGradient,
-                              boxShadow: AppColors.redGlow(alpha: 0.35, blur: 14),
+                              boxShadow:
+                                  AppColors.redGlow(alpha: 0.35, blur: 14),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(2.5),
@@ -474,21 +437,23 @@ class _ProfileHeaderBanner extends StatelessWidget {
                                               style: const TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 26,
-                                                  fontWeight:
-                                                      FontWeight.w900)),
+                                                  fontWeight: FontWeight.w900)),
                                         ),
                                       ),
                               ),
                             ),
                           ),
                           Positioned(
-                            right: 2, bottom: 2,
+                            right: 2,
+                            bottom: 2,
                             child: Container(
-                              width: 12, height: 12,
+                              width: 12,
+                              height: 12,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: AppColors.win,
-                                border: Border.all(color: AppColors.bg, width: 2),
+                                border:
+                                    Border.all(color: AppColors.bg, width: 2),
                               ),
                             ),
                           ),
@@ -514,7 +479,8 @@ class _ProfileHeaderBanner extends StatelessWidget {
                                 const SizedBox(width: 6),
                                 InkWell(
                                   onTap: () {
-                                    Clipboard.setData(ClipboardData(text: nameText));
+                                    Clipboard.setData(
+                                        ClipboardData(text: nameText));
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Riot ID copied!'),
@@ -627,7 +593,8 @@ class _AccountLevelXpCard extends StatelessWidget {
                           border: Border.all(color: AppColors.red, width: 1),
                         ),
                         child: const Center(
-                          child: Icon(Icons.shield_outlined, color: AppColors.red, size: 16),
+                          child: Icon(Icons.shield_outlined,
+                              color: AppColors.red, size: 16),
                         ),
                       ),
                     ],
@@ -713,7 +680,8 @@ class _AccountLevelXpCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AppColors.red.withAlpha(40),
                                 borderRadius: BorderRadius.circular(4),
@@ -801,20 +769,17 @@ class _ProfileQuickStatsRow extends StatelessWidget {
     final matchesCount = historyResult?.total ?? matches.length;
     final winsCount =
         matches.where((m) => m.result == MatchResult.victory).length;
-    final knownCount = matches
-        .where((m) => m.result != MatchResult.unknown).length;
+    final knownCount =
+        matches.where((m) => m.result != MatchResult.unknown).length;
     // Win% over known results only — avoids 0% when most are unenriched
     final winPct = knownCount > 0 ? (winsCount / knownCount * 100) : 0.0;
 
     // Compute real K/D from matches that carry stats
     final withStats = matches.where((m) => m.kills != null).toList();
-    final totalKills =
-        withStats.fold<int>(0, (s, m) => s + (m.kills ?? 0));
-    final totalDeaths =
-        withStats.fold<int>(0, (s, m) => s + (m.deaths ?? 0));
-    final kd = totalDeaths > 0
-        ? totalKills / totalDeaths
-        : totalKills.toDouble();
+    final totalKills = withStats.fold<int>(0, (s, m) => s + (m.kills ?? 0));
+    final totalDeaths = withStats.fold<int>(0, (s, m) => s + (m.deaths ?? 0));
+    final kd =
+        totalDeaths > 0 ? totalKills / totalDeaths : totalKills.toDouble();
 
     return Row(
       children: [
@@ -851,7 +816,8 @@ class _ProfileQuickStatsRow extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
+                    const Icon(Icons.chevron_right,
+                        color: Colors.white24, size: 16),
                   ],
                 ),
               ],
@@ -909,7 +875,8 @@ class _ProfileQuickStatsRow extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
+                    const Icon(Icons.chevron_right,
+                        color: Colors.white24, size: 16),
                   ],
                 ),
               ],
@@ -952,7 +919,8 @@ class _ProfileQuickStatsRow extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
+                    const Icon(Icons.chevron_right,
+                        color: Colors.white24, size: 16),
                   ],
                 ),
               ],
@@ -1093,11 +1061,13 @@ class _XpGainsCardSection extends StatelessWidget {
                 (entry) => Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Colors.white10, width: 0.6)),
+                    border: Border(
+                        bottom: BorderSide(color: Colors.white10, width: 0.6)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.bolt_rounded, color: AppColors.red, size: 18),
+                      const Icon(Icons.bolt_rounded,
+                          color: AppColors.red, size: 18),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -1118,7 +1088,8 @@ class _XpGainsCardSection extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
+                      const Icon(Icons.chevron_right,
+                          color: Colors.white24, size: 16),
                     ],
                   ),
                 ),
@@ -1181,8 +1152,7 @@ class _LoadoutQuickLink extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right,
-                color: AppColors.red, size: 20),
+            const Icon(Icons.chevron_right, color: AppColors.red, size: 20),
           ],
         ),
       ),
@@ -1233,8 +1203,7 @@ class _LevelBorderContent extends StatelessWidget {
         next?['smallPlayerCardAppearance'] as String?;
 
     // Progress to next border
-    final currentStart =
-        (current['startingLevel'] as num?)?.toInt() ?? 0;
+    final currentStart = (current['startingLevel'] as num?)?.toInt() ?? 0;
     final levelsInRange =
         nextStartLevel != null ? (nextStartLevel - currentStart) : null;
     final levelsGained = info.currentLevel - currentStart;
@@ -1257,7 +1226,8 @@ class _LevelBorderContent extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 3, height: 14,
+                width: 3,
+                height: 14,
                 color: AppColors.red,
               ),
               const SizedBox(width: 8),
@@ -1283,7 +1253,8 @@ class _LevelBorderContent extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.bgCard,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
+                  border:
+                      Border.all(color: AppColors.red.withAlpha(80), width: 1),
                 ),
                 child: currentIcon != null && currentIcon.isNotEmpty
                     ? ClipRRect(
@@ -1295,7 +1266,8 @@ class _LevelBorderContent extends StatelessWidget {
                               Container(color: AppColors.bgCard),
                           errorWidget: (_, __, ___) => const Icon(
                               Icons.shield_outlined,
-                              color: AppColors.red, size: 32),
+                              color: AppColors.red,
+                              size: 32),
                         ),
                       )
                     : const Icon(Icons.shield_outlined,
@@ -1325,7 +1297,6 @@ class _LevelBorderContent extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-
                     if (next != null && nextStartLevel != null) ...[
                       const SizedBox(height: 10),
                       Row(
@@ -1411,8 +1382,8 @@ class _LevelBorderContent extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: AppColors.bgCard,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: AppColors.border, width: 0.8),
+                            border:
+                                Border.all(color: AppColors.border, width: 0.8),
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(7),
@@ -1541,5 +1512,3 @@ class _AccountHealthBannerCard extends ConsumerWidget {
     );
   }
 }
-
-

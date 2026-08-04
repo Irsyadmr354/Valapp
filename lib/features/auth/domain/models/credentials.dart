@@ -22,13 +22,11 @@ class Credentials {
     required this.entitlementExpiresAt,
   });
 
-  bool get isExpired =>
-      DateTime.now().isAfter(
-          expiresAt.subtract(SecureStorage.proactiveRefreshWindow));
+  bool get isExpired => DateTime.now()
+      .isAfter(expiresAt.subtract(SecureStorage.proactiveRefreshWindow));
 
-  bool get isEntitlementExpired =>
-      DateTime.now().isAfter(
-          entitlementExpiresAt.subtract(SecureStorage.proactiveRefreshWindow));
+  bool get isEntitlementExpired => DateTime.now().isAfter(
+      entitlementExpiresAt.subtract(SecureStorage.proactiveRefreshWindow));
 
   /// Returns the correct shard for a given region.
   static String shardForRegion(String region) {
@@ -44,9 +42,18 @@ class Credentials {
       case 'kr':
         return 'kr';
       default:
-        return 'na';
+        throw ArgumentError.value(region, 'region', 'Unsupported region');
     }
   }
+
+  static bool isSupportedRegion(String region) => const {
+        'na',
+        'latam',
+        'br',
+        'eu',
+        'ap',
+        'kr'
+      }.contains(region.toLowerCase());
 
   Credentials copyWith({
     String? accessToken,
@@ -66,8 +73,7 @@ class Credentials {
       region: region ?? this.region,
       shard: shard ?? this.shard,
       expiresAt: expiresAt ?? this.expiresAt,
-      entitlementExpiresAt:
-          entitlementExpiresAt ?? this.entitlementExpiresAt,
+      entitlementExpiresAt: entitlementExpiresAt ?? this.entitlementExpiresAt,
     );
   }
 }

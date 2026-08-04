@@ -40,8 +40,8 @@ final _routerProvider = Provider<GoRouter>((ref) {
 
       final creds = credsAsync.value;
       final location = state.matchedLocation;
-      final isAuthRoute = location == '/login' ||
-          location.startsWith('/login/');
+      final isAuthRoute =
+          location == '/login' || location.startsWith('/login/');
 
       if (creds == null && !isAuthRoute) return '/login';
       if (creds != null && location == '/login') return '/shop';
@@ -66,13 +66,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/shop', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/rank', builder: (_, __) => const RankScreen()),
           GoRoute(
-              path: '/matches',
-              builder: (_, __) => const MatchHistoryScreen()),
+              path: '/matches', builder: (_, __) => const MatchHistoryScreen()),
           GoRoute(
-              path: '/progress',
-              builder: (_, __) => const ContractsScreen()),
-          GoRoute(
-              path: '/profile', builder: (_, __) => const ProfileScreen()),
+              path: '/progress', builder: (_, __) => const ContractsScreen()),
+          GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
     ],
@@ -169,16 +166,25 @@ class _ScaffoldWithNav extends StatelessWidget {
   static const _tabs = [
     ('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Home'),
     ('/rank', Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Rank'),
-    ('/matches', Icons.sports_esports_outlined, Icons.sports_esports_rounded, 'Matches'),
-    ('/progress', Icons.assignment_outlined, Icons.assignment_rounded, 'Progress'),
+    (
+      '/matches',
+      Icons.sports_esports_outlined,
+      Icons.sports_esports_rounded,
+      'Matches'
+    ),
+    (
+      '/progress',
+      Icons.assignment_outlined,
+      Icons.assignment_rounded,
+      'Progress'
+    ),
     ('/profile', Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
   ];
 
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
-    final currentIndex =
-        _tabs.indexWhere((t) => t.$1 == location).clamp(0, 4);
+    final currentIndex = _tabs.indexWhere((t) => t.$1 == location).clamp(0, 4);
 
     return Scaffold(
       backgroundColor: const Color(0xFF070A10),
@@ -238,7 +244,8 @@ class _BottomNav extends StatelessWidget {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: isSelected
-                            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 4)
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 4)
                             : EdgeInsets.zero,
                         decoration: isSelected
                             ? BoxDecoration(
@@ -253,7 +260,9 @@ class _BottomNav extends StatelessWidget {
                         child: Icon(
                           isSelected ? tab.$3 : tab.$2,
                           size: 22,
-                          color: isSelected ? AppColors.red : const Color(0xFF5C6B7A),
+                          color: isSelected
+                              ? AppColors.red
+                              : const Color(0xFF5C6B7A),
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -261,8 +270,11 @@ class _BottomNav extends StatelessWidget {
                         tab.$4,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                          color: isSelected ? AppColors.red : const Color(0xFF5C6B7A),
+                          fontWeight:
+                              isSelected ? FontWeight.w800 : FontWeight.w500,
+                          color: isSelected
+                              ? AppColors.red
+                              : const Color(0xFF5C6B7A),
                           letterSpacing: isSelected ? 0.4 : 0,
                         ),
                       ),

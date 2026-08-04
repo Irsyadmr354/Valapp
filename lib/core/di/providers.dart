@@ -8,6 +8,8 @@ import '../network/cookie_service.dart';
 import '../network/interceptors/valorant_interceptor.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
+import '../storage/cached_fetch_result.dart';
+import '../utils/async_lock.dart';
 import '../../shared/utils/version_service.dart';
 import '../../shared/utils/valorant_assets.dart';
 
@@ -44,6 +46,7 @@ import '../../features/contracts/data/contracts_local_cache.dart';
 import '../../features/profile/data/account_remote_source.dart';
 import '../../features/profile/data/account_local_cache.dart';
 import '../../features/profile/data/restrictions_remote_source.dart';
+import '../../features/profile/domain/models/account_xp.dart';
 
 // ── Loadout ───────────────────────────────────────────────────────────────
 
@@ -58,17 +61,21 @@ import '../../features/news/data/news_remote_source.dart';
 // Core singletons
 // ═════════════════════════════════════════════════════════════════════════════
 
-final secureStorageProvider = Provider<SecureStorage>((_) => SecureStorage.instance);
+final secureStorageProvider =
+    Provider<SecureStorage>((_) => SecureStorage.instance);
 
-final cacheStorageProvider = Provider<CacheStorage>((_) => CacheStorage.instance);
+final cacheStorageProvider =
+    Provider<CacheStorage>((_) => CacheStorage.instance);
 
-final versionServiceProvider = Provider<VersionService>((_) => VersionService.instance);
+final versionServiceProvider =
+    Provider<VersionService>((_) => VersionService.instance);
 
-final valorantAssetsProvider = Provider<ValorantAssets>((_) => ValorantAssets.instance);
+final valorantAssetsProvider =
+    Provider<ValorantAssets>((_) => ValorantAssets.instance);
 
 // ── Cookie jar (async init via FutureProvider) ─────────────────────────────
 
-final cookieJarProvider = FutureProvider<PersistCookieJar>((_) => createCookieJar());
+final cookieJarProvider = FutureProvider<CookieJar>((_) => createCookieJar());
 
 // ── Auth Dio ───────────────────────────────────────────────────────────────
 
@@ -80,7 +87,10 @@ final authDioProvider = FutureProvider<Dio>((ref) async {
 // ── Credentials local source ───────────────────────────────────────────────
 
 final credentialsLocalSourceProvider = Provider<CredentialsLocalSource>((ref) {
-  return CredentialsLocalSource(ref.watch(secureStorageProvider));
+  return CredentialsLocalSource(
+    ref.watch(secureStorageProvider),
+    ref.watch(cacheStorageProvider),
+  );
 });
 
 // ── Auth remote source ─────────────────────────────────────────────────────
@@ -126,8 +136,9 @@ final apiDioProvider = FutureProvider<Dio>((ref) async {
       // handles the switch internally (calls _saveInternal), so we just
       // invalidate the credentials provider afterward to trigger a re-read.
       final local = ref.read(credentialsLocalSourceProvider);
-      final failedPuuid =
-          await ref.read(secureStorageProvider).read(SecureStorage.keyPuuid);
+      final failedPuuid = (await local.load())?.puuid;
+
+      await ref.read(cacheStorageProvider).clearUserCache();
 
       if (failedPuuid != null) {
         // removeAccount removes the entry from the saved list AND
@@ -151,7 +162,8 @@ final apiDioProvider = FutureProvider<Dio>((ref) async {
 
 // ── Store ──────────────────────────────────────────────────────────────────
 
-final storeRemoteSourceProvider = FutureProvider<StoreRemoteSource>((ref) async {
+final storeRemoteSourceProvider =
+    FutureProvider<StoreRemoteSource>((ref) async {
   final dio = await ref.watch(apiDioProvider.future);
   return StoreRemoteSource(dio);
 });
@@ -170,7 +182,8 @@ final storeRepositoryProvider = FutureProvider<StoreRepository>((ref) async {
 
 // ── Match ──────────────────────────────────────────────────────────────────
 
-final matchRemoteSourceProvider = FutureProvider<MatchRemoteSource>((ref) async {
+final matchRemoteSourceProvider =
+    FutureProvider<MatchRemoteSource>((ref) async {
   final dio = await ref.watch(apiDioProvider.future);
   return MatchRemoteSource(dio);
 });
@@ -228,8 +241,62 @@ final restrictionsRemoteSourceProvider =
 
 final currentCredentialsProvider = FutureProvider((ref) async {
   final local = ref.watch(credentialsLocalSourceProvider);
-  return local.load();
+  final creds = await local.load();
+  // Sync the active session scope so every user-scoped cache is namespaced
+  // (and guarded) against the currently-active account. This runs on every
+  // credential change (login, switch, logout, reauth-invalidate) because this
+  // provider is invalidated in all those flows.
+  await ref
+      .read(cacheStorageProvider)
+      .initializeActiveSession(creds?.puuid ?? '');
+  return creds;
 });
+
+/// Serializes account changes and invalidates every session-bound dependency
+/// as one operation. Widgets should not perform these steps independently.
+final sessionActionsProvider = Provider<SessionActions>(SessionActions.new);
+
+class SessionActions {
+  SessionActions(this._ref);
+
+  final Ref _ref;
+
+  Future<void> switchAccount(SavedAccountProfile account) {
+    return AsyncLock.run('active_session_action', () async {
+      final local = _ref.read(credentialsLocalSourceProvider);
+      final current = await local.load();
+      if (current?.puuid == account.puuid) return;
+
+      await local.save(
+        account.credentials,
+        displayName: account.displayName,
+        playerCardId: account.playerCardId,
+        avatarUrl: account.avatarUrl,
+      );
+      invalidateSession();
+    });
+  }
+
+  Future<void> removeAccount(String puuid) {
+    return AsyncLock.run('active_session_action', () async {
+      await _ref.read(credentialsLocalSourceProvider).removeAccount(puuid);
+      invalidateSession();
+    });
+  }
+
+  void invalidateSession() {
+    _ref.invalidate(currentCredentialsProvider);
+    _ref.invalidate(apiDioProvider);
+    _ref.invalidate(storeRemoteSourceProvider);
+    _ref.invalidate(storeRepositoryProvider);
+    _ref.invalidate(matchRemoteSourceProvider);
+    _ref.invalidate(mmrRemoteSourceProvider);
+    _ref.invalidate(contractsRemoteSourceProvider);
+    _ref.invalidate(accountRemoteSourceProvider);
+    _ref.invalidate(restrictionsRemoteSourceProvider);
+    _ref.invalidate(loadoutRemoteSourceProvider);
+  }
+}
 
 // ── Loadout ────────────────────────────────────────────────────────────────
 
@@ -253,23 +320,115 @@ final newsRemoteSourceProvider = Provider<NewsRemoteSource>((ref) {
   return NewsRemoteSource(dio);
 });
 
-// ── Shared Competitive Updates ─────────────────────────────────────────────
+// ── Shared account data pipelines ──────────────────────────────────────────
 
-/// Shared competitive updates provider so Home Screen and Rank Screen
-/// both use the same cached data — no duplicate network fetches.
-final competitiveUpdatesProvider =
-    FutureProvider.autoDispose<List<CompetitiveUpdate>>((ref) async {
+final accountXpProvider =
+    FutureProvider<CachedFetchResult<AccountXp>?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return [];
+  if (creds == null) return null;
+  final source = await ref.watch(accountRemoteSourceProvider.future);
+  final cache = ref.watch(accountLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+  try {
+    final raw = await source.fetchAccountXpRaw(creds.shard, creds.puuid);
+    final value = AccountXp.fromJson(raw);
+    if (transaction != null) {
+      await cache.saveAccountXp(raw,
+          puuid: creds.puuid, transaction: transaction);
+    }
+    if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+      return null;
+    }
+    return CachedFetchResult(value);
+  } catch (_) {
+    final value = await cache.loadAccountXp(puuid: creds.puuid);
+    if (value != null) return CachedFetchResult(value, fromCache: true);
+    rethrow;
+  }
+});
+
+final displayNameProvider =
+    FutureProvider<CachedFetchResult<String>?>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
+  final source = await ref.watch(accountRemoteSourceProvider.future);
+  final cache = ref.watch(accountLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+  try {
+    final name = await source.fetchDisplayName(creds.shard, creds.puuid);
+    if (name == null || name.isEmpty) {
+      throw StateError('Display name unavailable');
+    }
+    if (transaction != null) {
+      await cache.saveDisplayName(creds.puuid, name, transaction);
+    }
+    if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+      return null;
+    }
+    return CachedFetchResult(name);
+  } catch (_) {
+    final cached = await cache.loadDisplayName(creds.puuid);
+    if (cached != null && cached.isNotEmpty) {
+      return CachedFetchResult(cached, fromCache: true);
+    }
+    final fallback = creds.puuid.length >= 8
+        ? 'Player (${creds.puuid.substring(0, 6)}...)'
+        : 'Valorant Player';
+    return CachedFetchResult(fallback);
+  }
+});
+
+final playerMmrProvider =
+    FutureProvider<CachedFetchResult<PlayerMmr>?>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
   final source = await ref.watch(mmrRemoteSourceProvider.future);
   final cache = ref.watch(mmrLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
   try {
-    final raw = await source.fetchCompetitiveUpdatesRaw(creds.shard, creds.puuid);
-    final list = source.parseCompetitiveUpdates(raw);
-    await cache.saveCompetitiveUpdates(raw);
-    return list;
+    final raw = await source.fetchMmrRaw(creds.shard, creds.puuid);
+    final value = PlayerMmr.fromJson(raw);
+    if (transaction != null) {
+      await cache.saveMmr(raw, puuid: creds.puuid, transaction: transaction);
+    }
+    if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+      return null;
+    }
+    return CachedFetchResult(value);
   } catch (_) {
-    return await cache.loadCompetitiveUpdates() ?? [];
+    final value = await cache.loadMmr(puuid: creds.puuid);
+    if (value != null) return CachedFetchResult(value, fromCache: true);
+    rethrow;
+  }
+});
+
+final competitiveUpdatesProvider =
+    FutureProvider<CachedFetchResult<List<CompetitiveUpdate>>>((ref) async {
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return const CachedFetchResult([]);
+  final source = await ref.watch(mmrRemoteSourceProvider.future);
+  final cache = ref.watch(mmrLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+  try {
+    final raw =
+        await source.fetchCompetitiveUpdatesRaw(creds.shard, creds.puuid);
+    final list = source.parseCompetitiveUpdates(raw);
+    if (transaction != null) {
+      await cache.saveCompetitiveUpdates(raw,
+          puuid: creds.puuid, transaction: transaction);
+    }
+    if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+      return const CachedFetchResult([]);
+    }
+    return CachedFetchResult(list);
+  } catch (_) {
+    final cached = await cache.loadCompetitiveUpdates(puuid: creds.puuid);
+    if (cached != null) return CachedFetchResult(cached, fromCache: true);
+    rethrow;
   }
 });
 
@@ -283,18 +442,22 @@ class PlayerCardArtInfo {
   const PlayerCardArtInfo({this.smallArt, this.wideArt});
 }
 
-final playerCardArtProvider =
-    FutureProvider.autoDispose<PlayerCardArtInfo>((ref) async {
+final playerCardArtProvider = FutureProvider<PlayerCardArtInfo>((ref) async {
   try {
     final creds = await ref.watch(currentCredentialsProvider.future);
     if (creds == null) return const PlayerCardArtInfo();
 
     final cache = ref.watch(loadoutLocalCacheProvider);
-    Map<String, dynamic>? raw = await cache.loadLoadoutRaw();
+    final transaction =
+        ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+    Map<String, dynamic>? raw = await cache.loadLoadoutRaw(puuid: creds.puuid);
     if (raw == null) {
       final source = await ref.watch(loadoutRemoteSourceProvider.future);
       raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
-      await cache.saveLoadout(raw);
+      if (transaction != null) {
+        await cache.saveLoadout(raw,
+            puuid: creds.puuid, transaction: transaction);
+      }
     }
 
     // v3 wraps fields under 'Loadout' key; v2 exposes them at root.
@@ -309,7 +472,8 @@ final playerCardArtProvider =
         raw['PlayerCardID'] as String?;
     if (cardId == null) return const PlayerCardArtInfo();
 
-    final cardsMap = await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
+    final cardsMap =
+        await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
     final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
         as Map<String, dynamic>?;
 
@@ -334,22 +498,27 @@ final playerCardArtProvider =
 /// Used by HomeScreen and ProfileScreen so neither file duplicates the
 /// ~40-line fetch + cache-only enrich loop.
 final enrichedMatchHistoryProvider =
-    FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
+    FutureProvider<MatchHistoryResult?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
 
-  final source      = await ref.watch(matchRemoteSourceProvider.future);
+  final source = await ref.watch(matchRemoteSourceProvider.future);
   final historyCache = ref.watch(matchHistoryLocalCacheProvider);
-  final detailCache  = ref.watch(matchDetailLocalCacheProvider);
+  final detailCache = ref.watch(matchDetailLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
 
   // ── 1. Fetch / load raw history ──────────────────────────────────────────
   MatchHistoryResult raw;
   try {
     final rawJson = await source.fetchHistoryRaw(creds.shard, creds.puuid);
     raw = MatchHistoryResult.fromJson(rawJson);
-    await historyCache.saveHistory(raw);
+    if (transaction != null) {
+      await historyCache.saveHistory(raw,
+          puuid: creds.puuid, transaction: transaction);
+    }
   } catch (_) {
-    final cached = await historyCache.loadHistory();
+    final cached = await historyCache.loadHistory(puuid: creds.puuid);
     if (cached != null) {
       raw = cached;
     } else {
@@ -360,7 +529,8 @@ final enrichedMatchHistoryProvider =
   // ── 2. Enrich from detail cache (no network) ─────────────────────────────
   final enriched = <MatchHistoryEntry>[];
   for (final entry in raw.matches) {
-    final detailRaw = await detailCache.loadMatchDetailRaw(entry.matchId);
+    final detailRaw =
+        await detailCache.loadMatchDetailRaw(entry.matchId, puuid: creds.puuid);
     if (detailRaw == null) {
       enriched.add(entry);
       continue;
@@ -381,15 +551,8 @@ final enrichedMatchHistoryProvider =
         ..sort((a, b) => b.score.compareTo(a.score));
       final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
 
-      // Build score string (e.g. "13 – 8") the same way _matchHistoryProvider does.
-      String? scoreStr;
-      if (details.roundResults.isNotEmpty) {
-        final pt = player.teamId.toLowerCase();
-        final myWins = details.roundResults
-            .where((r) => r.winningTeam.toLowerCase() == pt)
-            .length;
-        scoreStr = '$myWins – ${details.roundResults.length - myWins}';
-      }
+      // Build score string (e.g. "13 – 8") via the shared helper.
+      final scoreStr = details.scoreStringForPlayer(creds.puuid);
 
       enriched.add(entry.copyWithStats(
         kills: player.kills,
@@ -406,6 +569,7 @@ final enrichedMatchHistoryProvider =
     }
   }
 
+  if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) return null;
   return MatchHistoryResult(
     puuid: raw.puuid,
     total: raw.total,

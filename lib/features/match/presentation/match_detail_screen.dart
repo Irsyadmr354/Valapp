@@ -33,6 +33,8 @@ final _matchDetailFamily = FutureProvider.autoDispose
   if (creds == null) return null;
   final source = await ref.watch(matchRemoteSourceProvider.future);
   final cache = ref.watch(matchDetailLocalCacheProvider);
+  final transaction =
+      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
   try {
     final raw = await source.fetchMatchDetailsRaw(creds.shard, matchId);
     var details = MatchDetails.fromJson(raw);
@@ -47,18 +49,22 @@ final _matchDetailFamily = FutureProvider.autoDispose
       try {
         final accountSource =
             await ref.watch(accountRemoteSourceProvider.future);
-        final namesMap = await accountSource.fetchDisplayNames(
-            creds.shard, missingPuuids);
+        final namesMap =
+            await accountSource.fetchDisplayNames(creds.shard, missingPuuids);
         if (namesMap.isNotEmpty) {
           details = details.copyWithResolvedNames(namesMap);
         }
       } catch (_) {}
     }
 
-    await cache.saveMatchDetail(matchId, raw);
+    if (transaction != null) {
+      await cache.saveMatchDetail(matchId, raw,
+          puuid: creds.puuid, transaction: transaction);
+    }
     return CachedFetchResult(details);
   } catch (_) {
-    final cachedRaw = await cache.loadMatchDetailRaw(matchId);
+    final cachedRaw =
+        await cache.loadMatchDetailRaw(matchId, puuid: creds.puuid);
     if (cachedRaw != null) {
       return CachedFetchResult(MatchDetails.fromJson(cachedRaw),
           fromCache: true);
@@ -97,8 +103,8 @@ class MatchDetailScreen extends ConsumerWidget {
               ),
         loading: () => const MatchDetailSkeleton(),
         error: (e, _) => Center(
-          child: Text('Error: $e',
-              style: const TextStyle(color: Colors.white54)),
+          child:
+              Text('Error: $e', style: const TextStyle(color: Colors.white54)),
         ),
       ),
     );
@@ -122,14 +128,22 @@ class _MatchDetailsContent extends ConsumerWidget {
   String _modeName(String rawMode, String queueId) {
     if (queueId.isNotEmpty) {
       switch (queueId.toLowerCase()) {
-        case 'competitive': return 'Competitive';
-        case 'unrated': return 'Unrated';
-        case 'spikerush': return 'Spike Rush';
-        case 'deathmatch': return 'Deathmatch';
-        case 'ggteam': return 'Escalation';
-        case 'onefa': return 'Replication';
-        case 'hurm': return 'Team Deathmatch';
-        case 'swiftplay': return 'Swiftplay';
+        case 'competitive':
+          return 'Competitive';
+        case 'unrated':
+          return 'Unrated';
+        case 'spikerush':
+          return 'Spike Rush';
+        case 'deathmatch':
+          return 'Deathmatch';
+        case 'ggteam':
+          return 'Escalation';
+        case 'onefa':
+          return 'Replication';
+        case 'hurm':
+          return 'Team Deathmatch';
+        case 'swiftplay':
+          return 'Swiftplay';
       }
     }
     final lower = rawMode.toLowerCase();
@@ -161,8 +175,7 @@ class _MatchDetailsContent extends ConsumerWidget {
     // Non-team modes (DM etc)
     final others = details.players
         .where((p) =>
-            p.teamId.toLowerCase() != 'red' &&
-            p.teamId.toLowerCase() != 'blue')
+            p.teamId.toLowerCase() != 'red' && p.teamId.toLowerCase() != 'blue')
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
@@ -174,13 +187,19 @@ class _MatchDetailsContent extends ConsumerWidget {
     final mapInfo = mapsMap[rawMap] as Map<String, dynamic>? ??
         mapsMap[lastSeg] as Map<String, dynamic>?;
 
-    final mapName = mapInfo?['displayName'] as String? ?? _mapName(details.matchInfo.mapId);
+    final mapName =
+        mapInfo?['displayName'] as String? ?? _mapName(details.matchInfo.mapId);
     final splashUrl = mapInfo?['splash'] as String? ??
         mapInfo?['listViewIcon'] as String? ??
         mapInfo?['displayIcon'] as String?;
 
-    final matchMvpPuuid = details.players.fold<PlayerStats?>(
-        null, (prev, curr) => (prev == null || curr.score > prev.score) ? curr : prev)?.puuid ?? '';
+    final matchMvpPuuid = details.players
+            .fold<PlayerStats?>(
+                null,
+                (prev, curr) =>
+                    (prev == null || curr.score > prev.score) ? curr : prev)
+            ?.puuid ??
+        '';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -205,8 +224,10 @@ class _MatchDetailsContent extends ConsumerWidget {
                       imageUrl: splashUrl,
                       fit: BoxFit.cover,
                       alignment: Alignment.center,
-                      placeholder: (_, __) => Container(color: const Color(0xFF141F2D)),
-                      errorWidget: (_, __, ___) => Container(color: const Color(0xFF141F2D)),
+                      placeholder: (_, __) =>
+                          Container(color: const Color(0xFF141F2D)),
+                      errorWidget: (_, __, ___) =>
+                          Container(color: const Color(0xFF141F2D)),
                     ),
                   ),
 
@@ -229,19 +250,23 @@ class _MatchDetailsContent extends ConsumerWidget {
 
                 // Text Content
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFF4655),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          _modeName(details.matchInfo.gameMode, details.matchInfo.queueId).toUpperCase(),
+                          _modeName(details.matchInfo.gameMode,
+                                  details.matchInfo.queueId)
+                              .toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -426,9 +451,8 @@ class _PlayerRow extends ConsumerWidget {
         : null;
     final agentIconUrl = agentInfo?['displayIcon'] as String?;
 
-    final tierData = player.competitiveTier > 0
-        ? tiersMap[player.competitiveTier]
-        : null;
+    final tierData =
+        player.competitiveTier > 0 ? tiersMap[player.competitiveTier] : null;
     final rankIconUrl = tierData?['displayIcon'] as String? ??
         tierData?['smallIcon'] as String?;
 
@@ -442,16 +466,19 @@ class _PlayerRow extends ConsumerWidget {
       child: Row(
         children: [
           Container(
-            width: 3, height: 16,
+            width: 3,
+            height: 16,
             decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(2),
+              color: color,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(width: 8),
           // Agent portrait
           if (agentIconUrl != null && agentIconUrl.isNotEmpty)
             Container(
-              width: 32, height: 32,
+              width: 32,
+              height: 32,
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -476,27 +503,34 @@ class _PlayerRow extends ConsumerWidget {
                   child: Text(
                     _name,
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (isMatchMvp) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 1.5),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFD700).withAlpha(40),
-                      border: Border.all(color: const Color(0xFFFFD700), width: 0.8),
+                      border: Border.all(
+                          color: const Color(0xFFFFD700), width: 0.8),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text('MATCH MVP',
                         style: TextStyle(
-                            color: Color(0xFFFFD700), fontSize: 8, fontWeight: FontWeight.w900)),
+                            color: Color(0xFFFFD700),
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900)),
                   ),
                 ] else if (isTeamMvp) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 1.5),
                     decoration: BoxDecoration(
                       color: AppColors.red.withAlpha(30),
                       border: Border.all(color: AppColors.red, width: 0.8),
@@ -504,7 +538,9 @@ class _PlayerRow extends ConsumerWidget {
                     ),
                     child: const Text('TEAM MVP',
                         style: TextStyle(
-                            color: AppColors.red, fontSize: 8, fontWeight: FontWeight.w900)),
+                            color: AppColors.red,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900)),
                   ),
                 ],
               ],
@@ -516,7 +552,9 @@ class _PlayerRow extends ConsumerWidget {
               padding: const EdgeInsets.only(right: 8),
               child: CachedNetworkImage(
                 imageUrl: rankIconUrl,
-                width: 20, height: 20, fit: BoxFit.contain,
+                width: 20,
+                height: 20,
+                fit: BoxFit.contain,
                 errorWidget: (_, __, ___) => const SizedBox(),
               ),
             ),
@@ -532,7 +570,9 @@ class _PlayerRow extends ConsumerWidget {
             child: Text(
               player.averageScore.toStringAsFixed(0),
               style: const TextStyle(
-                  color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700),
+                  color: Colors.white60,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700),
               textAlign: TextAlign.end,
             ),
           ),

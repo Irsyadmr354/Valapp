@@ -18,44 +18,6 @@ final _activeSeasonProvider =
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
-final _mmrProvider =
-    FutureProvider.autoDispose<CachedFetchResult<PlayerMmr>?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(mmrRemoteSourceProvider.future);
-  final cache = ref.watch(mmrLocalCacheProvider);
-  try {
-    final raw = await source.fetchMmrRaw(creds.shard, creds.puuid);
-    final mmr = PlayerMmr.fromJson(raw);
-    await cache.saveMmr(raw);
-    return CachedFetchResult(mmr);
-  } catch (_) {
-    final cached = await cache.loadMmr();
-    if (cached != null) return CachedFetchResult(cached, fromCache: true);
-    rethrow;
-  }
-});
-
-final _competitiveUpdatesProvider =
-    FutureProvider.autoDispose<CachedFetchResult<List<CompetitiveUpdate>>>(
-        (ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return const CachedFetchResult([]);
-  final source = await ref.watch(mmrRemoteSourceProvider.future);
-  final cache = ref.watch(mmrLocalCacheProvider);
-  try {
-    final raw =
-        await source.fetchCompetitiveUpdatesRaw(creds.shard, creds.puuid);
-    final list = source.parseCompetitiveUpdates(raw);
-    await cache.saveCompetitiveUpdates(raw);
-    return CachedFetchResult(list);
-  } catch (_) {
-    final cached = await cache.loadCompetitiveUpdates();
-    if (cached != null) return CachedFetchResult(cached, fromCache: true);
-    rethrow;
-  }
-});
-
 final _competitiveTiersMapProvider =
     FutureProvider.autoDispose<Map<int, Map<String, dynamic>>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
@@ -89,8 +51,8 @@ class _RankScreenState extends ConsumerState<RankScreen>
 
   @override
   Widget build(BuildContext context) {
-    final mmrAsync = ref.watch(_mmrProvider);
-    final updatesAsync = ref.watch(_competitiveUpdatesProvider);
+    final mmrAsync = ref.watch(playerMmrProvider);
+    final updatesAsync = ref.watch(competitiveUpdatesProvider);
     final showCacheBanner = (mmrAsync.asData?.value?.fromCache ?? false) ||
         (updatesAsync.asData?.value.fromCache ?? false);
 
@@ -126,8 +88,8 @@ class _RankScreenState extends ConsumerState<RankScreen>
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white54),
             onPressed: () {
-              ref.invalidate(_mmrProvider);
-              ref.invalidate(_competitiveUpdatesProvider);
+              ref.invalidate(playerMmrProvider);
+              ref.invalidate(competitiveUpdatesProvider);
             },
           ),
         ],
@@ -140,8 +102,11 @@ class _RankScreenState extends ConsumerState<RankScreen>
         color: AppColors.red,
         backgroundColor: AppColors.bgCard2,
         onRefresh: () async {
-          ref.invalidate(_mmrProvider);
-          ref.invalidate(_competitiveUpdatesProvider);
+          ref.invalidate(playerMmrProvider);
+          ref.invalidate(competitiveUpdatesProvider);
+          // Await the refresh so the spinner stays until the fetches finish.
+          await ref.read(playerMmrProvider.future);
+          await ref.read(competitiveUpdatesProvider.future);
         },
         child: TabBarView(
           controller: _tabController,
@@ -180,8 +145,10 @@ class _RankTabBar extends StatelessWidget {
         indicatorWeight: 2.5,
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white38,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8),
-        unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+        unselectedLabelStyle:
+            const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         tabs: const [
           Tab(text: 'LEADERBOARD'),
           Tab(text: 'MATCH HISTORY'),
@@ -214,9 +181,8 @@ class _LeaderboardTab extends ConsumerWidget {
         if (showCacheBanner) const CacheDataBanner(),
         // Rank card
         mmrAsync.when(
-          data: (result) => result == null
-              ? const SizedBox()
-              : _RankCard(mmr: result.data),
+          data: (result) =>
+              result == null ? const SizedBox() : _RankCard(mmr: result.data),
           loading: () => const RankSkeleton(),
           error: (e, _) => _ErrorCard(message: e.toString()),
         ),
@@ -249,13 +215,17 @@ class _LeaderboardTab extends ConsumerWidget {
           ),
           child: const Row(
             children: [
-              Icon(Icons.info_outline_rounded, color: AppColors.textMuted, size: 16),
+              Icon(Icons.info_outline_rounded,
+                  color: AppColors.textMuted, size: 16),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Regional leaderboard requires Riot\'s official leaderboard endpoint. '
                   'Your personal peak rank and recent performance are shown above.',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.4),
+                  style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      height: 1.4),
                 ),
               ),
             ],
@@ -332,15 +302,20 @@ class _RrSparklineCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.bgCard2,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  draws > 0 ? '${wins}W · ${losses}L · ${draws}D' : '${wins}W · ${losses}L',
+                  draws > 0
+                      ? '${wins}W · ${losses}L · ${draws}D'
+                      : '${wins}W · ${losses}L',
                   style: const TextStyle(
-                      color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w800),
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -396,13 +371,19 @@ class _SparklinePainter extends CustomPainter {
     for (final p in points) {
       fillPath.lineTo(p.dx, p.dy);
     }
-    fillPath..lineTo(points.last.dx, size.height)..close();
-    canvas.drawPath(fillPath,
-        Paint()..color = lineColor.withAlpha(35)..style = PaintingStyle.fill);
+    fillPath
+      ..lineTo(points.last.dx, size.height)
+      ..close();
+    canvas.drawPath(
+        fillPath,
+        Paint()
+          ..color = lineColor.withAlpha(35)
+          ..style = PaintingStyle.fill);
 
     // Zero baseline (dashed).
     final zeroNorm = (0.0 - minV) / effectiveRange;
-    final zeroY = size.height - zeroNorm * size.height * 0.85 - size.height * 0.075;
+    final zeroY =
+        size.height - zeroNorm * size.height * 0.85 - size.height * 0.075;
     const dashW = 6.0;
     const dashGap = 4.0;
     double dx = 0;
@@ -411,7 +392,8 @@ class _SparklinePainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
     while (dx < size.width) {
-      canvas.drawLine(Offset(dx, zeroY), Offset(dx + dashW, zeroY), baselinePaint);
+      canvas.drawLine(
+          Offset(dx, zeroY), Offset(dx + dashW, zeroY), baselinePaint);
       dx += dashW + dashGap;
     }
 
@@ -441,9 +423,15 @@ class _SparklinePainter extends CustomPainter {
           : u.rankedRatingEarned < 0
               ? AppColors.loss
               : Colors.white54;
-      canvas.drawCircle(points[i], 3.0,
-          Paint()..color = const Color(0xFF0D1420)..style = PaintingStyle.fill);
-      canvas.drawCircle(points[i], 3.0,
+      canvas.drawCircle(
+          points[i],
+          3.0,
+          Paint()
+            ..color = const Color(0xFF0D1420)
+            ..style = PaintingStyle.fill);
+      canvas.drawCircle(
+          points[i],
+          3.0,
           Paint()
             ..color = dotColor.withAlpha(200)
             ..style = PaintingStyle.stroke
@@ -468,21 +456,25 @@ class _PeakRankCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (mmr == null) return const SizedBox();
-    final tiersMap = ref.watch(_competitiveTiersMapProvider).asData?.value ?? {};
+    final tiersMap =
+        ref.watch(_competitiveTiersMapProvider).asData?.value ?? {};
     int peakTier = mmr!.currentTier;
     int peakRr = mmr!.currentRankedRating;
     if (updates != null) {
       for (final u in updates!) {
         if (u.tierAfterUpdate > peakTier ||
-            (u.tierAfterUpdate == peakTier && u.rankedRatingAfterUpdate > peakRr)) {
+            (u.tierAfterUpdate == peakTier &&
+                u.rankedRatingAfterUpdate > peakRr)) {
           peakTier = u.tierAfterUpdate;
           peakRr = u.rankedRatingAfterUpdate;
         }
       }
     }
     final peakData = tiersMap[peakTier];
-    final peakIconUrl = peakData?['largeIcon'] as String? ?? peakData?['displayIcon'] as String?;
-    final peakName = peakData?['tierName'] as String? ?? TierNameUtil.name(peakTier);
+    final peakIconUrl = peakData?['largeIcon'] as String? ??
+        peakData?['displayIcon'] as String?;
+    final peakName =
+        peakData?['tierName'] as String? ?? TierNameUtil.name(peakTier);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -498,9 +490,11 @@ class _PeakRankCard extends ConsumerWidget {
           if (peakIconUrl != null && peakIconUrl.isNotEmpty)
             CachedNetworkImage(
               imageUrl: peakIconUrl,
-              width: 56, height: 56, fit: BoxFit.contain,
-              errorWidget: (_, __, ___) =>
-                  const Icon(Icons.military_tech, color: AppColors.red, size: 40),
+              width: 56,
+              height: 56,
+              fit: BoxFit.contain,
+              errorWidget: (_, __, ___) => const Icon(Icons.military_tech,
+                  color: AppColors.red, size: 40),
             )
           else
             const Icon(Icons.military_tech, color: AppColors.red, size: 40),
@@ -510,15 +504,22 @@ class _PeakRankCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('HIGHEST RECORDED RANK (RECENT)',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 9,
-                        fontWeight: FontWeight.w800, letterSpacing: 1.0)),
+                    style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0)),
                 const SizedBox(height: 4),
                 Text(peakName.toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 16,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900)),
                 const SizedBox(height: 2),
                 Text('$peakRr RR',
-                    style: const TextStyle(color: AppColors.red, fontSize: 13,
+                    style: const TextStyle(
+                        color: AppColors.red,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700)),
               ],
             ),
@@ -526,14 +527,20 @@ class _PeakRankCard extends ConsumerWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('CURRENT', style: TextStyle(color: AppColors.textMuted,
-                  fontSize: 9, fontWeight: FontWeight.w700)),
+              const Text('CURRENT',
+                  style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700)),
               Text('${mmr!.currentRankedRating} RR',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12,
+                  style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800)),
               if (mmr!.gamesNeededForRating > 0)
                 Text('${mmr!.gamesNeededForRating} games for rating',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 9)),
             ],
           ),
         ],
@@ -605,8 +612,8 @@ class _ActRankTab extends ConsumerWidget {
       data: (result) {
         if (result == null) {
           return const Center(
-            child: Text('Not logged in.',
-                style: TextStyle(color: Colors.white38)),
+            child:
+                Text('Not logged in.', style: TextStyle(color: Colors.white38)),
           );
         }
         final mmr = result.data;
@@ -623,7 +630,8 @@ class _ActRankTab extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: AppColors.bgCard,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.red.withAlpha(80), width: 1),
+                border:
+                    Border.all(color: AppColors.red.withAlpha(80), width: 1),
                 boxShadow: AppColors.redGlow(alpha: 0.08),
               ),
               child: Column(
@@ -644,7 +652,8 @@ class _ActRankTab extends ConsumerWidget {
                       fit: BoxFit.contain,
                       errorWidget: (_, __, ___) => const Icon(
                           Icons.shield_outlined,
-                          color: AppColors.red, size: 64),
+                          color: AppColors.red,
+                          size: 64),
                     )
                   else
                     const Icon(Icons.shield_outlined,
@@ -672,7 +681,8 @@ class _ActRankTab extends ConsumerWidget {
                     child: LinearProgressIndicator(
                       value: (mmr.currentRankedRating / 100).clamp(0.0, 1.0),
                       backgroundColor: AppColors.bgCard2,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.red),
+                      valueColor:
+                          const AlwaysStoppedAnimation<Color>(AppColors.red),
                       minHeight: 8,
                     ),
                   ),
@@ -706,8 +716,8 @@ class _RankCard extends ConsumerWidget {
     final tierData = tiersMapAsync.asData?.value[mmr.currentTier];
     final iconUrl = tierData?['largeIcon'] as String? ??
         tierData?['displayIcon'] as String?;
-    final tierName = tierData?['tierName'] as String? ??
-        TierNameUtil.name(mmr.currentTier);
+    final tierName =
+        tierData?['tierName'] as String? ?? TierNameUtil.name(mmr.currentTier);
 
     final rrProgress = (mmr.currentRankedRating.clamp(0, 100)) / 100.0;
 
@@ -741,7 +751,8 @@ class _RankCard extends ConsumerWidget {
                         placeholder: (_, __) => const SizedBox(),
                         errorWidget: (_, __, ___) => const Icon(
                             Icons.shield_outlined,
-                            color: AppColors.red, size: 56),
+                            color: AppColors.red,
+                            size: 56),
                       )
                     : const Icon(Icons.shield_outlined,
                         color: AppColors.red, size: 56),
@@ -790,9 +801,7 @@ class _RankCard extends ConsumerWidget {
                     Text(
                       '${isNetPos ? '▲ +' : '▼ '}$latestRr RR',
                       style: TextStyle(
-                          color: isNetPos
-                              ? AppColors.win
-                              : AppColors.loss,
+                          color: isNetPos ? AppColors.win : AppColors.loss,
                           fontSize: 14,
                           fontWeight: FontWeight.w900),
                     ),
@@ -853,27 +862,35 @@ class _UpdateTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 3, height: 18,
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+            width: 3,
+            height: 18,
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(width: 12),
-          Icon(isWin ? Icons.trending_up : Icons.trending_down, color: color, size: 18),
+          Icon(isWin ? Icons.trending_up : Icons.trending_down,
+              color: color, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               '${isWin ? '+' : ''}$rr RR',
-              style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w900),
+              style: TextStyle(
+                  color: color, fontSize: 15, fontWeight: FontWeight.w900),
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text('${update.rankedRatingAfterUpdate} RR',
-                  style: const TextStyle(color: Colors.white, fontSize: 13,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700)),
               if (update.afkPenalty != 0)
                 Text('AFK: ${update.afkPenalty}',
-                    style: const TextStyle(color: Colors.orange, fontSize: 11,
+                    style: const TextStyle(
+                        color: Colors.orange,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700)),
             ],
           ),
@@ -894,8 +911,7 @@ class _ErrorCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFF4655).withAlpha(20),
         borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: const Color(0xFFFF4655).withAlpha(80)),
+        border: Border.all(color: const Color(0xFFFF4655).withAlpha(80)),
       ),
       child: Row(
         children: [

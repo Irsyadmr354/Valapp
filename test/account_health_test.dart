@@ -26,7 +26,9 @@ void main() {
               'id': 'afk-1',
               'type': 'afk_penalty',
               'description': 'AFK Warning',
-              'expiry': DateTime.now().add(const Duration(hours: 2)).toIso8601String(),
+              'expiry': DateTime.now()
+                  .add(const Duration(hours: 2))
+                  .toIso8601String(),
             }
           ]
         },
@@ -45,7 +47,8 @@ void main() {
               'id': 'mute-1',
               'type': 'comm_restricted',
               'description': 'Chat Mute',
-              'expiry': DateTime.now().add(const Duration(days: 1)).toIso8601String(),
+              'expiry':
+                  DateTime.now().add(const Duration(days: 1)).toIso8601String(),
             }
           ]
         },
@@ -70,6 +73,29 @@ void main() {
       expect(health.status, AccountHealthStatus.unknown);
       expect(health.isUnknown, isTrue);
       expect(health.isClean, isFalse);
+    });
+
+    test('does not report clean when penalty fetch fails but avoid list loads',
+        () {
+      final health = AccountHealth.fromJson(
+        penaltiesJson: {},
+        avoidListJson: {
+          'avoidList': [
+            {'puuid': 'avoided-player', 'displayName': 'Player'}
+          ],
+        },
+        interventionsJson: {},
+        hasFetchErrors: true,
+      );
+
+      expect(health.status, AccountHealthStatus.unknown);
+      expect(health.avoidedPlayers, hasLength(1));
+    });
+
+    test('classifies queue bans as suspensions', () {
+      final penalty = AccountPenalty.fromJson({'type': 'queue_ban'});
+
+      expect(penalty.title, 'MATCHMAKING SUSPENSION');
     });
   });
 }

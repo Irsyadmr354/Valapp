@@ -21,7 +21,6 @@ dependencies:
 
   # State Management
   flutter_riverpod: ^2.5.1
-  riverpod_annotation: ^2.3.5
 
   # Navigation
   go_router: ^13.2.0
@@ -35,15 +34,10 @@ dependencies:
   flutter_local_notifications: ^18.0.0
   workmanager: ^0.6.0
 
-  # Icons
-  cupertino_icons: ^1.0.8
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  build_runner: ^2.4.8
-  riverpod_generator: ^2.3.9
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
@@ -54,6 +48,3 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/images/
-    - assets/icons/

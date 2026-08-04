@@ -13,8 +13,10 @@ class WishlistNotifier extends StateNotifier<List<String>> {
   }
 
   Future<void> _load() async {
-    final list = await CacheStorage.instance.getWishlist();
-    if (mounted) state = list;
+    await AsyncLock.run('wishlist_toggle', () async {
+      final list = await CacheStorage.instance.getWishlist();
+      if (mounted) state = list;
+    });
   }
 
   /// Serialised via AsyncLock so rapid taps cannot interleave reads and

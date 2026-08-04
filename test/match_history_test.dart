@@ -21,7 +21,8 @@ void main() {
       expect(entry.getMapDisplayName(mapsMap), equals('Abyss'));
     });
 
-    test('getMapDisplayName falls back to mapDisplayName when mapsMap is empty', () {
+    test('getMapDisplayName falls back to mapDisplayName when mapsMap is empty',
+        () {
       const entry = MatchHistoryEntry(
         matchId: 'm2',
         gameStartMillis: 1600000000000,

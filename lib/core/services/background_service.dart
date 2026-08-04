@@ -1,19 +1,24 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import '../../features/shop/domain/models/wallet.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
+import '../../features/auth/data/credentials_local_source.dart';
 import 'notification_service.dart';
 
 const String taskWishlistBackgroundCheck = 'valapp_background_wishlist_check';
+const String iosWishlistBackgroundTask =
+    'com.personal.valorant-shop-monitor.wishlist-refresh';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     debugPrint('[BackgroundService] task: $task');
     if (task == taskWishlistBackgroundCheck ||
+        task == iosWishlistBackgroundTask ||
         task == Workmanager.iOSBackgroundTask) {
       try {
         await BackgroundShopChecker().runCheck();
@@ -40,7 +45,9 @@ class BackgroundService {
         isInDebugMode: kDebugMode,
       );
       await Workmanager().registerPeriodicTask(
-        'valapp_wishlist_periodic_task',
+        Platform.isIOS
+            ? iosWishlistBackgroundTask
+            : 'valapp_wishlist_periodic_task',
         taskWishlistBackgroundCheck,
         frequency: const Duration(hours: 3),
         constraints: Constraints(networkType: NetworkType.connected),
@@ -59,7 +66,11 @@ class BackgroundService {
 /// 3. Fires wishlist match notifications when shop changes
 /// 4. Fires shop reset summary notification when the shop changes
 class BackgroundShopChecker {
-  final Dio _dio = Dio();
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 25),
+    sendTimeout: const Duration(seconds: 15),
+  ));
 
   static const _lastShopKey = 'background_last_shop_ids';
 
@@ -67,29 +78,19 @@ class BackgroundShopChecker {
     final storage = SecureStorage.instance;
     final cache = CacheStorage.instance;
 
-    final accessToken = await storage.read(SecureStorage.keyAccessToken);
-    final entitlementToken =
-        await storage.read(SecureStorage.keyEntitlementToken);
-    final puuid = await storage.read(SecureStorage.keyPuuid);
-    final shard = await storage.read(SecureStorage.keyShard);
-
-    if (accessToken == null ||
-        entitlementToken == null ||
-        puuid == null ||
-        shard == null) {
-      return;
-    }
+    final credentials = await CredentialsLocalSource(storage).load();
+    if (credentials == null) return;
+    final accessToken = credentials.accessToken;
+    final entitlementToken = credentials.entitlementToken;
+    final puuid = credentials.puuid;
+    final shard = credentials.shard;
 
     // Skip if the access token is clearly expired — the background task cannot
     // perform a WebView-based reauth, so a known-expired token will always
     // produce a 401. Bailing early avoids a wasteful network round-trip.
-    final expiresAtStr = await storage.read(SecureStorage.keyExpiresAt);
-    if (expiresAtStr != null) {
-      final expiresAt = DateTime.tryParse(expiresAtStr);
-      if (expiresAt != null && DateTime.now().isAfter(expiresAt)) {
-        debugPrint('[BackgroundShopChecker] Token expired — skipping check');
-        return;
-      }
+    if (DateTime.now().isAfter(credentials.expiresAt)) {
+      debugPrint('[BackgroundShopChecker] Token expired — skipping check');
+      return;
     }
 
     // ── Fetch storefront ────────────────────────────────────────────────────
@@ -98,8 +99,10 @@ class BackgroundShopChecker {
     // X-Riot-ClientVersion is required by several Riot PD endpoints.
     // Use the cached version (set by the main app); fall back to a known
     // stable value so the background task does not produce 400s.
-    final clientVersion = await cache.getString(CacheStorage.keyClientVersion)
-        ?? 'release-13.02-shipping-7-5092570';
+    final clientVersion = await cache.getString(CacheStorage.keyClientVersion);
+    if (clientVersion == null || clientVersion.isEmpty) {
+      throw StateError('No verified Riot client version is cached');
+    }
 
     final headers = {
       'Authorization': 'Bearer $accessToken',
@@ -118,7 +121,11 @@ class BackgroundShopChecker {
           data: {},
         );
         rawData = resp.data;
-      } catch (_) {
+      } on DioException catch (error) {
+        if (error.response?.statusCode != 404 &&
+            error.response?.statusCode != 405) {
+          rethrow;
+        }
         final resp = await _dio.post<dynamic>(
           'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
           options: Options(headers: headers),
@@ -135,15 +142,14 @@ class BackgroundShopChecker {
         return;
       }
     } catch (_) {
-      return;
+      rethrow;
     }
 
     // ── Extract offers with prices ──────────────────────────────────────────
     final skinPanel =
         storefront['SkinsPanelLayout'] as Map<String, dynamic>? ?? {};
     final offerIds =
-        (skinPanel['SingleItemOffers'] as List<dynamic>?)
-            ?.cast<String>() ?? [];
+        (skinPanel['SingleItemOffers'] as List<dynamic>?)?.cast<String>() ?? [];
     final storeOffers =
         skinPanel['SingleItemStoreOffers'] as List<dynamic>? ?? [];
 
@@ -165,6 +171,8 @@ class BackgroundShopChecker {
     final lastOffers =
         (lastShopRaw?['ids'] as List<dynamic>?)?.cast<String>() ?? [];
     final isNewShop = !_setsEqual(offerIds.toSet(), lastOffers.toSet());
+    final sortedOfferIds = List<String>.from(offerIds)..sort();
+    final shopIdentity = sortedOfferIds.join(',');
 
     // ── Resolve skin names from valorant-api.com ────────────────────────────
     final skinNameMap = await _buildSkinNameMap(cache);
@@ -175,22 +183,25 @@ class BackgroundShopChecker {
 
     // Wishlist matches — only notify when the shop is actually new,
     // so the same skin never triggers two notifications in one day.
-    final matchedOffers = offerIds
-        .where((id) => wishlist.contains(id))
-        .toList();
+    final matchedOffers =
+        offerIds.where((id) => wishlist.contains(id)).toList();
 
     if (isNewShop) {
       for (final id in matchedOffers) {
         final name = skinNameMap[id] ?? 'Wishlist Skin';
         final price = priceMap[id] ?? 0;
-        await NotificationService.instance.showWishlistAlert(
+        await NotificationService.instance.showWishlistAlertOnce(
+          shopIdentity: shopIdentity,
+          skinId: id,
           skinName: name,
           price: price,
+          puuid: puuid,
         );
       }
 
       final skinNames = offerIds
-          .map((id) => skinNameMap[id] ?? id.substring(0, 8))
+          .map((id) =>
+              skinNameMap[id] ?? (id.length > 8 ? id.substring(0, 8) : id))
           .toList();
       await NotificationService.instance.showShopResetAlert(
         skinNames: skinNames,
@@ -219,14 +230,16 @@ class BackgroundShopChecker {
       }
     }
     try {
-      final resp = await _dio
-          .get<Map<String, dynamic>>('https://valorant-api.com/v1/weapons/skins');
+      final resp = await _dio.get<Map<String, dynamic>>(
+          'https://valorant-api.com/v1/weapons/skins');
       final skins = resp.data?['data'] as List<dynamic>? ?? [];
       final map = <String, String>{};
       for (final skin in skins) {
+        if (skin is! Map) continue;
         final name = skin['displayName'] as String? ?? '';
         final levels = skin['levels'] as List<dynamic>? ?? [];
         for (final lvl in levels) {
+          if (lvl is! Map) continue;
           final uuid = lvl['uuid'] as String?;
           if (uuid != null) map[uuid] = name;
         }

@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../../../core/exceptions/auth_exception.dart';
 import '../domain/models/credentials.dart';
+import 'oauth_flow.dart';
 
 /// All HTTP calls for the RSO authentication flow.
 class AuthRemoteSource {
@@ -29,8 +29,10 @@ class AuthRemoteSource {
       ),
       data: {},
     );
-    final token = response.data?['entitlements_token'] as String?;
-    if (token == null) throw const AuthException('Missing entitlement token');
+    final token = response.data?['entitlements_token'];
+    if (token is! String || token.trim().isEmpty) {
+      throw const AuthException('Missing entitlement token');
+    }
     return token;
   }
 
@@ -48,79 +50,65 @@ class AuthRemoteSource {
       ),
       data: {'id_token': idToken},
     );
+    final affinities = response.data?['affinities'];
     final region =
-        response.data?['affinities']?['live'] as String? ?? 'ap';
+        affinities is Map<String, dynamic> ? affinities['live'] : null;
+    if (region is! String || !Credentials.isSupportedRegion(region)) {
+      throw const AuthException('Invalid region response');
+    }
     final shard = Credentials.shardForRegion(region);
     return {'region': region, 'shard': shard};
   }
 
   // ── Cookie Reauth ─────────────────────────────────────────────────────────
 
-  Future<String> cookieReauth() async {
-    final response = await _authDio.get<dynamic>(
-      _authBase,
-      queryParameters: {
-        'client_id': 'play-valorant-web-prod',
-        'nonce': '1',
-        'redirect_uri': 'https://playvalorant.com/opt_in',
-        'response_type': 'token id_token',
-        'scope': 'openid',
-      },
-      options: Options(
-        followRedirects: false,
-        validateStatus: (status) => status != null && status < 400,
-      ),
-    );
+  Future<String> cookieReauth(OAuthAttempt attempt) async {
+    late final Response<dynamic> response;
+    try {
+      response = await _authDio.get<dynamic>(
+        _authBase,
+        queryParameters: attempt.authorizeUri.queryParameters,
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+    } on DioException catch (e) {
+      throw TransientReauthException(
+          'Reauthentication request failed: ${e.type.name}');
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw const InvalidSessionException();
+    }
+    if (response.statusCode == null || response.statusCode! >= 400) {
+      throw const TransientReauthException();
+    }
 
     final location = response.headers['location']?.first;
-    if (location != null && location.contains('access_token')) {
+    if (location != null &&
+        OAuthFlow.isRedirectUri(Uri.tryParse(location) ?? Uri())) {
       return location;
     }
 
     if (response.data is Map) {
       final uri =
           (response.data as Map)['response']?['parameters']?['uri'] as String?;
-      if (uri != null && uri.contains('access_token')) return uri;
+      if (uri != null && OAuthFlow.isRedirectUri(Uri.tryParse(uri) ?? Uri())) {
+        return uri;
+      }
     }
 
-    throw const TokenExpiredException();
+    throw const InvalidSessionException();
   }
 
   // ── URI Parsing Helpers ───────────────────────────────────────────────────
 
-  static Map<String, String> parseTokensFromUri(String redirectUri) {
-    final normalized = redirectUri.contains('#')
-        ? redirectUri.replaceFirst('#', '?')
-        : redirectUri;
-    final uri = Uri.parse(normalized);
-    final params = uri.queryParameters;
-
-    final accessToken = params['access_token'];
-    final idToken = params['id_token'];
-    final expiresIn = int.tryParse(params['expires_in'] ?? '3600') ?? 3600;
-
-    if (accessToken == null) {
-      throw const AuthException('access_token not found in redirect URI');
-    }
-
-    return {
-      'access_token': accessToken,
-      'id_token': idToken ?? '',
-      'expires_in': expiresIn.toString(),
-    };
-  }
-
   static String extractPuuid(String accessToken) {
-    final parts = accessToken.split('.');
-    if (parts.length < 2) throw const AuthException('Invalid JWT format');
-
-    String payload = parts[1];
-    payload += '=' * ((4 - payload.length % 4) % 4);
-
-    final decoded = utf8.decode(base64Url.decode(payload));
-    final json = jsonDecode(decoded) as Map<String, dynamic>;
-    final puuid = json['sub'] as String?;
-    if (puuid == null) throw const AuthException('sub not found in JWT');
+    final puuid = OAuthFlow.decodeJwtPayload(accessToken)['sub'];
+    if (puuid is! String || puuid.trim().isEmpty) {
+      throw const AuthException('sub not found in JWT');
+    }
     return puuid;
   }
 }

@@ -96,12 +96,14 @@ class _SlashPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     const spacing = 28.0;
-    final diagonal = math.sqrt(size.width * size.width + size.height * size.height);
+    final diagonal =
+        math.sqrt(size.width * size.width + size.height * size.height);
     final count = (diagonal / spacing).ceil() + 4;
 
     canvas.save();
     canvas.translate(size.width / 2, size.height / 2);
-    canvas.rotate(-math.pi / 5); // ~36° angle — Valorant's signature slash angle
+    canvas
+        .rotate(-math.pi / 5); // ~36° angle — Valorant's signature slash angle
 
     final start = -diagonal / 2 - spacing * 2;
     for (var i = 0; i < count; i++) {

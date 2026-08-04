@@ -1,23 +1,11 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
+import '../../../core/network/api_response_decoder.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../domain/models/match_details.dart';
 
 class MatchRemoteSource {
   const MatchRemoteSource(this._dio);
   final Dio _dio;
-
-  Map<String, dynamic> _toMap(dynamic data) {
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
-    if (data is String) {
-      try {
-        final decoded = jsonDecode(data);
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
-      } catch (_) {}
-    }
-    return {};
-  }
 
   Future<Map<String, dynamic>> fetchHistoryRaw(
     String shard,
@@ -32,25 +20,31 @@ class MatchRemoteSource {
       'endIndex': endIndex,
       if (queue != null && queue.isNotEmpty) 'queue': queue,
     };
-    final response = await _dio.get<dynamic>(
-      'https://pd.$cleanShard.a.pvp.net/match-history/v1/history/$puuid',
-      queryParameters: params,
+    final url =
+        'https://pd.$cleanShard.a.pvp.net/match-history/v1/history/$puuid';
+    final response = await _dio.get<dynamic>(url, queryParameters: params);
+    final data = ApiResponseDecoder.decodeMap(response.data, source: url);
+    return ApiResponseDecoder.requireShape(
+      data,
+      source: url,
+      lists: ['History'],
+      strings: ['Subject'],
     );
-    return _toMap(response.data);
-  }
-
-  Future<MatchDetails> fetchMatchDetails(
-      String shard, String matchId) async {
-    return MatchDetails.fromJson(await fetchMatchDetailsRaw(shard, matchId));
   }
 
   Future<Map<String, dynamic>> fetchMatchDetailsRaw(
       String shard, String matchId) async {
     final cleanShard = shard.toLowerCase();
-    final response = await _dio.get<dynamic>(
-      'https://pd.$cleanShard.a.pvp.net/match-details/v1/matches/$matchId',
+    final url =
+        'https://pd.$cleanShard.a.pvp.net/match-details/v1/matches/$matchId';
+    final response = await _dio.get<dynamic>(url);
+    final raw = ApiResponseDecoder.decodeMap(response.data, source: url);
+    ApiResponseDecoder.requireShape(
+      raw,
+      source: url,
+      maps: ['matchInfo'],
+      lists: ['players', 'roundResults'],
     );
-    final raw = _toMap(response.data);
     final details = MatchDetails.fromJson(raw);
     if (details.matchInfo.mapId.isNotEmpty) {
       CacheStorage.instance.saveMatchMap(matchId, details.matchInfo.mapId);
@@ -58,4 +52,3 @@ class MatchRemoteSource {
     return raw;
   }
 }
-

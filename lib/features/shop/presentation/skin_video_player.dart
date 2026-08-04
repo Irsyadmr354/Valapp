@@ -234,7 +234,8 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
   void dispose() {
     // Explicitly pause video and clear source to stop background audio playback on dialog close
     try {
-      _controller.runJavaScript("var v = document.getElementById('vid'); if (v) { v.pause(); v.src = ''; }");
+      _controller.runJavaScript(
+          "var v = document.getElementById('vid'); if (v) { v.pause(); v.src = ''; }");
       _controller.loadHtmlString('<html><body></body></html>');
     } catch (_) {}
     super.dispose();
@@ -273,7 +274,8 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  icon:
+                      const Icon(Icons.close, color: Colors.white54, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],

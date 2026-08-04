@@ -27,14 +27,15 @@ import '../../profile/domain/models/account_xp.dart';
 import '../../rank/domain/models/player_mmr.dart';
 // ── Providers ─────────────────────────────────────────────────────────────────
 
-final _storefrontProvider = FutureProvider.autoDispose<Storefront?>((ref) async {
+final _storefrontProvider =
+    FutureProvider.autoDispose<Storefront?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final repo = await ref.watch(storeRepositoryProvider.future);
   // loadCachedStorefront() now returns null if the cache is from a past
   // rotation (elapsed time >= remainingSeconds), so cached is only non-null
   // when the cached data is still valid for the current shop window.
-  final cached = await repo.loadCachedStorefront();
+  final cached = await repo.loadCachedStorefront(creds.puuid);
   try {
     return await repo.fetchStorefront(creds.shard, creds.puuid);
   } catch (e) {
@@ -49,7 +50,7 @@ final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final repo = await ref.watch(storeRepositoryProvider.future);
-  final cached = await repo.loadCachedWallet();
+  final cached = await repo.loadCachedWallet(creds.puuid);
   try {
     return await repo.fetchWallet(creds.shard, creds.puuid);
   } catch (e) {
@@ -58,62 +59,15 @@ final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {
   }
 });
 
-final _homeAccountXpProvider = FutureProvider.autoDispose<AccountXp?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(accountRemoteSourceProvider.future);
-  final cache = ref.watch(accountLocalCacheProvider);
-  try {
-    final raw = await source.fetchAccountXpRaw(creds.shard, creds.puuid);
-    final xp = AccountXp.fromJson(raw);
-    await cache.saveAccountXp(raw);
-    return xp;
-  } catch (_) {
-    return cache.loadAccountXp();
-  }
-});
-
-final _homeDisplayNameProvider = FutureProvider.autoDispose<String?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(accountRemoteSourceProvider.future);
-  final cache = ref.watch(accountLocalCacheProvider);
-  try {
-    final name = await source.fetchDisplayName(creds.shard, creds.puuid);
-    if (name != null && name.isNotEmpty) {
-      await cache.saveDisplayName(creds.puuid, name);
-      return name;
-    }
-    throw StateError('Unavailable');
-  } catch (_) {
-    final cached = await cache.loadDisplayName(creds.puuid);
-    if (cached != null && cached.isNotEmpty) return cached;
-    return 'Valorant ID';
-  }
-});
-
-final _homePlayerCardProvider = FutureProvider.autoDispose<String?>((ref) async {
+final _homePlayerCardProvider =
+    FutureProvider.autoDispose<String?>((ref) async {
   // Delegate to the shared provider — returns smallArt for the avatar circle.
   final info = await ref.watch(playerCardArtProvider.future);
   return info.smallArt;
 });
 
-final _homeMmrProvider = FutureProvider.autoDispose<PlayerMmr?>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final source = await ref.watch(mmrRemoteSourceProvider.future);
-  final cache = ref.watch(mmrLocalCacheProvider);
-  try {
-    final raw = await source.fetchMmrRaw(creds.shard, creds.puuid);
-    final mmr = PlayerMmr.fromJson(raw);
-    await cache.saveMmr(raw);
-    return mmr;
-  } catch (_) {
-    return cache.loadMmr();
-  }
-});
-
-final _homeMatchesProvider = FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
+final _homeMatchesProvider =
+    FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
   // Delegate to shared enriched history provider — no duplication.
   return ref.watch(enrichedMatchHistoryProvider.future);
 });
@@ -149,34 +103,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final Set<String> _notifiedSkins = {};
-  bool _listenerRegistered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    NotificationService.instance.requestPermissions();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // ref.listen must only be registered once — didChangeDependencies can be
-    // called multiple times (e.g. when MediaQuery or theme changes above this
-    // widget). Registering on every call would accumulate duplicate listeners
-    // that each fire the notification independently, causing duplicate alerts.
-    if (_listenerRegistered) return;
-    _listenerRegistered = true;
-
+  void _listenForWishlistOffers() {
     ref.listen<AsyncValue<Storefront?>>(_storefrontProvider, (previous, next) {
       final storefront = next.asData?.value;
       if (storefront == null) return;
       final wishlist = ref.read(wishlistProvider).toSet();
+      final shopIdentity = storefront.dailyOffers
+          .map((offer) => offer.skinLevelUuid)
+          .toList()
+        ..sort();
       for (final offer in storefront.dailyOffers) {
-        if (wishlist.contains(offer.skinLevelUuid) &&
-            !_notifiedSkins.contains(offer.skinLevelUuid)) {
-          _notifiedSkins.add(offer.skinLevelUuid);
-          NotificationService.instance.showWishlistAlert(
+        if (wishlist.contains(offer.skinLevelUuid)) {
+          NotificationService.instance.showWishlistAlertOnce(
+            shopIdentity: shopIdentity.join(','),
+            skinId: offer.skinLevelUuid,
             skinName: offer.displayName ?? 'Wishlist Skin',
             price: offer.price,
           );
@@ -187,6 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _listenForWishlistOffers();
     final storefrontAsync = ref.watch(_storefrontProvider);
     final walletAsync = ref.watch(_walletProvider);
     final wishlist = ref.watch(wishlistProvider);
@@ -278,13 +219,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       titleSpacing: 16,
       title: Consumer(
         builder: (context, ref, _) {
-          final nameAsync = ref.watch(_homeDisplayNameProvider);
-          final xpAsync = ref.watch(_homeAccountXpProvider);
+          final nameAsync = ref.watch(displayNameProvider);
+          final xpAsync = ref.watch(accountXpProvider);
           final cardArtAsync = ref.watch(_homePlayerCardProvider);
 
-          final displayName = nameAsync.asData?.value ?? 'Valorant ID';
+          final displayName = nameAsync.asData?.value?.data ?? 'Valorant ID';
           final cardIconUrl = cardArtAsync.asData?.value;
-          final rawXp = xpAsync.asData?.value;
+          final rawXp = xpAsync.asData?.value?.data;
           final levelStr = rawXp != null ? 'Level ${rawXp.level}' : 'Level --';
           final xpProgress = rawXp != null
               ? (rawXp.xp / AccountXp.xpPerLevel.toDouble()).clamp(0.0, 1.0)
@@ -464,7 +405,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.8)),
                 CountdownTimer(
-                  remainingSeconds: storefront.currentDailyOffersRemainingSeconds,
+                  remainingSeconds:
+                      storefront.currentDailyOffersRemainingSeconds,
+                  deadline: storefront.dailyOffersDeadline,
+                  deadlineIdentity: storefront.dailyOffersIdentity,
                   onExpired: _refresh,
                   style: const TextStyle(
                       color: Colors.white,
@@ -481,8 +425,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       letterSpacing: 0.8),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.info_outline,
-                    color: Colors.white24, size: 13),
+                const Icon(Icons.info_outline, color: Colors.white24, size: 13),
               ],
             ),
           ),
@@ -536,14 +479,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refresh() async {
-    // Clear the notified set so wishlist alerts re-fire for the new shop.
-    _notifiedSkins.clear();
     // Invalidate cached storefront timestamp so loadCachedStorefront()
     // won't return a stale cached response as fallback. The actual raw cache
     // is already guarded by the expiry check in StoreLocalCache, but clearing
     // the timestamp key is a belt-and-suspenders measure.
-    await CacheStorage.instance.remove(CacheStorage.keyDailyShop);
-    await CacheStorage.instance.remove(CacheStorage.keyDailyShopFetchedAt);
+    final cache = CacheStorage.instance;
+    await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
+    await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
     await ref.read(_storefrontProvider.future);
@@ -551,6 +493,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _toggleWishlist(SkinOffer offer) {
+    if (!ref.read(wishlistProvider).contains(offer.skinLevelUuid)) {
+      NotificationService.instance.requestPermissions();
+    }
     ref.read(wishlistProvider.notifier).toggle(offer.skinLevelUuid);
   }
 }
@@ -587,15 +532,12 @@ class _WalletBar extends StatelessWidget {
     );
   }
 
-  String _fmt(int v) =>
-      v >= 10000 ? '${(v / 1000).toStringAsFixed(0)}k' : '$v';
+  String _fmt(int v) => v >= 10000 ? '${(v / 1000).toStringAsFixed(0)}k' : '$v';
 }
 
 class _CurrencyChip extends StatelessWidget {
   const _CurrencyChip(
-      {required this.label,
-      required this.abbrev,
-      required this.color});
+      {required this.label, required this.abbrev, required this.color});
   final String label;
   final String abbrev;
   final Color color;
@@ -620,9 +562,7 @@ class _CurrencyChip extends StatelessWidget {
             ),
             child: Text(abbrev,
                 style: TextStyle(
-                    color: color,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w900)),
+                    color: color, fontSize: 7, fontWeight: FontWeight.w900)),
           ),
           const SizedBox(width: 4),
           Text(label,
@@ -679,15 +619,18 @@ class _BundleBanner extends ConsumerWidget {
     final bundleMap = bundlesAsync.asData?.value ?? {};
     final skinMap = skinLevelsAsync.asData?.value ?? {};
 
-    final bundleInfo =
-        bundleMap[bundle.bundleUuid.toLowerCase()] ?? bundleMap[bundle.bundleUuid];
+    final bundleInfo = bundleMap[bundle.bundleUuid.toLowerCase()] ??
+        bundleMap[bundle.bundleUuid];
 
     final displayIcon2 = bundleInfo?['displayIcon2'] as String?;
     final verticalImage = bundleInfo?['verticalPromoImage'] as String?;
     final displayIcon = bundleInfo?['displayIcon'] as String?;
 
-    String? imageUrl = displayIcon2 ?? verticalImage ?? displayIcon ??
-        bundle.verticalPromoImage ?? bundle.displayIcon;
+    String? imageUrl = displayIcon2 ??
+        verticalImage ??
+        displayIcon ??
+        bundle.verticalPromoImage ??
+        bundle.displayIcon;
 
     if ((imageUrl == null || imageUrl.isEmpty) && bundle.itemIds.isNotEmpty) {
       for (final itemId in bundle.itemIds) {
@@ -701,7 +644,8 @@ class _BundleBanner extends ConsumerWidget {
       }
     }
 
-    final discountInt = price_utils.discountPercent(bundle.totalDiscountPercent);
+    final discountInt =
+        price_utils.discountPercent(bundle.totalDiscountPercent);
 
     final finalImageUrl = imageUrl;
 
@@ -816,6 +760,7 @@ class _BundleBanner extends ConsumerWidget {
                                 CountdownTimer(
                                   remainingSeconds:
                                       bundle.durationRemainingSeconds,
+                                  deadlineIdentity: bundle.bundleUuid,
                                   style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 11,
@@ -949,8 +894,7 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
             onPageChanged: (idx) => setState(() => _currentPage = idx),
             itemBuilder: (context, i) {
               final offer = widget.offers[i];
-              final inWishlist =
-                  widget.wishlist.contains(offer.skinLevelUuid);
+              final inWishlist = widget.wishlist.contains(offer.skinLevelUuid);
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: GestureDetector(
@@ -979,9 +923,7 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
                 width: isSelected ? 20 : 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFFFF4655)
-                      : Colors.white24,
+                  color: isSelected ? const Color(0xFFFF4655) : Colors.white24,
                   borderRadius: BorderRadius.circular(3),
                 ),
               );
@@ -1033,22 +975,20 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
             onPageChanged: (idx) => setState(() => _currentPage = idx),
             itemBuilder: (context, i) {
               final offer = widget.offers[i];
-              final tierColor =
-                  TierColors.forName(offer.contentTierUuid);
+              final tierColor = TierColors.forName(offer.contentTierUuid);
               // discountPercent is already normalised to 0–100 in NightMarketOffer.fromJson,
               // so we use it directly — no multiplication needed.
               final discountInt = offer.discountPercent;
 
               return GestureDetector(
-                onTap: () =>
-                    SkinDetailModal.show(context, offer.toSkinOffer()),
+                onTap: () => SkinDetailModal.show(context, offer.toSkinOffer()),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   margin: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: tierColor.withAlpha(180), width: 1.4),
+                    border:
+                        Border.all(color: tierColor.withAlpha(180), width: 1.4),
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -1073,7 +1013,9 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                       children: [
                         // Top tier accent bar
                         Positioned(
-                          top: 0, left: 0, right: 0,
+                          top: 0,
+                          left: 0,
+                          right: 0,
                           child: Container(height: 3.5, color: tierColor),
                         ),
                         // Weapon image
@@ -1097,7 +1039,8 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                         ),
                         // Discount badge top-right
                         Positioned(
-                          top: 10, right: 10,
+                          top: 10,
+                          right: 10,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
@@ -1106,8 +1049,7 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                               borderRadius: BorderRadius.circular(6),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFF59E0B)
-                                      .withAlpha(80),
+                                  color: const Color(0xFFF59E0B).withAlpha(80),
                                   blurRadius: 6,
                                 ),
                               ],
@@ -1121,7 +1063,9 @@ class _NightMarketCarouselState extends State<_NightMarketCarousel> {
                         ),
                         // Bottom info
                         Positioned(
-                          bottom: 0, left: 0, right: 0,
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             color: const Color(0xFF0F0A1A).withAlpha(230),
@@ -1228,9 +1172,7 @@ class _WishlistMatchBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    matchedSkins
-                        .map((s) => s.displayName ?? 'Skin')
-                        .join(', '),
+                    matchedSkins.map((s) => s.displayName ?? 'Skin').join(', '),
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -1255,16 +1197,16 @@ class _HomeQuickCardsRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mmrAsync = ref.watch(_homeMmrProvider);
+    final mmrAsync = ref.watch(playerMmrProvider);
     final historyAsync = ref.watch(_homeMatchesProvider);
     final tiersAsync = ref.watch(_competitiveTiersMapHomeProvider);
     final updatesAsync = ref.watch(competitiveUpdatesProvider);
 
-    final mmr = mmrAsync.asData?.value;
+    final mmr = mmrAsync.asData?.value?.data;
     final matches = historyAsync.asData?.value?.matches ?? [];
     final tiersMap = tiersAsync.asData?.value ?? {};
     // Real competitive updates — most recent first (already sorted by API)
-    final updates = updatesAsync.asData?.value ?? [];
+    final updates = updatesAsync.asData?.value.data ?? [];
 
     final tierData = mmr != null ? tiersMap[mmr.currentTier] : null;
     final rankIconUrl = tierData?['largeIcon'] as String? ??
@@ -1304,13 +1246,15 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                     child: rankIconUrl != null && rankIconUrl.isNotEmpty
                         ? CachedNetworkImage(
                             imageUrl: rankIconUrl,
-                            width: 48, height: 48,
+                            width: 48,
+                            height: 48,
                             fit: BoxFit.contain,
-                            placeholder: (_, __) => const SizedBox(
-                                width: 48, height: 48),
+                            placeholder: (_, __) =>
+                                const SizedBox(width: 48, height: 48),
                             errorWidget: (_, __, ___) => const Icon(
                                 Icons.shield_outlined,
-                                color: AppColors.red, size: 36),
+                                color: AppColors.red,
+                                size: 36),
                           )
                         : const Icon(Icons.shield_outlined,
                             color: AppColors.red, size: 36),
@@ -1346,8 +1290,8 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                       value: ((mmr?.currentRankedRating ?? 0) / 100.0)
                           .clamp(0.0, 1.0),
                       backgroundColor: Colors.white12,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.red),
+                      valueColor:
+                          const AlwaysStoppedAnimation<Color>(AppColors.red),
                       minHeight: 3,
                     ),
                   ),
@@ -1374,8 +1318,8 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                     const Expanded(
                       child: Center(
                         child: Text('No recent matches',
-                            style: TextStyle(
-                                color: Colors.white38, fontSize: 8),
+                            style:
+                                TextStyle(color: Colors.white38, fontSize: 8),
                             textAlign: TextAlign.center),
                       ),
                     )
@@ -1422,9 +1366,7 @@ class _HomeQuickCardsRow extends ConsumerWidget {
                       style: TextStyle(
                           color: mmr?.latestUpdate == null
                               ? Colors.white54
-                              : (isPos
-                                  ? AppColors.win
-                                  : AppColors.loss),
+                              : (isPos ? AppColors.win : AppColors.loss),
                           fontSize: 15,
                           fontWeight: FontWeight.w900),
                     ),
@@ -1567,8 +1509,7 @@ class _MiniLinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _MiniLinePainter old) =>
-      old.updates != updates;
+  bool shouldRepaint(covariant _MiniLinePainter old) => old.updates != updates;
 }
 
 // ── Quick Cards ───────────────────────────────────────────────────────────────
@@ -1604,9 +1545,7 @@ class _QuickCard extends StatelessWidget {
 
 class _QuickCardHeader extends StatelessWidget {
   const _QuickCardHeader(
-      {required this.icon,
-      required this.iconColor,
-      required this.title});
+      {required this.icon, required this.iconColor, required this.title});
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -1653,7 +1592,8 @@ class _MatchMiniTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 4, height: 14,
+            width: 4,
+            height: 14,
             decoration: BoxDecoration(
                 color: color, borderRadius: BorderRadius.circular(2)),
           ),
@@ -1708,10 +1648,12 @@ class _NewsFeedSection extends ConsumerWidget {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.wifi_off_rounded, color: AppColors.textMuted, size: 18),
+                  Icon(Icons.wifi_off_rounded,
+                      color: AppColors.textMuted, size: 18),
                   SizedBox(width: 10),
                   Text('News unavailable — check your connection.',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                      style: TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13)),
                 ],
               ),
             ),
@@ -1796,34 +1738,39 @@ class _NewsCard extends StatelessWidget {
             children: [
               // Banner image
               Positioned(
-                top: 0, left: 0, right: 0,
+                top: 0,
+                left: 0,
+                right: 0,
                 height: 108,
-                child: article.bannerUrl != null &&
-                        article.bannerUrl!.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: article.bannerUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                            color: AppColors.bgCard2),
-                        errorWidget: (_, __, ___) =>
-                            Container(color: AppColors.bgCard2,
+                child:
+                    article.bannerUrl != null && article.bannerUrl!.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: article.bannerUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) =>
+                                Container(color: AppColors.bgCard2),
+                            errorWidget: (_, __, ___) => Container(
+                              color: AppColors.bgCard2,
                               child: const Center(
                                 child: Icon(Icons.newspaper_outlined,
                                     color: AppColors.textMuted, size: 32),
                               ),
                             ),
-                      )
-                    : Container(
-                        color: AppColors.bgCard2,
-                        child: const Center(
-                          child: Icon(Icons.newspaper_outlined,
-                              color: AppColors.textMuted, size: 32),
-                        ),
-                      ),
+                          )
+                        : Container(
+                            color: AppColors.bgCard2,
+                            child: const Center(
+                              child: Icon(Icons.newspaper_outlined,
+                                  color: AppColors.textMuted, size: 32),
+                            ),
+                          ),
               ),
               // Gradient overlay at bottom of image
               Positioned(
-                top: 60, left: 0, right: 0, height: 48,
+                top: 60,
+                left: 0,
+                right: 0,
+                height: 48,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -1839,15 +1786,15 @@ class _NewsCard extends StatelessWidget {
               ),
               // Category badge top-left
               Positioned(
-                top: 8, left: 8,
+                top: 8,
+                left: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: color.withAlpha(40),
                     borderRadius: BorderRadius.circular(5),
-                    border: Border.all(
-                        color: color.withAlpha(120), width: 0.8),
+                    border: Border.all(color: color.withAlpha(120), width: 0.8),
                   ),
                   child: Text(
                     label,
@@ -1862,7 +1809,10 @@ class _NewsCard extends StatelessWidget {
               ),
               // Text content below banner
               Positioned(
-                top: 108, left: 0, right: 0, bottom: 0,
+                top: 108,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                   child: Column(
@@ -1902,8 +1852,18 @@ class _NewsCard extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -1931,12 +1891,24 @@ class _NewsWebViewScreenState extends State<_NewsWebViewScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (_) => setState(() => _isLoading = true),
-          onPageFinished: (_) => setState(() => _isLoading = false),
-          onWebResourceError: (_) => setState(() => _isLoading = false),
+          onPageStarted: (_) {
+            if (mounted) setState(() => _isLoading = true);
+          },
+          onPageFinished: (_) {
+            if (mounted) setState(() => _isLoading = false);
+          },
+          onWebResourceError: (_) {
+            if (mounted) setState(() => _isLoading = false);
+          },
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  void dispose() {
+    _controller.loadRequest(Uri.parse('about:blank'));
+    super.dispose();
   }
 
   @override

@@ -33,7 +33,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
 
   @override
   Widget build(BuildContext context) {
-    final assetsAsync = ref.watch(_skinFullDetailProvider(widget.offer.skinLevelUuid));
+    final assetsAsync =
+        ref.watch(_skinFullDetailProvider(widget.offer.skinLevelUuid));
     final wishlist = ref.watch(wishlistProvider);
     final isWishlisted = wishlist.contains(widget.offer.skinLevelUuid);
     final tierColor = TierColors.tierColorForUuid(widget.offer.contentTierUuid);
@@ -77,25 +78,33 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
               children: [
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white, size: 20),
                   visualDensity: VisualDensity.compact,
                 ),
                 Row(
                   children: [
                     IconButton(
                       onPressed: () {
-                        ref.read(wishlistProvider.notifier).toggle(widget.offer.skinLevelUuid);
+                        ref
+                            .read(wishlistProvider.notifier)
+                            .toggle(widget.offer.skinLevelUuid);
                       },
                       icon: Icon(
-                        isWishlisted ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                        isWishlisted
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_outline_rounded,
                         color: isWishlisted ? AppColors.red : Colors.white70,
                         size: 22,
                       ),
-                      tooltip: isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist',
+                      tooltip: isWishlisted
+                          ? 'Remove from Wishlist'
+                          : 'Add to Wishlist',
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white70, size: 22),
                     ),
                   ],
                 ),
@@ -108,11 +117,13 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
             child: assetsAsync.when(
               data: (detail) => detail == null
                   ? _buildFallbackBody(tierColor, tierLabel, isWishlisted)
-                  : _buildInteractiveBody(detail, tierColor, tierLabel, isWishlisted),
+                  : _buildInteractiveBody(
+                      detail, tierColor, tierLabel, isWishlisted),
               loading: () => const Center(
                 child: CircularProgressIndicator(color: AppColors.vpCyan),
               ),
-              error: (_, __) => _buildFallbackBody(tierColor, tierLabel, isWishlisted),
+              error: (_, __) =>
+                  _buildFallbackBody(tierColor, tierLabel, isWishlisted),
             ),
           ),
 
@@ -138,7 +149,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Gift feature available in upcoming Riot update!'),
+                            content: Text(
+                                'Gift feature available in upcoming Riot update!'),
                             backgroundColor: Color(0xFF131B2E),
                             duration: Duration(seconds: 2),
                           ),
@@ -148,7 +160,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.card_giftcard_rounded, color: AppColors.red, size: 18),
+                          Icon(Icons.card_giftcard_rounded,
+                              color: AppColors.red, size: 18),
                           SizedBox(width: 8),
                           Text(
                             'GIFT TO FRIEND',
@@ -184,14 +197,18 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                     ),
                     child: InkWell(
                       onTap: () {
-                        ref.read(wishlistProvider.notifier).toggle(widget.offer.skinLevelUuid);
+                        ref
+                            .read(wishlistProvider.notifier)
+                            .toggle(widget.offer.skinLevelUuid);
                       },
                       borderRadius: BorderRadius.circular(14),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            isWishlisted ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                            isWishlisted
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_outline_rounded,
                             color: Colors.white,
                             size: 18,
                           ),
@@ -254,8 +271,11 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
 
     // Split skin name into 2 title lines (Collection & Weapon Type)
     final nameParts = (widget.offer.displayName ?? 'Weapon Skin').split(' ');
-    final collectionName = nameParts.isNotEmpty ? nameParts.first.toUpperCase() : 'WEAPON';
-    final weaponTypeName = nameParts.length > 1 ? nameParts.sublist(1).join(' ').toUpperCase() : 'SKIN';
+    final collectionName =
+        nameParts.isNotEmpty ? nameParts.first.toUpperCase() : 'WEAPON';
+    final weaponTypeName = nameParts.length > 1
+        ? nameParts.sublist(1).join(' ').toUpperCase()
+        : 'SKIN';
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -290,11 +310,13 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: tierColor.withAlpha(35),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: tierColor.withAlpha(120), width: 1),
+                    border:
+                        Border.all(color: tierColor.withAlpha(120), width: 1),
                   ),
                   child: Text(
                     tierLabel.toUpperCase(),
@@ -388,14 +410,16 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                           height: 150,
                           fit: BoxFit.contain,
                           placeholder: (_, __) =>
-                              const CircularProgressIndicator(color: AppColors.vpCyan),
+                              const CircularProgressIndicator(
+                                  color: AppColors.vpCyan),
                           errorWidget: (_, __, ___) => const Icon(
                             Icons.broken_image,
                             color: Colors.white24,
                             size: 48,
                           ),
                         )
-                      : const Icon(Icons.broken_image, color: Colors.white24, size: 48),
+                      : const Icon(Icons.broken_image,
+                          color: Colors.white24, size: 48),
                 ),
               ),
             ),
@@ -415,7 +439,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFF4655),
                       borderRadius: BorderRadius.circular(8),
@@ -429,7 +454,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                        Icon(Icons.play_arrow_rounded,
+                            color: Colors.white, size: 16),
                         SizedBox(width: 4),
                         Text(
                           'VIDEO',
@@ -476,7 +502,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                 final chroma = chromas[idx] as Map<String, dynamic>;
                 final isSelected = idx == _selectedChromaIndex;
                 final swatchUrl = chroma['swatch'] as String?;
-                final chromaName = chroma['displayName']?.toString() ?? 'Variant';
+                final chromaName =
+                    chroma['displayName']?.toString() ?? 'Variant';
 
                 return GestureDetector(
                   onTap: () => setState(() => _selectedChromaIndex = idx),
@@ -525,14 +552,19 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                                 Text(
                                   chromaName.split('\n').last,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.white70,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.white70,
                                     fontSize: 11,
-                                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w900
+                                        : FontWeight.w700,
                                   ),
                                 ),
                                 if (isSelected) ...[
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.check_rounded, color: AppColors.red, size: 14),
+                                  const Icon(Icons.check_rounded,
+                                      color: AppColors.red, size: 14),
                                 ]
                               ],
                             ),
@@ -581,7 +613,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
           ...List.generate(levels.length, (idx) {
             final level = levels[idx] as Map<String, dynamic>;
             final isSelected = idx == _selectedLevelIndex;
-            final levelName = level['displayName']?.toString() ?? 'Level ${idx + 1}';
+            final levelName =
+                level['displayName']?.toString() ?? 'Level ${idx + 1}';
             final levelItem = level['levelItem']?.toString() ?? '';
             final videoUrl = level['streamedVideo'] as String?;
 
@@ -590,7 +623,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? AppColors.red.withAlpha(40)
@@ -654,15 +688,18 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                     ),
 
                     // FINISHER badge for level 4+ or finisher items
-                    if (idx >= 3 || levelItem.toLowerCase().contains('finisher')) ...[
+                    if (idx >= 3 ||
+                        levelItem.toLowerCase().contains('finisher')) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFD700).withAlpha(30),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                              color: const Color(0xFFFFD700).withAlpha(120), width: 0.8),
+                              color: const Color(0xFFFFD700).withAlpha(120),
+                              width: 0.8),
                         ),
                         child: const Text(
                           'FINISHER',
@@ -681,10 +718,13 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: () {
-                          final selectedChromaVid = (chromas.isNotEmpty && _selectedChromaIndex < chromas.length)
-                              ? chromas[_selectedChromaIndex]['streamedVideo'] as String?
+                          final selectedChromaVid = (chromas.isNotEmpty &&
+                                  _selectedChromaIndex < chromas.length)
+                              ? chromas[_selectedChromaIndex]['streamedVideo']
+                                  as String?
                               : null;
-                          final activeVid = (selectedChromaVid != null && selectedChromaVid.isNotEmpty)
+                          final activeVid = (selectedChromaVid != null &&
+                                  selectedChromaVid.isNotEmpty)
                               ? selectedChromaVid
                               : videoUrl;
                           SkinVideoDialog.show(
@@ -695,7 +735,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: AppColors.red,
                             borderRadius: BorderRadius.circular(8),
@@ -703,7 +744,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
+                              Icon(Icons.play_arrow_rounded,
+                                  color: Colors.white, size: 14),
                               SizedBox(width: 2),
                               Text(
                                 'VIDEO',
@@ -723,7 +765,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                     if (idx > 0) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFF9900).withAlpha(30),
                           borderRadius: BorderRadius.circular(6),
@@ -750,7 +793,8 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     );
   }
 
-  Widget _buildFallbackBody(Color tierColor, String tierLabel, bool isWishlisted) {
+  Widget _buildFallbackBody(
+      Color tierColor, String tierLabel, bool isWishlisted) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -828,12 +872,11 @@ class _QuickInfoChip extends StatelessWidget {
   }
 }
 
-final _themesMapProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async =>
-        ref.watch(valorantAssetsProvider).getThemesMap());
+final _themesMapProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
+    (ref) async => ref.watch(valorantAssetsProvider).getThemesMap());
 
-final _skinFullDetailProvider =
-    FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, uuid) async {
+final _skinFullDetailProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>?, String>((ref, uuid) async {
   final assets = ref.watch(valorantAssetsProvider);
   return assets.getSkinLevel(uuid);
 });

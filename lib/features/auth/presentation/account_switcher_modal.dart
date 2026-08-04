@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/storage/cache_storage.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../data/credentials_local_source.dart';
 
@@ -21,12 +20,14 @@ class AccountSwitcherModal extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<AccountSwitcherModal> createState() => _AccountSwitcherModalState();
+  ConsumerState<AccountSwitcherModal> createState() =>
+      _AccountSwitcherModalState();
 }
 
 class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
   List<SavedAccountProfile> _savedAccounts = [];
   bool _isLoading = true;
+  bool _actionInProgress = false;
 
   @override
   void initState() {
@@ -48,22 +49,50 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
     _resolveAccountMetadata(list);
   }
 
+  Future<void> _switchAccount(SavedAccountProfile account) async {
+    if (_actionInProgress) return;
+    setState(() => _actionInProgress = true);
+    try {
+      await ref.read(sessionActionsProvider).switchAccount(account);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Switched to ${account.displayName}'),
+          backgroundColor: AppColors.red,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _actionInProgress = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to switch account: $error')),
+      );
+    }
+  }
+
   Future<void> _resolveAccountMetadata(List<SavedAccountProfile> list) async {
     try {
       final remoteSource = await ref.read(accountRemoteSourceProvider.future);
       final loadoutSource = await ref.read(loadoutRemoteSourceProvider.future);
       final assets = ref.read(valorantAssetsProvider);
       final localSource = ref.read(credentialsLocalSourceProvider);
+      final activeCredentials = await localSource.load();
       final cardsMap = await assets.getPlayerCardsMap();
 
       for (final acc in list) {
+        // Private account metadata must be fetched with that account's token.
+        if (acc.puuid != activeCredentials?.puuid) continue;
         String? newName = acc.displayName;
         String? newAvatar = acc.avatarUrl;
         String? newCardId = acc.playerCardId;
         bool needsUpdate = false;
 
-        if (newName.startsWith('Account (') || newName == 'Valorant Account' || newName == 'Valorant Player') {
-          final realName = await remoteSource.fetchDisplayName(acc.shard, acc.puuid);
+        if (newName.startsWith('Account (') ||
+            newName == 'Valorant Account' ||
+            newName == 'Valorant Player') {
+          final realName =
+              await remoteSource.fetchDisplayName(acc.shard, acc.puuid);
           if (realName != null && realName.isNotEmpty) {
             newName = realName;
             needsUpdate = true;
@@ -72,7 +101,8 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
 
         if (newAvatar == null || newAvatar.isEmpty) {
           try {
-            final rawLoadout = await loadoutSource.fetchLoadoutRaw(acc.shard, acc.puuid);
+            final rawLoadout =
+                await loadoutSource.fetchLoadoutRaw(acc.shard, acc.puuid);
             final loadoutRoot = rawLoadout.containsKey('Loadout')
                 ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
                 : rawLoadout;
@@ -84,8 +114,10 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                 rawLoadout['PlayerCardID'] as String?;
             if (cardId != null && cardId.isNotEmpty) {
               newCardId = cardId;
-              final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
-              newAvatar = cardInfo?['smallArt'] as String? ?? cardInfo?['displayIcon'] as String?;
+              final cardInfo = (cardsMap[cardId] ??
+                  cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
+              newAvatar = cardInfo?['smallArt'] as String? ??
+                  cardInfo?['displayIcon'] as String?;
               if (newAvatar != null && newAvatar.isNotEmpty) {
                 needsUpdate = true;
               }
@@ -94,8 +126,8 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
         }
 
         if (needsUpdate) {
-          await localSource.save(
-            acc.credentials,
+          await localSource.updateAccountMetadata(
+            acc.puuid,
             displayName: newName,
             playerCardId: newCardId,
             avatarUrl: newAvatar,
@@ -199,44 +231,9 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                           final isActive = acc.puuid == activePuuid;
 
                           return GestureDetector(
-                            onTap: () async {
-                              if (!isActive) {
-                                // 1. Wipe cached user data from old session
-                                await CacheStorage.instance.clearUserCache();
-
-                                // 2. Save active credentials into SecureStorage
-                                final source = ref.read(credentialsLocalSourceProvider);
-                                await source.save(
-                                  acc.credentials,
-                                  displayName: acc.displayName,
-                                  playerCardId: acc.playerCardId,
-                                  avatarUrl: acc.avatarUrl,
-                                );
-
-                                // 3. Invalidate current credentials & session providers
-                                ref.invalidate(currentCredentialsProvider);
-                                ref.invalidate(apiDioProvider);
-                                ref.invalidate(storeRemoteSourceProvider);
-                                ref.invalidate(storeRepositoryProvider);
-                                ref.invalidate(matchRemoteSourceProvider);
-                                ref.invalidate(mmrRemoteSourceProvider);
-                                ref.invalidate(contractsRemoteSourceProvider);
-                                ref.invalidate(accountRemoteSourceProvider);
-                                ref.invalidate(restrictionsRemoteSourceProvider);
-                                ref.invalidate(loadoutRemoteSourceProvider);
-
-                                if (context.mounted) {
-                                  Navigator.of(context).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          'Switched to ${acc.displayName}'),
-                                      backgroundColor: AppColors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            },
+                            onTap: isActive || _actionInProgress
+                                ? null
+                                : () => _switchAccount(acc),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               margin: const EdgeInsets.only(bottom: 10),
@@ -247,9 +244,8 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                     : AppColors.bgCard2,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: isActive
-                                      ? AppColors.red
-                                      : Colors.white10,
+                                  color:
+                                      isActive ? AppColors.red : Colors.white10,
                                   width: isActive ? 1.8 : 1,
                                 ),
                               ),
@@ -265,34 +261,44 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                           : const Color(0xFF070A10),
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: isActive ? AppColors.red : Colors.white10,
+                                        color: isActive
+                                            ? AppColors.red
+                                            : Colors.white10,
                                         width: 1.5,
                                       ),
                                     ),
                                     child: ClipOval(
-                                      child: acc.avatarUrl != null && acc.avatarUrl!.isNotEmpty
+                                      child: acc.avatarUrl != null &&
+                                              acc.avatarUrl!.isNotEmpty
                                           ? CachedNetworkImage(
                                               imageUrl: acc.avatarUrl!,
                                               fit: BoxFit.cover,
                                               placeholder: (_, __) => Center(
                                                 child: Text(
                                                   acc.displayName.isNotEmpty
-                                                      ? acc.displayName[0].toUpperCase()
+                                                      ? acc.displayName[0]
+                                                          .toUpperCase()
                                                       : 'V',
                                                   style: TextStyle(
-                                                    color: isActive ? Colors.white : Colors.white70,
+                                                    color: isActive
+                                                        ? Colors.white
+                                                        : Colors.white70,
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w900,
                                                   ),
                                                 ),
                                               ),
-                                              errorWidget: (_, __, ___) => Center(
+                                              errorWidget: (_, __, ___) =>
+                                                  Center(
                                                 child: Text(
                                                   acc.displayName.isNotEmpty
-                                                      ? acc.displayName[0].toUpperCase()
+                                                      ? acc.displayName[0]
+                                                          .toUpperCase()
                                                       : 'V',
                                                   style: TextStyle(
-                                                    color: isActive ? Colors.white : Colors.white70,
+                                                    color: isActive
+                                                        ? Colors.white
+                                                        : Colors.white70,
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w900,
                                                   ),
@@ -302,10 +308,13 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                           : Center(
                                               child: Text(
                                                 acc.displayName.isNotEmpty
-                                                    ? acc.displayName[0].toUpperCase()
+                                                    ? acc.displayName[0]
+                                                        .toUpperCase()
                                                     : 'V',
                                                 style: TextStyle(
-                                                  color: isActive ? Colors.white : Colors.white70,
+                                                  color: isActive
+                                                      ? Colors.white
+                                                      : Colors.white70,
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w900,
                                                 ),
@@ -318,7 +327,8 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                   // Account Info
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           acc.displayName,
@@ -364,14 +374,18 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                       icon: const Icon(Icons.delete_outline,
                                           color: Colors.white38, size: 20),
                                       onPressed: () async {
-                                        final confirmed = await showDialog<bool>(
+                                        final confirmed =
+                                            await showDialog<bool>(
                                           context: context,
                                           builder: (ctx) => AlertDialog(
-                                            backgroundColor: const Color(0xFF0E1622),
+                                            backgroundColor:
+                                                const Color(0xFF0E1622),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(16),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
                                               side: const BorderSide(
-                                                  color: AppColors.red, width: 1.5),
+                                                  color: AppColors.red,
+                                                  width: 1.5),
                                             ),
                                             title: const Text(
                                               'Hapus Akun?',
@@ -389,12 +403,17 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                                 height: 1.4,
                                               ),
                                             ),
-                                            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                            actionsPadding:
+                                                const EdgeInsets.fromLTRB(
+                                                    16, 0, 16, 16),
                                             actions: [
                                               TextButton(
-                                                onPressed: () => Navigator.of(ctx).pop(false),
+                                                onPressed: () =>
+                                                    Navigator.of(ctx)
+                                                        .pop(false),
                                                 style: TextButton.styleFrom(
-                                                  foregroundColor: Colors.white54,
+                                                  foregroundColor:
+                                                      Colors.white54,
                                                 ),
                                                 child: const Text(
                                                   'BATAL',
@@ -405,14 +424,20 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                                 ),
                                               ),
                                               FilledButton(
-                                                onPressed: () => Navigator.of(ctx).pop(true),
+                                                onPressed: () =>
+                                                    Navigator.of(ctx).pop(true),
                                                 style: FilledButton.styleFrom(
-                                                  backgroundColor: AppColors.red,
+                                                  backgroundColor:
+                                                      AppColors.red,
                                                   shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(8),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
                                                   ),
-                                                  padding: const EdgeInsets.symmetric(
-                                                      horizontal: 20, vertical: 10),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 20,
+                                                      vertical: 10),
                                                 ),
                                                 child: const Text(
                                                   'HAPUS',
@@ -427,9 +452,20 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                           ),
                                         );
                                         if (confirmed == true) {
-                                          final source = ref.read(credentialsLocalSourceProvider);
-                                          await source.removeAccount(acc.puuid);
-                                          await _loadAccounts();
+                                          if (_actionInProgress) return;
+                                          setState(
+                                              () => _actionInProgress = true);
+                                          try {
+                                            await ref
+                                                .read(sessionActionsProvider)
+                                                .removeAccount(acc.puuid);
+                                            if (mounted) await _loadAccounts();
+                                          } finally {
+                                            if (mounted) {
+                                              setState(() =>
+                                                  _actionInProgress = false);
+                                            }
+                                          }
                                         }
                                       },
                                     ),

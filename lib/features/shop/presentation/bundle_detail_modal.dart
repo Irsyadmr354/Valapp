@@ -48,7 +48,8 @@ class BundleDetailModal extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final skinMapAsync = ref.watch(_bundleSkinMapProvider);
-    final discountInt = price_utils.discountPercent(bundle.totalDiscountPercent);
+    final discountInt =
+        price_utils.discountPercent(bundle.totalDiscountPercent);
 
     return Container(
       constraints: BoxConstraints(
@@ -168,6 +169,7 @@ class BundleDetailModal extends ConsumerWidget {
                             letterSpacing: 0.8)),
                     CountdownTimer(
                       remainingSeconds: bundle.durationRemainingSeconds,
+                      deadlineIdentity: bundle.bundleUuid,
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -290,8 +292,7 @@ class _BundleItemList extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.bgCard2,
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: tierColor.withAlpha(80), width: 1),
+                border: Border.all(color: tierColor.withAlpha(80), width: 1),
               ),
               child: Row(
                 children: [

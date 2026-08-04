@@ -19,6 +19,94 @@ class CacheStorage {
     return _prefs!;
   }
 
+  // ── Active Session Scope ──────────────────────────────────────────────────
+  //
+  // Tracks the currently-active user so that writes from requests that were
+  // in-flight during an account switch can be detected and dropped. Cache keys
+  // themselves are namespaced deterministically per puuid (see [userKeyFor]),
+  // so account A's data is never served to account B even without clearing.
+  //
+  // NOTE: writes must be keyed by the puuid the *request was made for*, not by
+  // the current active puuid — otherwise a stale response landing after a
+  // switch would still be written into the new account's namespace.
+
+  String _activePuuid = '';
+  int _sessionGeneration = 0;
+  String get activePuuid => _activePuuid;
+
+  /// Call this whenever the active account changes (login, switch, logout).
+  Future<void> setActiveSession(
+    String puuid, {
+    bool clearPrevious = false,
+  }) {
+    return AsyncLock.run('cache_session', () async {
+      if (puuid == _activePuuid) return;
+
+      final previousPuuid = _activePuuid;
+      _activePuuid = puuid;
+      _sessionGeneration++;
+
+      if (clearPrevious && previousPuuid.isNotEmpty) {
+        await _clearUserCacheInternal(previousPuuid);
+      }
+    });
+  }
+
+  /// Initializes cache scope after startup without allowing a late credential
+  /// read to overwrite a session transition that has already happened.
+  Future<void> initializeActiveSession(String puuid) {
+    return AsyncLock.run('cache_session', () async {
+      if (_sessionGeneration != 0) return;
+      _activePuuid = puuid;
+      _sessionGeneration = 1;
+    });
+  }
+
+  /// Returns true when [puuid] still matches the currently-active session.
+  /// Call right before persisting a fetch result; if the user switched (or
+  /// logged out) while the request was in flight, this returns false and the
+  /// write must be skipped.
+  bool isActiveSession(String puuid) =>
+      puuid.isNotEmpty && puuid == _activePuuid;
+
+  /// Captures the account and activation generation before a request starts.
+  /// A token from an earlier activation is invalid even after switching back
+  /// to the same account.
+  CacheTransaction? beginUserTransaction(String puuid) {
+    if (!isActiveSession(puuid)) return null;
+    return CacheTransaction._(puuid, _sessionGeneration);
+  }
+
+  /// Runs all writes in [action] as one session-guarded cache commit.
+  Future<bool> runUserTransaction(
+    CacheTransaction? transaction,
+    Future<void> Function() action,
+  ) {
+    return AsyncLock.run('cache_session', () async {
+      if (transaction == null ||
+          transaction.puuid != _activePuuid ||
+          transaction._generation != _sessionGeneration) {
+        return false;
+      }
+      await action();
+      return true;
+    });
+  }
+
+  /// Deterministic per-user namespace for a cache key. Non-user caches (skin
+  /// metadata, competitive tiers, client version, ...) must NOT use this —
+  /// they are intentionally shared across accounts.
+  static String userKeyFor(String key, String puuid) {
+    if (puuid.isEmpty) {
+      throw ArgumentError.value(puuid, 'puuid', 'must not be empty');
+    }
+    return '$puuid/$key';
+  }
+
+  /// Same as [userKeyFor] but keyed by the current active session. Only use
+  /// this when you *intend* to write into the active user's namespace.
+  String userKey(String key) => userKeyFor(key, _activePuuid);
+
   // ── Key Constants ──────────────────────────────────────────────────────────
   static const keyClientVersion = 'client_version';
   static const keyClientVersionFetchedAt = 'client_version_fetched_at';
@@ -30,6 +118,8 @@ class CacheStorage {
   static const keyCompetitiveTiersFetchedAt = 'competitive_tiers_fetched_at';
   static const keyWishlist = 'wishlist_skin_ids';
   static const keyLastShopReset = 'last_shop_reset';
+  static const keyWishlistNotificationDedupe =
+      'wishlist_notification_dedupe_v1';
 
   // Feature response caches (non-sensitive)
   static const keyMmrCache = 'mmr_cache';
@@ -46,6 +136,7 @@ class CacheStorage {
   static const keyDisplayNameCacheFetchedAt = 'display_name_cache_fetched_at';
   static const keyContractsCache = 'contracts_cache';
   static const keyContractsCacheFetchedAt = 'contracts_cache_fetched_at';
+  static const keyWalletCache = 'cached_wallet';
 
   // ── String ─────────────────────────────────────────────────────────────────
 
@@ -71,8 +162,13 @@ class CacheStorage {
     final raw = prefs.getString(key);
     if (raw == null) return null;
     try {
-      return jsonDecode(raw) as Map<String, dynamic>;
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      await prefs.remove(key);
+      return null;
     } catch (_) {
+      await prefs.remove(key);
       return null;
     }
   }
@@ -82,8 +178,12 @@ class CacheStorage {
     final raw = prefs.getString(key);
     if (raw == null) return null;
     try {
-      return jsonDecode(raw) as List<dynamic>;
+      final decoded = jsonDecode(raw);
+      if (decoded is List) return List<dynamic>.from(decoded);
+      await prefs.remove(key);
+      return null;
     } catch (_) {
+      await prefs.remove(key);
       return null;
     }
   }
@@ -161,8 +261,50 @@ class CacheStorage {
 
   /// Wipes user-specific cached responses upon account switch
   /// so old account data is not served to the new account.
-  Future<void> clearUserCache() async {
-    final keys = [
+  ///
+  /// Since user caches are namespaced per puuid, this removes the *current*
+  /// active session's namespace (the account being switched away from) as well
+  /// as any legacy un-namespaced keys from pre-namespace installs.
+  Future<void> clearUserCache({String? puuid}) {
+    return AsyncLock.run(
+      'cache_session',
+      () => _clearUserCacheInternal(puuid ?? _activePuuid),
+    );
+  }
+
+  /// Atomically claims a wishlist alert for a specific shop rotation.
+  /// Foreground and background callers share this persisted ledger, so only
+  /// the first caller is allowed to display the notification.
+  Future<bool> claimWishlistNotification({
+    required String puuid,
+    required String shopIdentity,
+    required String skinId,
+  }) {
+    if (puuid.isEmpty || shopIdentity.isEmpty || skinId.isEmpty) {
+      return Future.value(false);
+    }
+    return AsyncLock.run('wishlist_notification_dedupe', () async {
+      final key = userKeyFor(keyWishlistNotificationDedupe, puuid);
+      final ledger = await getJson(key) ?? <String, dynamic>{};
+      final previousShop = ledger['shopIdentity'] as String?;
+      final notified = previousShop == shopIdentity
+          ? (ledger['skinIds'] as List<dynamic>?)
+                  ?.whereType<String>()
+                  .toSet() ??
+              <String>{}
+          : <String>{};
+      if (notified.contains(skinId)) return false;
+      notified.add(skinId);
+      await setJson(key, {
+        'shopIdentity': shopIdentity,
+        'skinIds': notified.toList()..sort(),
+      });
+      return true;
+    });
+  }
+
+  Future<void> _clearUserCacheInternal(String puuid) async {
+    final baseKeys = [
       keyDailyShop,
       keyDailyShopFetchedAt,
       keyMmrCache,
@@ -178,20 +320,41 @@ class CacheStorage {
       keyDisplayNameCacheFetchedAt,
       keyContractsCache,
       keyContractsCacheFetchedAt,
+      keyWalletCache,
       'player_loadout',
-      // Background shop checker state — must be cleared on account switch so
-      // the new account's first shop check always fires a reset notification.
-      'background_last_shop_ids',
+      keyWishlistNotificationDedupe,
     ];
+
+    final keys = <String>[...baseKeys];
+    if (puuid.isNotEmpty) {
+      // Namespaced keys for the session being switched away from.
+      keys.addAll(baseKeys.map((k) => userKeyFor(k, puuid)));
+    }
+
+    // Background shop checker state — must be cleared on account switch so
+    // the new account's first shop check always fires a reset notification.
+    keys.add('background_last_shop_ids');
+
     for (final k in keys) {
       await remove(k);
     }
   }
 
   Future<void> clearAll() async {
-    final prefs = await _getPrefs();
-    await prefs.clear();
-    // Reset cached instance so next access re-reads from disk.
-    _prefs = null;
+    await AsyncLock.run('cache_session', () async {
+      _activePuuid = '';
+      _sessionGeneration++;
+      final prefs = await _getPrefs();
+      await prefs.clear();
+      // Reset cached instance so next access re-reads from disk.
+      _prefs = null;
+    });
   }
+}
+
+class CacheTransaction {
+  const CacheTransaction._(this.puuid, this._generation);
+
+  final String puuid;
+  final int _generation;
 }

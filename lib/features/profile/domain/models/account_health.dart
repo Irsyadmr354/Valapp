@@ -1,7 +1,8 @@
 /// Represents a single active restriction/penalty.
 class AccountPenalty {
   final String id;
-  final String type; // e.g. "queue_delay", "communication_restricted", "afk_penalty"
+  final String
+      type; // e.g. "queue_delay", "communication_restricted", "afk_penalty"
   final String title;
   final String description;
   final DateTime? expiryTime;
@@ -38,10 +39,10 @@ class AccountPenalty {
       title = 'AFK / DISCONNECT PENALTY';
     } else if (rawType.contains('comm') || rawType.contains('mute')) {
       title = 'COMMUNICATION RESTRICTION';
-    } else if (rawType.contains('queue')) {
-      title = 'MATCHMAKING QUEUE DELAY';
     } else if (rawType.contains('queue_ban') || rawType.contains('ban')) {
       title = 'MATCHMAKING SUSPENSION';
+    } else if (rawType.contains('queue')) {
+      title = 'MATCHMAKING QUEUE DELAY';
     }
 
     return AccountPenalty(
@@ -104,7 +105,8 @@ class AccountHealth {
     final rawPenalties = [
       ...(penaltiesJson?['Penalties'] as List<dynamic>? ?? []),
       ...(penaltiesJson?['interventions'] as List<dynamic>? ?? []),
-      ...(interventionsJson?['activeFutureInterventions'] as List<dynamic>? ?? []),
+      ...(interventionsJson?['activeFutureInterventions'] as List<dynamic>? ??
+          []),
       ...(interventionsJson?['interventions'] as List<dynamic>? ?? []),
     ];
 
@@ -124,7 +126,7 @@ class AccountHealth {
         .toList();
 
     AccountHealthStatus status;
-    if (hasFetchErrors && penalties.isEmpty && avoided.isEmpty) {
+    if (hasFetchErrors && penalties.isEmpty) {
       status = AccountHealthStatus.unknown;
     } else if (penalties.isNotEmpty) {
       status = AccountHealthStatus.hasRestrictions;

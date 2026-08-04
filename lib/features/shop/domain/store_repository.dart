@@ -3,6 +3,7 @@ import '../data/store_remote_source.dart';
 import '../domain/models/storefront.dart';
 import '../domain/models/wallet.dart';
 import '../../../shared/utils/valorant_assets.dart';
+import '../../../core/storage/cache_storage.dart';
 
 class StoreRepository {
   const StoreRepository({
@@ -19,21 +20,25 @@ class StoreRepository {
 
   /// Fetches fresh storefront data, enriches skin metadata, and caches it.
   Future<Storefront> fetchStorefront(String shard, String puuid) async {
+    final transaction = CacheStorage.instance.beginUserTransaction(puuid);
+    if (transaction == null) {
+      throw StateError('Storefront request started outside the active session');
+    }
     final raw = await _remote.fetchStorefrontRaw(shard, puuid);
 
     // Stamp the fetch time into the raw map before caching so that
     // fromJson can use the real fetch time (not parse time) for the
     // remainingSeconds calculation when loading from cache.
     raw['_fetchedAt'] = DateTime.now().toIso8601String();
-    await _cache.saveStorefront(raw);
-
     final storefront = Storefront.fromJson(raw);
+    await _cache.saveStorefront(raw, puuid: puuid, transaction: transaction);
+
     return _enrichStorefront(storefront);
   }
 
   /// Returns cached storefront (if available) with enriched metadata.
-  Future<Storefront?> loadCachedStorefront() async {
-    final raw = await _cache.loadStorefrontRaw();
+  Future<Storefront?> loadCachedStorefront(String puuid) async {
+    final raw = await _cache.loadStorefrontRaw(puuid: puuid);
     if (raw == null) return null;
     final storefront = Storefront.fromJson(raw);
     return _enrichStorefront(storefront);
@@ -59,7 +64,8 @@ class StoreRepository {
     if (enrichedBundle != null) {
       final bundleMeta =
           bundleMap[enrichedBundle.bundleUuid] as Map<String, dynamic>? ??
-          bundleMap[enrichedBundle.bundleUuid.toLowerCase()] as Map<String, dynamic>?;
+              bundleMap[enrichedBundle.bundleUuid.toLowerCase()]
+                  as Map<String, dynamic>?;
 
       String? bundleName = bundleMeta?['displayName'] as String?;
       String? bundleIcon = bundleMeta?['displayIcon'] as String?;
@@ -108,14 +114,19 @@ class StoreRepository {
     );
   }
 
-
   Future<Wallet> fetchWallet(String shard, String puuid) async {
+    final transaction = CacheStorage.instance.beginUserTransaction(puuid);
+    if (transaction == null) {
+      throw StateError('Wallet request started outside the active session');
+    }
     final wallet = await _remote.fetchWallet(shard, puuid);
-    await _cache.saveWallet(wallet);
+    await _cache.saveWallet(wallet, puuid: puuid, transaction: transaction);
     return wallet;
   }
 
-  Future<Wallet?> loadCachedWallet() => _cache.loadWallet();
+  Future<Wallet?> loadCachedWallet(String puuid) =>
+      _cache.loadWallet(puuid: puuid);
 
-  Future<DateTime?> lastShopFetch() => _cache.lastShopFetch();
+  Future<DateTime?> lastShopFetch(String puuid) =>
+      _cache.lastShopFetch(puuid: puuid);
 }
