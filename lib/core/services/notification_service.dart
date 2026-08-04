@@ -35,15 +35,46 @@ class NotificationService {
     _isInitialized = true;
   }
 
-  Future<void> requestPermissions() async {
+  Future<bool?> requestPermissions() async {
     await init();
     final androidImpl = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    await androidImpl?.requestNotificationsPermission();
+    final androidGranted = await androidImpl?.requestNotificationsPermission();
 
     final iosImpl = _notifications.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
-    await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
+    final iosGranted = await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
+
+    return iosGranted ?? androidGranted;
+  }
+
+  /// Direct test notification that ignores deduplication.
+  Future<bool> showTestNotification() async {
+    await init();
+    final granted = await requestPermissions();
+    await _notifications.show(
+      999999,
+      '🔔 TEST NOTIFICATION',
+      'If you see this, local notifications are working perfectly!',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _wishlistChannelId,
+          'Wishlist Alerts',
+          channelDescription: 'Test notifications channel',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          presentBanner: true,
+          presentList: true,
+        ),
+      ),
+    );
+    return granted ?? true;
   }
 
   // ── Wishlist match alert ───────────────────────────────────────────────────
@@ -63,7 +94,7 @@ class NotificationService {
           'Wishlist Alerts',
           channelDescription:
               'Alerts when your wishlisted skin appears in the shop',
-          importance: Importance.high,
+          importance: Importance.max,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
         ),
@@ -122,8 +153,8 @@ class NotificationService {
           _shopChannelId,
           'Shop Reset',
           channelDescription: 'Notification when your daily shop resets',
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
+          importance: Importance.high,
+          priority: Priority.high,
           icon: '@mipmap/ic_launcher',
           styleInformation: BigTextStyleInformation(
             skinNames.join('\n'),

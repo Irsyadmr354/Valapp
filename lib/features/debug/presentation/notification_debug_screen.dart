@@ -158,6 +158,21 @@ class _NotificationDebugScreenState
     }
   }
 
+  Future<void> _testInstantNotification() async {
+    setState(() => _lastResult = 'Sending test notification...');
+    try {
+      final granted =
+          await NotificationService.instance.showTestNotification();
+      setState(() {
+        _lastResult = granted == true
+            ? 'Test notification sent! Check your top bar / lock screen.'
+            : 'Permission status: false. Enable notifications in device settings.';
+      });
+    } catch (e) {
+      setState(() => _lastResult = 'Test Error: $e');
+    }
+  }
+
   Future<void> _resetDedupeLedger() async {
     final creds = await ref.read(currentCredentialsProvider.future);
     if (creds == null) return;
@@ -230,7 +245,7 @@ class _NotificationDebugScreenState
                 const Text(
                   '1. Tap skin untuk menambah ke mock shop\n'
                   '2. Trigger akan cocokkan mock shop vs wishlist\n'
-                  '3. Notifikasi muncul jika ID match',
+                  '3. Atau gunakan TEST INSTANT NOTIF untuk tes langsung',
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
                 if (_lastResult != null) ...[
@@ -238,7 +253,8 @@ class _NotificationDebugScreenState
                   Text(
                     _lastResult!,
                     style: TextStyle(
-                      color: _lastResult!.startsWith('Triggered')
+                      color: _lastResult!.contains('sent!') ||
+                              _lastResult!.startsWith('Triggered')
                           ? AppColors.win
                           : Colors.orangeAccent,
                       fontSize: 11,
@@ -268,6 +284,19 @@ class _NotificationDebugScreenState
                               ? 'TRIGGERING...'
                               : 'TRIGGER NOTIFICATION',
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _testInstantNotification,
+                        icon: const Icon(Icons.send_rounded, size: 14),
+                        label: const Text('TEST INSTANT NOTIF',
+                            style: TextStyle(fontSize: 11)),
                       ),
                     ),
                     const SizedBox(width: 8),
