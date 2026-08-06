@@ -112,37 +112,33 @@ class BackgroundShopChecker {
           'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9',
       'Content-Type': 'application/json',
     };
+    dynamic rawData;
     try {
-      dynamic rawData;
-      try {
-        final resp = await _dio.post<dynamic>(
-          'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
-          options: Options(headers: headers),
-          data: {},
-        );
-        rawData = resp.data;
-      } on DioException catch (error) {
-        if (error.response?.statusCode != 404 &&
-            error.response?.statusCode != 405) {
-          rethrow;
-        }
-        final resp = await _dio.post<dynamic>(
-          'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
-          options: Options(headers: headers),
-          data: {},
-        );
-        rawData = resp.data;
+      final resp = await _dio.post<dynamic>(
+        'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
+        options: Options(headers: headers),
+        data: {},
+      );
+      rawData = resp.data;
+    } on DioException catch (error) {
+      if (error.response?.statusCode != 404 &&
+          error.response?.statusCode != 405) {
+        rethrow;
       }
+      final resp = await _dio.post<dynamic>(
+        'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
+        options: Options(headers: headers),
+        data: {},
+      );
+      rawData = resp.data;
+    }
 
-      if (rawData is Map<String, dynamic>) {
-        storefront = rawData;
-      } else if (rawData is String) {
-        storefront = jsonDecode(rawData) as Map<String, dynamic>;
-      } else {
-        return;
-      }
-    } catch (_) {
-      rethrow;
+    if (rawData is Map<String, dynamic>) {
+      storefront = rawData;
+    } else if (rawData is String) {
+      storefront = jsonDecode(rawData) as Map<String, dynamic>;
+    } else {
+      return;
     }
 
     // ── Extract offers with prices ──────────────────────────────────────────

@@ -95,9 +95,6 @@ class ValorantInterceptor extends Interceptor {
         now.difference(_lastReauthCheckAt!) < _reauthCheckCooldown) {
       return;
     }
-    // Claim the slot immediately before any await so no other concurrent
-    // caller can slip past the cooldown check while we're doing I/O.
-    _lastReauthCheckAt = now;
 
     final operation = _checkAndMaybeReauth();
     _proactiveCheckInFlight = operation;
@@ -112,16 +109,32 @@ class ValorantInterceptor extends Interceptor {
 
   Future<void> _checkAndMaybeReauth() async {
     final credentials = await _credentials.load();
-    if (credentials == null) return;
+    if (credentials == null) {
+      _lastReauthCheckAt = DateTime.now();
+      return;
+    }
 
     final needsReauth =
         credentials.isExpired || credentials.isEntitlementExpired;
 
-    if (!needsReauth) return;
+    if (!needsReauth) {
+      // Tokens are still valid — set cooldown so we don't re-check for 60s.
+      _lastReauthCheckAt = DateTime.now();
+      return;
+    }
     debugPrint(
         '[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
-    await _runSharedReauth();
-    debugPrint('[ValorantInterceptor] Proactive reauth completed');
+    try {
+      await _runSharedReauth();
+      // Reauth succeeded — set cooldown with fresh timestamp.
+      _lastReauthCheckAt = DateTime.now();
+      debugPrint('[ValorantInterceptor] Proactive reauth completed');
+    } catch (e) {
+      // Reauth failed — do NOT set cooldown so the next request retries
+      // instead of being blocked for 60 seconds with expired tokens.
+      _lastReauthCheckAt = null;
+      debugPrint('[ValorantInterceptor] Proactive reauth failed: $e');
+    }
   }
 
   Future<void> _runSharedReauth() async {
@@ -153,6 +166,9 @@ class ValorantInterceptor extends Interceptor {
     }
 
     // Riot often returns 400 (not 401) when entitlement token is stale.
+    // On pd.*.a.pvp.net endpoints (storefront, wallet, MMR, etc.) a 400
+    // almost always means the access/entitlement token is expired — the
+    // response body is frequently empty or generic with no auth hints.
     if (status == 400 && _isLikelyAuthError(err)) {
       final handled = await _attemptReauthAndRetry(
         err,
@@ -165,8 +181,23 @@ class ValorantInterceptor extends Interceptor {
     handler.next(err);
   }
 
-  /// Heuristic: only treat 400 as auth-related when the body hints at token/entitlement issues.
+  /// Determines whether a 400 response is likely caused by expired auth tokens.
+  ///
+  /// Two strategies:
+  /// 1. **Endpoint heuristic** — requests to `pd.*.a.pvp.net` (Riot game API)
+  ///    always require valid auth. A 400 on these endpoints is almost certainly
+  ///    an auth rejection (Riot returns 400 instead of 401 for stale entitlement
+  ///    tokens, and the body is often empty or `{}`).
+  /// 2. **Body keyword heuristic** — for other endpoints, check the response
+  ///    body for auth-related keywords.
   bool _isLikelyAuthError(DioException err) {
+    // Strategy 1: Riot game API endpoints — 400 = auth error.
+    final url = err.requestOptions.uri;
+    if (_isRiotGameApiEndpoint(url)) {
+      return true;
+    }
+
+    // Strategy 2: Body keyword scan for non-game-API endpoints.
     final data = err.response?.data;
     if (data == null) {
       return false;
@@ -189,6 +220,13 @@ class ValorantInterceptor extends Interceptor {
     return authHints.any(body.contains);
   }
 
+  /// Returns true for Riot PD (player data) endpoints that always require
+  /// valid auth headers. Pattern: `pd.<shard>.a.pvp.net`.
+  static bool _isRiotGameApiEndpoint(Uri url) {
+    final host = url.host;
+    return host.endsWith('.a.pvp.net') || host.endsWith('.pvp.net');
+  }
+
   Future<bool> _attemptReauthAndRetry(
     DioException err,
     ErrorInterceptorHandler handler, {
@@ -202,6 +240,11 @@ class ValorantInterceptor extends Interceptor {
         '[ValorantInterceptor] Got ${err.response?.statusCode} (auth) — attempting reauth...');
     try {
       await _runSharedReauth();
+
+      // Reactive reauth succeeded — clear proactive cooldown so subsequent
+      // requests use the freshly-set timestamp instead of a stale one.
+      _lastReauthCheckAt = DateTime.now();
+
       err.requestOptions.extra[retryFlag] = true;
 
       final freshCredentials = await _credentials.load();
@@ -221,6 +264,8 @@ class ValorantInterceptor extends Interceptor {
     } catch (e) {
       debugPrint(
           '[ValorantInterceptor] Reauth failed (will preserve session for retry): $e');
+      // Clear cooldown so next request can retry proactive reauth.
+      _lastReauthCheckAt = null;
       // Do not clear credentials on transient errors or timeouts — keep session intact.
       // Only clear if error is explicitly an unrecoverable auth rejection.
       if (e is TokenExpiredException || e is InvalidSessionException) {

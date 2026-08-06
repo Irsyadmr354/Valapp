@@ -488,8 +488,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
-    await ref.read(_storefrontProvider.future);
-    await ref.read(_walletProvider.future);
   }
 
   void _toggleWishlist(SkinOffer offer) {
