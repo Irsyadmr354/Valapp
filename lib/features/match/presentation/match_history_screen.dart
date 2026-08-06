@@ -147,9 +147,8 @@ final _backgroundEnrichmentProvider =
   final transaction =
       ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
 
-  // Skip matchIds that already failed in this session to prevent
-  // infinite retry loops when a match detail is permanently unavailable.
-  final failedIds = ref.watch(_failedEnrichmentIdsProvider);
+  // READ (not watch!) failedIds so updating state doesn't cancel this provider mid-execution
+  final failedIds = ref.read(_failedEnrichmentIdsProvider);
 
   // Only fetch details that are NOT already cached and NOT permanently failed
   final missing = historyResult.data.matches
@@ -160,7 +159,9 @@ final _backgroundEnrichmentProvider =
   if (missing.isEmpty) return;
 
   bool anyNewData = false;
-  const batchSize = 5;
+  final newlyFailed = <String>{};
+
+  const batchSize = 3;
   for (var i = 0; i < missing.length; i += batchSize) {
     final batch = missing.skip(i).take(batchSize).toList();
     await Future.wait(batch.map((entry) => AsyncLock.run(
@@ -186,21 +187,21 @@ final _backgroundEnrichmentProvider =
               }
               anyNewData = true;
             } catch (_) {
-              if (ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
-                ref
-                    .read(_failedEnrichmentIdsProvider.notifier)
-                    .update((ids) => {...ids, entry.matchId});
-              }
+              newlyFailed.add(entry.matchId);
             }
           },
         )));
   }
 
+  // Update failed IDs once at the end of the run
+  if (newlyFailed.isNotEmpty &&
+      ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+    ref
+        .read(_failedEnrichmentIdsProvider.notifier)
+        .update((ids) => {...ids, ...newlyFailed});
+  }
+
   // Trigger re-render only if we actually fetched new data.
-  // Only invalidate the history provider (not self) — invalidating self would
-  // cause this provider to re-run immediately after _matchHistoryProvider
-  // rebuilds, potentially looping if the fresh history still has unknowns.
-  // Being autoDispose, this provider is re-created naturally by the screen.
   if (anyNewData &&
       ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
     ref.invalidate(_matchHistoryProvider);

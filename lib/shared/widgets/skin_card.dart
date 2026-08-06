@@ -23,7 +23,6 @@ class SkinCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tierColor = TierColors.forName(offer.contentTierUuid);
-    final tierLabel = TierColors.tierLabel(offer.contentTierUuid);
 
     // Flat tier-tinted background — enough color to show the tier without 3D.
     // We blend a very low-alpha tier color over the dark base so it reads flat.
@@ -68,61 +67,58 @@ class SkinCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Top-right: edition tier chip with official Gambar 1 icon
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: tierColor.withAlpha(45),
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(
-                            color: tierColor.withAlpha(140), width: 0.8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SkinTierIcon(
-                              tierUuid: offer.contentTierUuid, size: 10),
-                          const SizedBox(width: 4),
-                          Text(
-                            tierLabel.replaceAll(' Edition', '').toUpperCase(),
-                            style: TextStyle(
-                              color: tierColor,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
+                  // Top-right: Bookmark / Wishlist toggle icon overlaid on image
+                  if (onWishlistToggle != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: onWishlistToggle,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(160),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: offer.isInWishlist
+                                  ? const Color(0xFFFF4655)
+                                  : Colors.white24,
+                              width: 1.0,
                             ),
                           ),
-                        ],
+                          child: Icon(
+                            offer.isInWishlist
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                            color: offer.isInWishlist
+                                ? const Color(0xFFFF4655)
+                                : Colors.white70,
+                            size: 16,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-
-                  // Bottom-right: VP price chip overlaid on image (no bg card)
-                  if (offer.price > 0)
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: _VpChip(price: offer.price),
                     ),
                 ],
               ),
             ),
 
-            // ── Footer: name + bookmark ────────────────────────────────────
+            // ── Footer (Black Background): Tier Icon + Name + VP Price ────────
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: Colors.black.withAlpha(60),
-                border: const Border(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: const BoxDecoration(
+                color: Colors.black, // Solid black background
+                border: Border(
                   top: BorderSide(color: Color(0x22FFFFFF), width: 0.8),
                 ),
               ),
               child: Row(
                 children: [
+                  // Skin Tier Icon (only the icon) to the left of skin name
+                  SkinTierIcon(
+                    tierUuid: offer.contentTierUuid,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       offer.displayName ?? 'Unknown Skin',
@@ -136,20 +132,10 @@ class SkinCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (onWishlistToggle != null) ...[
+                  // VP Price chip placed in footer (where bookmark used to be)
+                  if (offer.price > 0) ...[
                     const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: onWishlistToggle,
-                      child: Icon(
-                        offer.isInWishlist
-                            ? Icons.bookmark
-                            : Icons.bookmark_border,
-                        color: offer.isInWishlist
-                            ? const Color(0xFFFF4655)
-                            : Colors.white38,
-                        size: 18,
-                      ),
-                    ),
+                    _VpChip(price: offer.price),
                   ],
                 ],
               ),
