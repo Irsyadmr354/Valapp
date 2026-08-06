@@ -757,11 +757,10 @@ class _BundleBanner extends ConsumerWidget {
                       // Price row
                       Row(
                         children: [
-                          const Icon(Icons.bolt,
-                              color: AppColors.red, size: 16),
-                          const SizedBox(width: 4),
+                          const VpIcon(size: 16, color: AppColors.red),
+                          const SizedBox(width: 5),
                           Text(
-                            '${bundle.totalDiscountedCost} VP',
+                            '${bundle.totalDiscountedCost}',
                             style: const TextStyle(
                               color: AppColors.red,
                               fontSize: 16,
@@ -771,8 +770,10 @@ class _BundleBanner extends ConsumerWidget {
                           if (bundle.totalBaseCost >
                               bundle.totalDiscountedCost) ...[
                             const SizedBox(width: 8),
+                            const VpIcon(size: 12, color: Colors.white38),
+                            const SizedBox(width: 3),
                             Text(
-                              '${bundle.totalBaseCost} VP',
+                              '${bundle.totalBaseCost}',
                               style: const TextStyle(
                                 color: Colors.white38,
                                 fontSize: 12,

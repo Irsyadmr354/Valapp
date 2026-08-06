@@ -477,19 +477,18 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                 children: [
                   // ── Left Vertical Sidebar ──────────────────────────────────
                   Container(
-                    width: 72,
+                    width: 78,
                     decoration: const BoxDecoration(
                       color: AppColors.bg,
                       border: Border(
                           right: BorderSide(color: Colors.white10, width: 0.8)),
                     ),
                     child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
                       itemCount: _sidebarItems.length,
                       itemBuilder: (context, idx) {
                         final item = _sidebarItems[idx];
                         final isSelected = _selectedCategory == item.id;
-                        final isWishlist = item.id == 'WISHLIST';
 
                         // Section dividers before first item of each group
                         final showDivider = item.id == 'CLASSIC' ||
@@ -505,30 +504,37 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (showDivider)
-                              const Divider(
-                                  height: 8,
-                                  thickness: 0.5,
-                                  color: Colors.white10,
-                                  indent: 10,
-                                  endIndent: 10),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 4),
+                                child: Divider(
+                                    height: 1,
+                                    thickness: 0.5,
+                                    color: Colors.white12,
+                                    indent: 8,
+                                    endIndent: 8),
+                              ),
                             GestureDetector(
+                              behavior: HitTestBehavior.opaque,
                               onTap: () =>
                                   setState(() => _selectedCategory = item.id),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
+                                width: double.infinity,
                                 margin: const EdgeInsets.symmetric(
-                                    vertical: 2, horizontal: 5),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
+                                    vertical: 3, horizontal: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 10, horizontal: 4),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? AppColors.red.withAlpha(40)
+                                      ? AppColors.red.withAlpha(35)
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: isSelected
-                                      ? Border.all(
-                                          color: AppColors.red, width: 1)
-                                      : null,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? AppColors.red
+                                        : Colors.transparent,
+                                    width: 1.2,
+                                  ),
                                 ),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -536,24 +542,22 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     Icon(
                                       item.icon,
                                       color: isSelected
-                                          ? (isWishlist
-                                              ? AppColors.red
-                                              : AppColors.red)
+                                          ? AppColors.red
                                           : Colors.white38,
-                                      size: 18,
+                                      size: 20,
                                     ),
-                                    const SizedBox(height: 3),
+                                    const SizedBox(height: 4),
                                     Text(
                                       item.label,
                                       style: TextStyle(
                                         color: isSelected
                                             ? Colors.white
-                                            : Colors.white38,
-                                        fontSize: 7,
+                                            : Colors.white54,
+                                        fontSize: 8.5,
                                         fontWeight: isSelected
                                             ? FontWeight.w900
                                             : FontWeight.w700,
-                                        letterSpacing: 0.2,
+                                        letterSpacing: 0.4,
                                       ),
                                       textAlign: TextAlign.center,
                                       maxLines: 1,
