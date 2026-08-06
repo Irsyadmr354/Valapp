@@ -7,7 +7,9 @@ import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
+import '../../../shared/widgets/valorant_error_display.dart';
 import '../domain/models/player_mmr.dart';
+
 
 // Dynamic season provider
 final _activeSeasonProvider =
@@ -900,29 +902,19 @@ class _UpdateTile extends StatelessWidget {
   }
 }
 
-class _ErrorCard extends StatelessWidget {
+class _ErrorCard extends ConsumerWidget {
   const _ErrorCard({required this.message});
   final String message;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFF4655).withAlpha(20),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFF4655).withAlpha(80)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: Color(0xFFFF4655)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(message,
-                style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          ),
-        ],
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ValorantErrorDisplay(
+      error: message,
+      compact: true,
+      onRetry: () {
+        ref.invalidate(playerMmrProvider);
+        ref.invalidate(competitiveUpdatesProvider);
+      },
     );
   }
 }

@@ -5,7 +5,10 @@ import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
+import '../../../shared/widgets/valorant_error_display.dart';
+import '../../../shared/widgets/valorant_icons.dart';
 import 'skin_detail_modal.dart';
+
 import '../domain/models/skin_offer.dart';
 import 'wishlist_provider.dart';
 
@@ -741,8 +744,11 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                       },
                       loading: () => const WishlistCatalogSkeleton(),
                       error: (e, _) => Center(
-                        child: Text('Error: $e',
-                            style: const TextStyle(color: Colors.white54)),
+                        child: ValorantErrorDisplay(
+                          error: e,
+                          onRetry: () => ref.invalidate(_allSkinsListProvider),
+                          title: 'Gagal Memuat Katalog Senjata',
+                        ),
                       ),
                     ),
                   ),

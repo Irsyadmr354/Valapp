@@ -7,7 +7,9 @@ import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
+import '../../../shared/widgets/valorant_error_display.dart';
 import '../domain/models/player_loadout.dart';
+
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -96,33 +98,10 @@ class LoadoutScreen extends ConsumerWidget {
                 ),
           loading: () => const LoadoutSkeleton(),
           error: (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.inventory_2_outlined,
-                      color: Colors.white24, size: 56),
-                  const SizedBox(height: 16),
-                  const Text('Could not load loadout.',
-                      style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Text(e.toString(),
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 12),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: () => ref.invalidate(_loadoutProvider),
-                    style:
-                        FilledButton.styleFrom(backgroundColor: AppColors.red),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+            child: ValorantErrorDisplay(
+              error: e,
+              title: 'Gagal Memuat Loadout Senjata',
+              onRetry: () => ref.invalidate(_loadoutProvider),
             ),
           ),
         ),

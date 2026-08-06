@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../features/shop/domain/models/skin_offer.dart';
 import '../utils/tier_colors.dart';
+import 'valorant_icons.dart';
 
 /// Card displaying a single skin.
 /// Background: flat solid tier color tint (no gradient, no shadow, not 3D).
@@ -161,26 +162,33 @@ class _VpChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF080D14).withAlpha(200),
+        color: const Color(0xFF070C14).withAlpha(220),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: const Color(0xFF00F0FF).withAlpha(90),
-          width: 0.8,
+          color: const Color(0xFF00F0FF).withAlpha(120),
+          width: 0.9,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00F0FF).withAlpha(35),
+            blurRadius: 8,
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const _VpIcon(),
-          const SizedBox(width: 4),
+          const VpIcon(size: 11, color: Color(0xFF00F0FF)),
+          const SizedBox(width: 5),
           Text(
             price.toString(),
             style: const TextStyle(
               color: Color(0xFF00F0FF),
               fontSize: 12,
               fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -189,30 +197,6 @@ class _VpChip extends StatelessWidget {
   }
 }
 
-class _VpIcon extends StatelessWidget {
-  const _VpIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: const BoxDecoration(
-        color: Color(0xFF00F0FF),
-        shape: BoxShape.circle,
-      ),
-      child: const Center(
-        child: Text(
-          'V',
-          style: TextStyle(
-              color: Color(0xFF080D14),
-              fontSize: 8,
-              fontWeight: FontWeight.w900),
-        ),
-      ),
-    );
-  }
-}
 
 class _ShimmerBox extends StatelessWidget {
   const _ShimmerBox();

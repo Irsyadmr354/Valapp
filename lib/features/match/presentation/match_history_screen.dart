@@ -10,7 +10,9 @@ import '../../../core/utils/async_lock.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
+import '../../../shared/widgets/valorant_error_display.dart';
 import '../domain/models/match_history.dart';
+
 import '../domain/models/match_details.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
@@ -349,35 +351,15 @@ class MatchHistoryScreen extends ConsumerWidget {
           loading: () => const MatchHistorySkeleton(),
           error: (e, _) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(top: 120),
+            padding: const EdgeInsets.only(top: 60),
             children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    const Icon(Icons.history_toggle_off,
-                        color: Colors.white38, size: 48),
-                    const SizedBox(height: 12),
-                    const Text('Unable to load match history',
-                        style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    const Text('Pull down to refresh or tap retry below.',
-                        style: TextStyle(color: Colors.white38, fontSize: 12)),
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: () {
-                        ref.invalidate(currentCredentialsProvider);
-                        ref.invalidate(_matchHistoryProvider);
-                      },
-                      style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF4655)),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
+              ValorantErrorDisplay(
+                error: e,
+                title: 'Gagal Memuat Riwayat Pertandingan',
+                onRetry: () {
+                  ref.invalidate(currentCredentialsProvider);
+                  ref.invalidate(_matchHistoryProvider);
+                },
               ),
             ],
           ),

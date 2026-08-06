@@ -14,6 +14,8 @@ import '../../news/domain/models/news_article.dart';
 import '../../../shared/widgets/skin_card.dart';
 import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
+import '../../../shared/widgets/valorant_icons.dart';
+import '../../../shared/widgets/valorant_error_display.dart';
 import '../domain/models/storefront.dart';
 import '../domain/models/wallet.dart';
 import '../domain/models/skin_offer.dart';
@@ -179,24 +181,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   : _buildContent(storefront, wishlist.toSet()),
               loading: () => HomeSkeleton.asSliver(),
               error: (e, _) => SliverFillRemaining(
+                hasScrollBody: false,
                 child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          color: Color(0xFFFF4655), size: 48),
-                      const SizedBox(height: 12),
-                      Text('Failed to load shop\n$e',
-                          style: const TextStyle(color: Colors.white54),
-                          textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: _refresh,
-                        style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF4655)),
-                        child: const Text('Retry'),
-                      ),
-                    ],
+                  child: ValorantErrorDisplay(
+                    error: e,
+                    onRetry: _refresh,
+                    title: 'Gagal Memuat Toko Harian',
                   ),
                 ),
               ),
@@ -509,67 +499,24 @@ class _WalletBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _CurrencyChip(
-          label: _fmt(wallet.valorantPoints),
-          abbrev: 'VP',
-          color: const Color(0xFF00F0FF),
+        ValorantCurrencyChip(
+          amount: wallet.valorantPoints,
+          type: 'VP',
+          compact: true,
         ),
         const SizedBox(width: 5),
-        _CurrencyChip(
-          label: _fmt(wallet.radianitePoints),
-          abbrev: 'RP',
-          color: const Color(0xFFFF9900),
+        ValorantCurrencyChip(
+          amount: wallet.radianitePoints,
+          type: 'RP',
+          compact: true,
         ),
         const SizedBox(width: 5),
-        _CurrencyChip(
-          label: _fmt(wallet.kingdomCredits),
-          abbrev: 'KC',
-          color: const Color(0xFF10B981),
+        ValorantCurrencyChip(
+          amount: wallet.kingdomCredits,
+          type: 'KC',
+          compact: true,
         ),
       ],
-    );
-  }
-
-  String _fmt(int v) => v >= 10000 ? '${(v / 1000).toStringAsFixed(0)}k' : '$v';
-}
-
-class _CurrencyChip extends StatelessWidget {
-  const _CurrencyChip(
-      {required this.label, required this.abbrev, required this.color});
-  final String label;
-  final String abbrev;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF070A10).withAlpha(200),
-        border: Border.all(color: color.withAlpha(100), width: 0.8),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: color.withAlpha(40),
-              shape: BoxShape.circle,
-            ),
-            child: Text(abbrev,
-                style: TextStyle(
-                    color: color, fontSize: 7, fontWeight: FontWeight.w900)),
-          ),
-          const SizedBox(width: 4),
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800)),
-        ],
-      ),
     );
   }
 }
@@ -583,18 +530,45 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Row(
         children: [
-          Container(width: 3, height: 14, color: const Color(0xFFFF4655)),
+          Container(
+            width: 4,
+            height: 15,
+            decoration: BoxDecoration(
+              color: AppColors.red,
+              borderRadius: BorderRadius.circular(2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.red.withAlpha(140),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(width: 8),
           Text(
             title.toUpperCase(),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
               letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.red.withAlpha(80),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
             ),
           ),
         ],
