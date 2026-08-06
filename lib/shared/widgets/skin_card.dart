@@ -116,7 +116,7 @@ class SkinCard extends StatelessWidget {
                   // Skin Tier Icon (only the icon) to the left of skin name
                   SkinTierIcon(
                     tierUuid: offer.contentTierUuid,
-                    size: 14,
+                    size: 18,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -158,13 +158,13 @@ class _VpChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const VpIcon(size: 12, color: Color(0xFF00F0FF)),
-        const SizedBox(width: 4),
+        const VpIcon(size: 16, color: Colors.white),
+        const SizedBox(width: 5),
         Text(
           price.toString(),
           style: const TextStyle(
-            color: Color(0xFF00F0FF),
-            fontSize: 12,
+            color: Colors.white,
+            fontSize: 13,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.5,
           ),
