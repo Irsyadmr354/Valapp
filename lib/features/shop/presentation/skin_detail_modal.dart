@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
+import '../../../shared/widgets/valorant_icons.dart';
 import '../domain/models/skin_offer.dart';
+
 import 'skin_video_player.dart';
 import 'wishlist_provider.dart';
 
@@ -311,31 +313,59 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: tierColor.withAlpha(35),
+                    color: tierColor.withAlpha(45),
                     borderRadius: BorderRadius.circular(6),
                     border:
-                        Border.all(color: tierColor.withAlpha(120), width: 1),
+                        Border.all(color: tierColor.withAlpha(140), width: 1),
                   ),
-                  child: Text(
-                    tierLabel.toUpperCase(),
-                    style: TextStyle(
-                      color: tierColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SkinTierIcon(
+                        tierUuid: widget.offer.contentTierUuid,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        tierLabel.toUpperCase(),
+                        style: TextStyle(
+                          color: tierColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),
                 if (widget.offer.price > 0)
-                  Text(
-                    '${widget.offer.price} VP',
-                    style: const TextStyle(
-                      color: AppColors.vpCyan,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF070B12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                          color: AppColors.vpCyan.withAlpha(120), width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const VpIcon(size: 13, color: AppColors.vpCyan),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${widget.offer.price} VP',
+                          style: const TextStyle(
+                            color: AppColors.vpCyan,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],

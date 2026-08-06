@@ -1,67 +1,51 @@
+import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 
-/// Authentic Valorant Points (VP) Icon Painter.
-/// Draws the signature Valorant V-shaped rhombus diamond symbol with dual-facet shading.
-class VpIconPainter extends CustomPainter {
-  const VpIconPainter({this.color = const Color(0xFF00F0FF)});
+/// Official Riot CDN URLs for Valorant In-Game Currencies.
+class ValorantCurrencyUrls {
+  ValorantCurrencyUrls._();
 
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Left facet path
-    final leftPath = Path()
-      ..moveTo(w * 0.5, 0)
-      ..lineTo(w * 0.1, h * 0.45)
-      ..lineTo(w * 0.42, h)
-      ..lineTo(w * 0.42, h * 0.52)
-      ..close();
-
-    // Right facet path
-    final rightPath = Path()
-      ..moveTo(w * 0.5, 0)
-      ..lineTo(w * 0.9, h * 0.45)
-      ..lineTo(w * 0.58, h)
-      ..lineTo(w * 0.58, h * 0.52)
-      ..close();
-
-    // Center V slice gap / accent path
-    final centerV = Path()
-      ..moveTo(w * 0.5, h * 0.22)
-      ..lineTo(w * 0.3, h * 0.48)
-      ..lineTo(w * 0.42, h * 0.88)
-      ..lineTo(w * 0.5, h * 0.72)
-      ..lineTo(w * 0.58, h * 0.88)
-      ..lineTo(w * 0.7, h * 0.48)
-      ..close();
-
-    final mainPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final darkFacetPaint = Paint()
-      ..color = Color.alphaBlend(Colors.black.withAlpha(80), color)
-      ..style = PaintingStyle.fill;
-
-    final brightAccentPaint = Paint()
-      ..color = Colors.white.withAlpha(220)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawPath(leftPath, mainPaint);
-    canvas.drawPath(rightPath, darkFacetPaint);
-    canvas.drawPath(centerV, brightAccentPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant VpIconPainter oldDelegate) =>
-      oldDelegate.color != color;
+  static const vp =
+      'https://media.valorant-api.com/currencies/85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741/displayicon.png';
+  static const kc =
+      'https://media.valorant-api.com/currencies/85ca954a-41f2-ce94-9b45-8ca3dd39a00d/displayicon.png';
+  static const rp =
+      'https://media.valorant-api.com/currencies/e59aa87c-4cbf-517a-5983-6e81511be9b7/displayicon.png';
 }
 
-/// Widget wrapper for VP Icon
+/// Official Riot CDN URLs for Content Tiers (Skin Editions - Gambar 1).
+class ValorantContentTierUrls {
+  ValorantContentTierUrls._();
+
+  static const select =
+      'https://media.valorant-api.com/contenttiers/12683d76-48d7-84a3-4e09-6985794f0445/displayicon.png';
+  static const deluxe =
+      'https://media.valorant-api.com/contenttiers/0cebb8be-46d7-c12a-d306-e9907bfc5a25/displayicon.png';
+  static const premium =
+      'https://media.valorant-api.com/contenttiers/60bca009-4182-7998-dee7-b8a2558dc369/displayicon.png';
+  static const ultra =
+      'https://media.valorant-api.com/contenttiers/411e4a55-4e59-7757-41f0-86a53f101bb5/displayicon.png';
+  static const exclusive =
+      'https://media.valorant-api.com/contenttiers/e046854e-406c-37f4-6607-19a9ba8426fc/displayicon.png';
+
+  static String? forUuid(String? uuid) {
+    if (uuid == null || uuid.isEmpty) return null;
+    final lower = uuid.toLowerCase();
+    if (lower.contains('12683d76')) return select;
+    if (lower.contains('0cebb8be')) return deluxe;
+    if (lower.contains('60bca009')) return premium;
+    if (lower.contains('411e4a55')) return ultra;
+    if (lower.contains('e046854e')) return exclusive;
+    return null;
+  }
+}
+
+// ── Gambar 2: Valorant Points (VP) Icon ─────────────────────────────────────
+
+/// Official Valorant Points (VP) Icon (Gambar 2).
+/// Displays the official Riot PNG asset with a pixel-perfect CustomPainter vector fallback.
 class VpIcon extends StatelessWidget {
   const VpIcon({super.key, this.size = 14, this.color = const Color(0xFF00F0FF)});
 
@@ -72,16 +56,189 @@ class VpIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: size,
-      height: size * 1.15,
-      child: CustomPaint(
-        painter: VpIconPainter(color: color),
+      height: size,
+      child: CachedNetworkImage(
+        imageUrl: ValorantCurrencyUrls.vp,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => CustomPaint(painter: VpIconPainter(color: color)),
+        errorWidget: (_, __, ___) =>
+            CustomPaint(painter: VpIconPainter(color: color)),
       ),
     );
   }
 }
 
-/// Authentic Radianite Points (RP) Icon Painter.
-/// Draws the 3D layered crystal diamond structure of Radianite Points.
+/// CustomPainter matching Gambar 2: Circular ring surrounding the official Valorant V emblem.
+class VpIconPainter extends CustomPainter {
+  const VpIconPainter({this.color = const Color(0xFF00F0FF)});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final center = Offset(w / 2, h / 2);
+    final radius = w / 2 - 1.0;
+
+    // 1. Outer circle ring
+    final circlePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.2, w * 0.10);
+    canvas.drawCircle(center, radius, circlePaint);
+
+    // 2. Valorant V emblem inside
+    // Left long slash
+    final leftSlash = Path()
+      ..moveTo(w * 0.27, h * 0.33)
+      ..lineTo(w * 0.50, h * 0.68)
+      ..lineTo(w * 0.40, h * 0.68)
+      ..lineTo(w * 0.27, h * 0.50)
+      ..close();
+
+    // Right top slash / triangle
+    final rightSlash = Path()
+      ..moveTo(w * 0.53, h * 0.56)
+      ..lineTo(w * 0.70, h * 0.33)
+      ..lineTo(w * 0.70, h * 0.56)
+      ..close();
+
+    final emblemPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    canvas.drawPath(leftSlash, emblemPaint);
+    canvas.drawPath(rightSlash, emblemPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant VpIconPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+// ── Gambar 3: Kingdom Credits (KC) Icon ─────────────────────────────────────
+
+/// Official Kingdom Credits (KC) Icon (Gambar 3).
+/// Displays the official Riot PNG asset with a pixel-perfect CustomPainter vector fallback.
+class KcIcon extends StatelessWidget {
+  const KcIcon({super.key, this.size = 14, this.color = const Color(0xFF10B981)});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CachedNetworkImage(
+        imageUrl: ValorantCurrencyUrls.kc,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => CustomPaint(painter: KcIconPainter(color: color)),
+        errorWidget: (_, __, ___) =>
+            CustomPaint(painter: KcIconPainter(color: color)),
+      ),
+    );
+  }
+}
+
+/// CustomPainter matching Gambar 3: Tilted rounded card container containing Kingdom emblem.
+class KcIconPainter extends CustomPainter {
+  const KcIconPainter({this.color = const Color(0xFF10B981)});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    canvas.save();
+    // Rotate canvas by ~-32 degrees around center
+    canvas.translate(w / 2, h / 2);
+    canvas.rotate(-0.55);
+    canvas.translate(-w / 2, -h / 2);
+
+    // Tilted rounded card border
+    final cardRect = Rect.fromLTWH(w * 0.08, h * 0.18, w * 0.84, h * 0.64);
+    final cardRRect = RRect.fromRectAndRadius(cardRect, Radius.circular(w * 0.15));
+
+    final borderPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.2, w * 0.11);
+    canvas.drawRRect(cardRRect, borderPaint);
+
+    // Stylized Kingdom K emblem inside
+    final topDiamond1 = Path()
+      ..moveTo(w * 0.32, h * 0.44)
+      ..lineTo(w * 0.42, h * 0.32)
+      ..lineTo(w * 0.50, h * 0.44)
+      ..lineTo(w * 0.40, h * 0.56)
+      ..close();
+
+    final topDiamond2 = Path()
+      ..moveTo(w * 0.45, h * 0.32)
+      ..lineTo(w * 0.56, h * 0.20)
+      ..lineTo(w * 0.65, h * 0.32)
+      ..lineTo(w * 0.54, h * 0.44)
+      ..close();
+
+    final bottomStem = Path()
+      ..moveTo(w * 0.40, h * 0.56)
+      ..lineTo(w * 0.54, h * 0.44)
+      ..lineTo(w * 0.72, h * 0.66)
+      ..lineTo(w * 0.52, h * 0.66)
+      ..close();
+
+    final kPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    canvas.drawPath(topDiamond1, kPaint);
+    canvas.drawPath(topDiamond2, kPaint);
+    canvas.drawPath(bottomStem, kPaint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant KcIconPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+// ── Radianite Points (RP) Icon ──────────────────────────────────────────────
+
+/// Official Radianite Points (RP) Icon.
+class RpIcon extends StatelessWidget {
+  const RpIcon({super.key, this.size = 14, this.color = const Color(0xFFFF9900)});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CachedNetworkImage(
+        imageUrl: ValorantCurrencyUrls.rp,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => CustomPaint(painter: RpIconPainter(color: color)),
+        errorWidget: (_, __, ___) =>
+            CustomPaint(painter: RpIconPainter(color: color)),
+      ),
+    );
+  }
+}
+
 class RpIconPainter extends CustomPainter {
   const RpIconPainter({this.color = const Color(0xFFFF9900)});
 
@@ -92,7 +249,6 @@ class RpIconPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Outer crystal diamond
     final topRhombus = Path()
       ..moveTo(w * 0.5, 0)
       ..lineTo(w * 0.95, h * 0.35)
@@ -100,7 +256,6 @@ class RpIconPainter extends CustomPainter {
       ..lineTo(w * 0.05, h * 0.35)
       ..close();
 
-    // Bottom crystal shadow facet
     final bottomFacet = Path()
       ..moveTo(w * 0.05, h * 0.35)
       ..lineTo(w * 0.5, h * 0.7)
@@ -115,13 +270,6 @@ class RpIconPainter extends CustomPainter {
       ..lineTo(w * 0.8, h * 0.75)
       ..close();
 
-    final innerCore = Path()
-      ..moveTo(w * 0.5, h * 0.15)
-      ..lineTo(w * 0.78, h * 0.35)
-      ..lineTo(w * 0.5, h * 0.55)
-      ..lineTo(w * 0.22, h * 0.35)
-      ..close();
-
     final topPaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
@@ -134,14 +282,9 @@ class RpIconPainter extends CustomPainter {
       ..color = Color.alphaBlend(Colors.black.withAlpha(60), color)
       ..style = PaintingStyle.fill;
 
-    final highlightPaint = Paint()
-      ..color = Colors.white.withAlpha(200)
-      ..style = PaintingStyle.fill;
-
     canvas.drawPath(topRhombus, topPaint);
     canvas.drawPath(bottomFacet, leftShadowPaint);
     canvas.drawPath(rightFacet, rightShadowPaint);
-    canvas.drawPath(innerCore, highlightPaint);
   }
 
   @override
@@ -149,108 +292,218 @@ class RpIconPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// Widget wrapper for RP Icon
-class RpIcon extends StatelessWidget {
-  const RpIcon({super.key, this.size = 14, this.color = const Color(0xFFFF9900)});
+// ── Gambar 1: Content Tier Icons (Select, Deluxe, Premium, Ultra, Exclusive) ────
 
+/// Official Skin Tier Icon Widget (Gambar 1).
+/// Displays the official Riot CDN PNG icon for the skin edition with a CustomPainter fallback matching Gambar 1!
+class SkinTierIcon extends StatelessWidget {
+  const SkinTierIcon({
+    super.key,
+    required this.tierUuid,
+    this.size = 16,
+  });
+
+  final String? tierUuid;
   final double size;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final url = ValorantContentTierUrls.forUuid(tierUuid);
+
+    if (url != null) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CachedNetworkImage(
+          imageUrl: url,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          placeholder: (_, __) => _buildFallbackVector(tierUuid, size),
+          errorWidget: (_, __, ___) => _buildFallbackVector(tierUuid, size),
+        ),
+      );
+    }
+
+    return _buildFallbackVector(tierUuid, size);
+  }
+
+  Widget _buildFallbackVector(String? uuid, double size) {
+    final lower = (uuid ?? '').toLowerCase();
+
+    if (lower.contains('12683d76')) {
+      // Select Edition (Blue circle ring)
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _SelectTierPainter(),
+        ),
+      );
+    }
+    if (lower.contains('0cebb8be')) {
+      // Deluxe Edition (Teal tilted diamond)
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _DeluxeTierPainter(),
+        ),
+      );
+    }
+    if (lower.contains('60bca009')) {
+      // Premium Edition (Purple inverted triangle)
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _PremiumTierPainter(),
+        ),
+      );
+    }
+    if (lower.contains('411e4a55')) {
+      // Ultra Edition (Gold 3D diamond)
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _UltraTierPainter(),
+        ),
+      );
+    }
+    if (lower.contains('e046854e')) {
+      // Exclusive Edition (Orange pentagon)
+      return SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _ExclusiveTierPainter(),
+        ),
+      );
+    }
+
+    // Default fallback circle
+    return Container(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: RpIconPainter(color: color),
+      decoration: BoxDecoration(
+        color: const Color(0xFF5A9FE2).withAlpha(50),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF5A9FE2), width: 1.2),
       ),
     );
   }
 }
 
-/// Authentic Kingdom Credits (KC) Icon Painter.
-/// Draws the chamfered hexagon shield badge with inner KC emblem.
-class KcIconPainter extends CustomPainter {
-  const KcIconPainter({this.color = const Color(0xFF10B981)});
+// ── CustomPainters for Gambar 1 Fallbacks ───────────────────────────────────
 
-  final Color color;
+class _SelectTierPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 1.0;
+    final paint = Paint()
+      ..color = const Color(0xFF5A9FE2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.22;
+    canvas.drawCircle(center, radius, paint);
+  }
 
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _DeluxeTierPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-
-    // Hexagon shield outline
-    final shieldPath = Path()
-      ..moveTo(w * 0.3, 0)
-      ..lineTo(w * 0.7, 0)
-      ..lineTo(w, h * 0.3)
-      ..lineTo(w, h * 0.7)
+    final path = Path()
+      ..moveTo(w * 0.5, 0)
+      ..lineTo(w, h * 0.5)
       ..lineTo(w * 0.5, h)
-      ..lineTo(0, h * 0.7)
-      ..lineTo(0, h * 0.3)
+      ..lineTo(0, h * 0.5)
       ..close();
-
-    final innerK = Path()
-      ..moveTo(w * 0.35, h * 0.25)
-      ..lineTo(w * 0.45, h * 0.25)
-      ..lineTo(w * 0.45, h * 0.75)
-      ..lineTo(w * 0.35, h * 0.75)
-      ..close();
-
-    final innerVLeft = Path()
-      ..moveTo(w * 0.45, h * 0.5)
-      ..lineTo(w * 0.7, h * 0.25)
-      ..lineTo(w * 0.7, h * 0.38)
-      ..lineTo(w * 0.56, h * 0.5)
-      ..lineTo(w * 0.7, h * 0.62)
-      ..lineTo(w * 0.7, h * 0.75)
-      ..close();
-
-    final bgPaint = Paint()
-      ..color = Color.alphaBlend(Colors.black.withAlpha(120), color)
-      ..style = PaintingStyle.fill;
-
-    final borderPaint = Paint()
-      ..color = color
+    final paint = Paint()
+      ..color = const Color(0xFF009587)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.1;
-
-    final glyphPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    canvas.drawPath(shieldPath, bgPaint);
-    canvas.drawPath(shieldPath, borderPaint);
-    canvas.drawPath(innerK, glyphPaint);
-    canvas.drawPath(innerVLeft, glyphPaint);
+      ..strokeWidth = w * 0.20;
+    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant KcIconPainter oldDelegate) =>
-      oldDelegate.color != color;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Widget wrapper for KC Icon
-class KcIcon extends StatelessWidget {
-  const KcIcon({super.key, this.size = 14, this.color = const Color(0xFF10B981)});
-
-  final double size;
-  final Color color;
+class _PremiumTierPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w * 0.5, h)
+      ..close();
+    final paint = Paint()
+      ..color = const Color(0xFFD1548D)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.20;
+    canvas.drawPath(path, paint);
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: KcIconPainter(color: color),
-      ),
-    );
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Premium Tactical Currency Chip with Glowing Edges & Custom Icon
+class _UltraTierPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(w * 0.5, 0)
+      ..lineTo(w, h * 0.5)
+      ..lineTo(w * 0.5, h)
+      ..lineTo(0, h * 0.5)
+      ..close();
+    final paint = Paint()
+      ..color = const Color(0xFFFAD663)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.22;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ExclusiveTierPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path()
+      ..moveTo(w * 0.5, 0)
+      ..lineTo(w, h * 0.38)
+      ..lineTo(w * 0.81, h)
+      ..lineTo(w * 0.19, h)
+      ..lineTo(0, h * 0.38)
+      ..close();
+    final paint = Paint()
+      ..color = const Color(0xFFF5955B)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.20;
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ── Shared Widgets ──────────────────────────────────────────────────────────
+
+/// Premium Tactical Currency Chip with Glowing Edges & Official Riot Icon
 class ValorantCurrencyChip extends StatelessWidget {
   const ValorantCurrencyChip({
     super.key,
@@ -280,7 +533,7 @@ class ValorantCurrencyChip extends StatelessWidget {
       case 'VP':
       default:
         color = AppColors.vpCyan;
-        icon = VpIcon(size: compact ? 11 : 13, color: color);
+        icon = VpIcon(size: compact ? 12 : 14, color: color);
         break;
     }
 
@@ -382,7 +635,6 @@ class _ChamferedHudPainter extends CustomPainter {
     final h = size.height;
     const chamfer = 10.0;
 
-    // Chamfered path (45-degree top-left & bottom-right cut)
     final path = Path()
       ..moveTo(chamfer, 0)
       ..lineTo(w, 0)
@@ -392,7 +644,6 @@ class _ChamferedHudPainter extends CustomPainter {
       ..lineTo(0, chamfer)
       ..close();
 
-    // Background fill
     canvas.drawPath(
       path,
       Paint()
@@ -400,7 +651,6 @@ class _ChamferedHudPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
-    // Border line
     canvas.drawPath(
       path,
       Paint()
@@ -409,18 +659,15 @@ class _ChamferedHudPainter extends CustomPainter {
         ..strokeWidth = borderWidth,
     );
 
-    // Corner crosshair brackets (+)
     if (showBrackets) {
       final bracketPaint = Paint()
         ..color = accentColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
 
-      // Top-Left bracket
       canvas.drawLine(const Offset(0, 0), const Offset(6, 0), bracketPaint);
       canvas.drawLine(const Offset(0, 0), const Offset(0, 6), bracketPaint);
 
-      // Bottom-Right bracket
       canvas.drawLine(Offset(w, h), Offset(w - 6, h), bracketPaint);
       canvas.drawLine(Offset(w, h), Offset(w, h - 6), bracketPaint);
     }

@@ -68,27 +68,35 @@ class SkinCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Top-right: edition tier chip
+                  // Top-right: edition tier chip with official Gambar 1 icon
                   Positioned(
                     top: 8,
                     right: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                          horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: tierColor.withAlpha(40),
-                        borderRadius: BorderRadius.circular(4),
+                        color: tierColor.withAlpha(45),
+                        borderRadius: BorderRadius.circular(5),
                         border: Border.all(
-                            color: tierColor.withAlpha(120), width: 0.6),
+                            color: tierColor.withAlpha(140), width: 0.8),
                       ),
-                      child: Text(
-                        tierLabel.replaceAll(' Edition', '').toUpperCase(),
-                        style: TextStyle(
-                          color: tierColor,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SkinTierIcon(
+                              tierUuid: offer.contentTierUuid, size: 10),
+                          const SizedBox(width: 4),
+                          Text(
+                            tierLabel.replaceAll(' Edition', '').toUpperCase(),
+                            style: TextStyle(
+                              color: tierColor,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

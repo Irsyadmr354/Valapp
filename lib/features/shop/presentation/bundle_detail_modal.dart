@@ -6,7 +6,9 @@ import '../../../shared/utils/price_utils.dart' as price_utils;
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/countdown_timer.dart';
+import '../../../shared/widgets/valorant_icons.dart';
 import '../domain/models/skin_offer.dart';
+
 import '../domain/models/storefront.dart';
 import 'skin_detail_modal.dart';
 
@@ -117,17 +119,25 @@ class BundleDetailModal extends ConsumerWidget {
                             ),
                             const SizedBox(width: 8),
                           ],
-                          Text(
-                            bundle.totalDiscountedCost > 0
-                                ? '${bundle.totalDiscountedCost} VP'
-                                : (bundle.totalBaseCost > 0
-                                    ? '${bundle.totalBaseCost} VP'
-                                    : 'FEATURED BUNDLE'),
-                            style: const TextStyle(
-                              color: AppColors.red,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const VpIcon(size: 14, color: AppColors.red),
+                              const SizedBox(width: 5),
+                              Text(
+                                bundle.totalDiscountedCost > 0
+                                    ? '${bundle.totalDiscountedCost} VP'
+                                    : (bundle.totalBaseCost > 0
+                                        ? '${bundle.totalBaseCost} VP'
+                                        : 'FEATURED BUNDLE'),
+                                style: const TextStyle(
+                                  color: AppColors.red,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
