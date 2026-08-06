@@ -180,12 +180,56 @@ class MatchDetails {
   factory MatchDetails.fromJson(Map<String, dynamic> json) {
     final matchInfo =
         MatchInfo.fromJson(json['matchInfo'] as Map<String, dynamic>? ?? {});
+
+    // Parse playerIdentities map: subject -> "GameName#TagLine"
+    final playerIdentitiesMap = <String, String>{};
+    final identities = (json['playerIdentities'] as List<dynamic>? ?? []);
+    for (final item in identities) {
+      if (item is Map) {
+        final subject = item['subject']?.toString() ??
+            item['Subject']?.toString() ??
+            item['puuid']?.toString() ??
+            '';
+        final gName = item['gameName']?.toString() ??
+            item['GameName']?.toString() ??
+            '';
+        final tag = item['tagLine']?.toString() ??
+            item['TagLine']?.toString() ??
+            '';
+        if (subject.isNotEmpty && gName.isNotEmpty) {
+          playerIdentitiesMap[subject] =
+              tag.isNotEmpty ? '$gName#$tag' : gName;
+        }
+      }
+    }
+
     final players = (json['players'] as List<dynamic>? ?? [])
-        .map((e) => PlayerStats.fromJson(e as Map<String, dynamic>))
+        .map((e) {
+          final pMap = e as Map<String, dynamic>;
+          final player = PlayerStats.fromJson(pMap);
+          if (player.displayName.isEmpty &&
+              playerIdentitiesMap.containsKey(player.puuid)) {
+            return PlayerStats(
+              puuid: player.puuid,
+              displayName: playerIdentitiesMap[player.puuid]!,
+              teamId: player.teamId,
+              agentId: player.agentId,
+              kills: player.kills,
+              deaths: player.deaths,
+              assists: player.assists,
+              score: player.score,
+              roundsPlayed: player.roundsPlayed,
+              competitiveTier: player.competitiveTier,
+            );
+          }
+          return player;
+        })
         .toList();
+
     final rounds = (json['roundResults'] as List<dynamic>? ?? [])
         .map((e) => RoundResult.fromJson(e as Map<String, dynamic>))
         .toList();
+
     return MatchDetails(
         matchInfo: matchInfo, players: players, roundResults: rounds);
   }

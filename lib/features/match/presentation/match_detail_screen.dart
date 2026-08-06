@@ -35,11 +35,10 @@ final _matchDetailFamily = FutureProvider.autoDispose
   final cache = ref.watch(matchDetailLocalCacheProvider);
   final transaction =
       ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
-  try {
-    final raw = await source.fetchMatchDetailsRaw(creds.shard, matchId);
-    var details = MatchDetails.fromJson(raw);
 
-    final missingPuuids = details.players
+  Future<MatchDetails> resolveNamesIfNeeded(MatchDetails details) async {
+    var updated = details;
+    final missingPuuids = updated.players
         .where((p) => p.displayName.isEmpty)
         .map((p) => p.puuid)
         .where((id) => id.isNotEmpty)
@@ -52,10 +51,17 @@ final _matchDetailFamily = FutureProvider.autoDispose
         final namesMap =
             await accountSource.fetchDisplayNames(creds.shard, missingPuuids);
         if (namesMap.isNotEmpty) {
-          details = details.copyWithResolvedNames(namesMap);
+          updated = updated.copyWithResolvedNames(namesMap);
         }
       } catch (_) {}
     }
+    return updated;
+  }
+
+  try {
+    final raw = await source.fetchMatchDetailsRaw(creds.shard, matchId);
+    var details = MatchDetails.fromJson(raw);
+    details = await resolveNamesIfNeeded(details);
 
     if (transaction != null) {
       await cache.saveMatchDetail(matchId, raw,
@@ -66,8 +72,9 @@ final _matchDetailFamily = FutureProvider.autoDispose
     final cachedRaw =
         await cache.loadMatchDetailRaw(matchId, puuid: creds.puuid);
     if (cachedRaw != null) {
-      return CachedFetchResult(MatchDetails.fromJson(cachedRaw),
-          fromCache: true);
+      var details = MatchDetails.fromJson(cachedRaw);
+      details = await resolveNamesIfNeeded(details);
+      return CachedFetchResult(details, fromCache: true);
     }
     rethrow;
   }

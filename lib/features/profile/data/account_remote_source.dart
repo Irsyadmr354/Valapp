@@ -73,16 +73,14 @@ class AccountRemoteSource {
     try {
       dynamic data;
       try {
-        final response = await _dio.post<dynamic>(
-          'https://pd.$cleanShard.a.pvp.net/name-service/v3/players',
+        final response = await _dio.put<dynamic>(
+          'https://pd.$cleanShard.a.pvp.net/name-service/v2/players',
           data: puuids,
         );
         data = response.data;
-      } on DioException catch (error) {
-        final status = error.response?.statusCode;
-        if (status != 404 && status != 405) rethrow;
-        final response = await _dio.put<dynamic>(
-          'https://pd.$cleanShard.a.pvp.net/name-service/v2/players',
+      } on DioException catch (_) {
+        final response = await _dio.post<dynamic>(
+          'https://pd.$cleanShard.a.pvp.net/name-service/v3/players',
           data: puuids,
         );
         data = response.data;

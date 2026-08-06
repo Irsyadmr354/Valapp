@@ -255,6 +255,13 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final themeName = themeInfo?['displayName'] as String? ??
         (widget.offer.displayName ?? 'Weapon Skin').split(' ').first;
 
+    // Check if skin actually has a finisher level
+    final hasFinisher = levels.any((l) {
+      final levelItem = (l['levelItem']?.toString() ?? '').toLowerCase();
+      final levelName = (l['displayName']?.toString() ?? '').toLowerCase();
+      return levelItem.contains('finisher') || levelName.contains('finisher');
+    });
+
     // Determine current image and video
     String? currentImage;
     String? currentChromaVideo;
@@ -342,31 +349,21 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                 ),
                 const SizedBox(width: 10),
                 if (widget.offer.price > 0)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF070B12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                          color: AppColors.vpCyan.withAlpha(120), width: 0.8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const VpIcon(size: 13, color: AppColors.vpCyan),
-                        const SizedBox(width: 5),
-                        Text(
-                          '${widget.offer.price} VP',
-                          style: const TextStyle(
-                            color: AppColors.vpCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const VpIcon(size: 14, color: Colors.white),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${widget.offer.price} VP',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -385,27 +382,33 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
 
         const SizedBox(height: 16),
 
-        // 2. 3 Quick Info Chips Row
+        // 2. Quick Info Chips Row
         Row(
           children: [
             _QuickInfoChip(
-              icon: Icons.auto_awesome_outlined,
+              customIcon: SkinTierIcon(
+                tierUuid: widget.offer.contentTierUuid,
+                size: 14,
+              ),
               label: tierLabel,
               color: tierColor,
             ),
-            const SizedBox(width: 8),
-            if (widget.offer.price > 0)
+            if (widget.offer.price > 0) ...[
+              const SizedBox(width: 8),
               _QuickInfoChip(
-                icon: Icons.diamond_outlined,
+                customIcon: const VpIcon(size: 13, color: AppColors.vpCyan),
                 label: '${widget.offer.price} VP',
                 color: AppColors.vpCyan,
               ),
-            const SizedBox(width: 8),
-            const _QuickInfoChip(
-              icon: Icons.shield_outlined,
-              label: 'Finisher Included',
-              color: AppColors.red,
-            ),
+            ],
+            if (hasFinisher) ...[
+              const SizedBox(width: 8),
+              const _QuickInfoChip(
+                icon: Icons.shield_outlined,
+                label: 'Finisher Included',
+                color: AppColors.red,
+              ),
+            ],
           ],
         ),
 
@@ -859,12 +862,14 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
 
 class _QuickInfoChip extends StatelessWidget {
   const _QuickInfoChip({
-    required this.icon,
+    this.icon,
+    this.customIcon,
     required this.label,
     required this.color,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
   final String label;
   final Color color;
 
@@ -881,14 +886,17 @@ class _QuickInfoChip extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(width: 4),
+            if (customIcon != null)
+              customIcon!
+            else if (icon != null)
+              Icon(icon, color: color, size: 14),
+            const SizedBox(width: 5),
             Flexible(
               child: Text(
                 label,
                 style: const TextStyle(
                   color: Colors.white70,
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
                 ),
                 maxLines: 1,
