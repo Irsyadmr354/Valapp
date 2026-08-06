@@ -307,7 +307,7 @@ class ValorantCurrencyChip extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           icon,
           SizedBox(width: compact ? 4 : 6),

@@ -6,7 +6,6 @@ import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
-import '../../../shared/widgets/valorant_icons.dart';
 import 'skin_detail_modal.dart';
 
 import '../domain/models/skin_offer.dart';

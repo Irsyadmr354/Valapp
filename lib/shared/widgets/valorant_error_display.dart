@@ -83,7 +83,7 @@ class ValorantErrorDisplay extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Telemetry Header Tag
             Row(
