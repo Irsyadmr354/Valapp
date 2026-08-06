@@ -155,38 +155,21 @@ class _VpChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF070C14).withAlpha(220),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color(0xFF00F0FF).withAlpha(120),
-          width: 0.9,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const VpIcon(size: 12, color: Color(0xFF00F0FF)),
+        const SizedBox(width: 4),
+        Text(
+          price.toString(),
+          style: const TextStyle(
+            color: Color(0xFF00F0FF),
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00F0FF).withAlpha(35),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const VpIcon(size: 11, color: Color(0xFF00F0FF)),
-          const SizedBox(width: 5),
-          Text(
-            price.toString(),
-            style: const TextStyle(
-              color: Color(0xFF00F0FF),
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
