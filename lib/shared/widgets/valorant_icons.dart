@@ -541,41 +541,23 @@ class ValorantCurrencyChip extends StatelessWidget {
         ? '${(amount / 1000).toStringAsFixed(0)}k'
         : amount.toString();
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 7 : 9,
-        vertical: compact ? 3 : 5,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF070B12).withAlpha(220),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withAlpha(110), width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: color.withAlpha(35),
-            blurRadius: 8,
-            spreadRadius: 0.5,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        icon,
+        SizedBox(width: compact ? 4 : 6),
+        Text(
+          formatted,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 12 : 13,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          icon,
-          SizedBox(width: compact ? 4 : 6),
-          Text(
-            formatted,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: compact ? 11 : 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

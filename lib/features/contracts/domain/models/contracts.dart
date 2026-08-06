@@ -64,18 +64,49 @@ class Contract {
 
   factory Contract.fromJson(
       Map<String, dynamic> json, String? activeSpecialContractId) {
+    int level = 0;
+    int nextLevelXp = 0;
+
+    final prog = json['ContractProgression'];
+    if (prog is Map) {
+      final map = Map<String, dynamic>.from(prog);
+      final rawLevel = map['ProgressionLevelReached'] ??
+          (map['HighestRewardedLevel'] is Map
+              ? map['HighestRewardedLevel']['ProgressionLevel'] ??
+                  map['HighestRewardedLevel']['Amount']
+              : map['HighestRewardedLevel']) ??
+          map['ProgressionLevel'];
+
+      if (rawLevel is num) {
+        level = rawLevel.toInt();
+      } else if (rawLevel is String) {
+        level = int.tryParse(rawLevel) ?? 0;
+      }
+
+      final rawNext = map['ProgressionTowardsNextLevel'] ??
+          map['ProgressionTowardsNextLevelXP'] ??
+          map['XPTowardsNextLevel'];
+      if (rawNext is num) {
+        nextLevelXp = rawNext.toInt();
+      } else if (rawNext is String) {
+        nextLevelXp = int.tryParse(rawNext) ?? 0;
+      }
+    } else {
+      final rawLevel = json['ProgressionLevelReached'] ??
+          json['HighestRewardedLevel'] ??
+          json['ProgressionLevel'];
+      if (rawLevel is num) {
+        level = rawLevel.toInt();
+      }
+    }
+
+    final contractId = json['ContractDefinitionID'] as String? ?? '';
     return Contract(
-      contractId: json['ContractDefinitionID'] as String? ?? '',
-      progressionLevelReached: (json['ContractProgression']
-                  ?['HighestRewardedLevel']?['ProgressionLevel'] as num?)
-              ?.toInt() ??
-          0,
-      progressionTowardsNextLevel:
-          (json['ContractProgression']?['ProgressionTowardsNextLevel'] as num?)
-                  ?.toInt() ??
-              0,
+      contractId: contractId,
+      progressionLevelReached: level,
+      progressionTowardsNextLevel: nextLevelXp,
       isActiveBattlepass:
-          json['ContractDefinitionID'] == activeSpecialContractId,
+          contractId.isNotEmpty && contractId == activeSpecialContractId,
     );
   }
 }
