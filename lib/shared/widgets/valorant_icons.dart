@@ -524,16 +524,16 @@ class ValorantCurrencyChip extends StatelessWidget {
     switch (type.toUpperCase()) {
       case 'RP':
         color = AppColors.rpAmber;
-        icon = RpIcon(size: compact ? 12 : 14, color: color);
+        icon = RpIcon(size: compact ? 16 : 18, color: color);
         break;
       case 'KC':
         color = AppColors.kcGreen;
-        icon = KcIcon(size: compact ? 12 : 14, color: color);
+        icon = KcIcon(size: compact ? 16 : 18, color: color);
         break;
       case 'VP':
       default:
         color = AppColors.vpCyan;
-        icon = VpIcon(size: compact ? 12 : 14, color: color);
+        icon = VpIcon(size: compact ? 16 : 18, color: color);
         break;
     }
 
@@ -546,12 +546,12 @@ class ValorantCurrencyChip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         icon,
-        SizedBox(width: compact ? 4 : 6),
+        SizedBox(width: compact ? 5 : 6),
         Text(
           formatted,
           style: TextStyle(
             color: Colors.white,
-            fontSize: compact ? 12 : 13,
+            fontSize: compact ? 14 : 15,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.5,
             fontFeatures: const [FontFeature.tabularFigures()],

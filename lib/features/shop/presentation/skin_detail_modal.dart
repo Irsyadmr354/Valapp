@@ -720,10 +720,30 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       ),
                     ),
 
-                    // FINISHER badge for level 4+ or finisher items
+                    // 1. RP Cost Tag (Always FIRST right after title text: [RpIcon] 10)
+                    if (idx > 0) ...[
+                      const SizedBox(width: 8),
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RpIcon(size: 16, color: Color(0xFFFF9900)),
+                          SizedBox(width: 4),
+                          Text(
+                            '10',
+                            style: TextStyle(
+                              color: Color(0xFFFF9900),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // 2. FINISHER badge (Placed AFTER RP cost if item has finisher)
                     if (idx >= 3 ||
                         levelItem.toLowerCase().contains('finisher')) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 3),
@@ -743,26 +763,6 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                             letterSpacing: 0.5,
                           ),
                         ),
-                      ),
-                    ],
-
-                    // RP Cost Tag (Unboxed [RpIcon] 10 placed BEFORE Video button)
-                    if (idx > 0) ...[
-                      const SizedBox(width: 8),
-                      const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          RpIcon(size: 13, color: Color(0xFFFF9900)),
-                          SizedBox(width: 4),
-                          Text(
-                            '10',
-                            style: TextStyle(
-                              color: Color(0xFFFF9900),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
 

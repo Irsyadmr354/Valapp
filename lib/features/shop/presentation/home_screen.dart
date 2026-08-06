@@ -504,13 +504,13 @@ class _WalletBar extends StatelessWidget {
           type: 'VP',
           compact: true,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         ValorantCurrencyChip(
           amount: wallet.radianitePoints,
           type: 'RP',
           compact: true,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         ValorantCurrencyChip(
           amount: wallet.kingdomCredits,
           type: 'KC',
