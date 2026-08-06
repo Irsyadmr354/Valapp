@@ -355,7 +355,7 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       const VpIcon(size: 14, color: Colors.white),
                       const SizedBox(width: 5),
                       Text(
-                        '${widget.offer.price} VP',
+                        '${widget.offer.price}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -397,7 +397,7 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
               const SizedBox(width: 8),
               _QuickInfoChip(
                 customIcon: const VpIcon(size: 13, color: AppColors.vpCyan),
-                label: '${widget.offer.price} VP',
+                label: '${widget.offer.price}',
                 color: AppColors.vpCyan,
               ),
             ],
@@ -746,9 +746,29 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                       ),
                     ],
 
-                    // Video Preview Button
+                    // RP Cost Tag (Unboxed [RpIcon] 10 placed BEFORE Video button)
+                    if (idx > 0) ...[
+                      const SizedBox(width: 8),
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RpIcon(size: 13, color: Color(0xFFFF9900)),
+                          SizedBox(width: 4),
+                          Text(
+                            '10',
+                            style: TextStyle(
+                              color: Color(0xFFFF9900),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // Video Preview Button (Placed AFTER RP cost)
                     if (videoUrl != null && videoUrl.isNotEmpty) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () {
                           final selectedChromaVid = (chromas.isNotEmpty &&
@@ -789,27 +809,6 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // RP Cost Tag for Upgrade Levels
-                    if (idx > 0) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF9900).withAlpha(30),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          '10 RP',
-                          style: TextStyle(
-                            color: Color(0xFFFF9900),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
