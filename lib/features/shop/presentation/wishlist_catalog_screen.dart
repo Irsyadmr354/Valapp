@@ -6,6 +6,7 @@ import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
+import '../../../shared/widgets/valorant_icons.dart';
 import 'skin_detail_modal.dart';
 
 import '../domain/models/skin_offer.dart';
@@ -718,6 +719,7 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     name: name,
                                     iconUrl: iconUrl,
                                     tierColor: tierColor,
+                                    tierUuid: tierUuid,
                                     isWishlisted: isWishlisted,
                                     onToggleWishlist: () => ref
                                         .read(wishlistProvider.notifier)
@@ -770,6 +772,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
     required this.name,
     required this.iconUrl,
     required this.tierColor,
+    required this.tierUuid,
     required this.isWishlisted,
     required this.onToggleWishlist,
     required this.onTap,
@@ -778,6 +781,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
   final String name;
   final String iconUrl;
   final Color tierColor;
+  final String? tierUuid;
   final bool isWishlisted;
   final VoidCallback onToggleWishlist;
   final VoidCallback onTap;
@@ -788,104 +792,114 @@ class _SkinCatalogGridCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          // Tier color gradient background — same pattern as shop/daily screen
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              tierColor.withAlpha(55),
-              AppColors.bgCard2,
-            ],
+          color: Color.alphaBlend(
+            tierColor.withAlpha(35),
+            const Color(0xFF0C1118),
           ),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isWishlisted ? AppColors.red : tierColor.withAlpha(80),
-            width: isWishlisted ? 1.5 : 1,
+            color: isWishlisted
+                ? AppColors.red
+                : Colors.white.withAlpha(18),
+            width: isWishlisted ? 2 : 1,
           ),
         ),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Wishlist badge — only show when skin is wishlisted
-                  if (isWishlisted)
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.red.withAlpha(40),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.red, width: 0.8),
-                        ),
-                        child: const Text(
-                          'WISHLIST',
-                          style: TextStyle(
-                              color: AppColors.red,
-                              fontSize: 7,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.4),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Image area ───────────────────────────────────────────────
+              Expanded(
+                child: Stack(
+                  children: [
+                    // Weapon image
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
+                        child: CachedNetworkImage(
+                          imageUrl: iconUrl,
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) =>
+                              const LoadingShimmer(height: 60),
+                          errorWidget: (_, __, ___) => const Icon(
+                              Icons.military_tech_outlined,
+                              color: Colors.white24,
+                              size: 28),
                         ),
                       ),
                     ),
 
-                  // Weapon image
-                  Expanded(
-                    child: Center(
-                      child: CachedNetworkImage(
-                        imageUrl: iconUrl,
-                        fit: BoxFit.contain,
-                        placeholder: (_, __) =>
-                            const LoadingShimmer(height: 60),
-                        errorWidget: (_, __, ___) => const Icon(
-                            Icons.military_tech_outlined,
-                            color: Colors.white24,
-                            size: 28),
+                    // Top-right: Bookmark / Wishlist toggle icon overlaid on image
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: onToggleWishlist,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(160),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isWishlisted
+                                  ? AppColors.red
+                                  : Colors.white24,
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Icon(
+                            isWishlisted
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                            color: isWishlisted
+                                ? AppColors.red
+                                : Colors.white70,
+                            size: 16,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-
-                  // Skin name — no tier label below it
-                  Text(
-                    name,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-
-            // Bookmark toggle
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: GestureDetector(
-                onTap: onToggleWishlist,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isWishlisted ? AppColors.red : Colors.black38,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isWishlisted
-                        ? Icons.bookmark_rounded
-                        : Icons.bookmark_outline_rounded,
-                    color: isWishlisted ? Colors.white : Colors.white54,
-                    size: 14,
-                  ),
+                  ],
                 ),
               ),
-            ),
-          ],
+
+              // ── Footer (Solid Black Background): Tier Icon + Skin Name ─────
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                decoration: const BoxDecoration(
+                  color: Colors.black, // Solid black background
+                  border: Border(
+                    top: BorderSide(color: Color(0x22FFFFFF), width: 0.8),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Skin Tier Icon (only the icon) to the left of skin name
+                    SkinTierIcon(
+                      tierUuid: tierUuid,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
