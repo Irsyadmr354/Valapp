@@ -497,6 +497,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final cache = CacheStorage.instance;
     await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
     await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
+    ref.invalidate(currentCredentialsProvider);
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
     ref.invalidate(displayNameProvider);

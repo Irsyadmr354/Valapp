@@ -4,7 +4,7 @@ import 'valorant_icons.dart';
 
 /// Tactical Valorant Protocol Error Display Card.
 /// Parses raw exceptions into clear, authentic Valorant telemetry error states with user-friendly explanations.
-class ValorantErrorDisplay extends StatelessWidget {
+class ValorantErrorDisplay extends StatefulWidget {
   const ValorantErrorDisplay({
     super.key,
     required this.error,
@@ -21,10 +21,30 @@ class ValorantErrorDisplay extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
-    final info = _parseError(error);
+  State<ValorantErrorDisplay> createState() => _ValorantErrorDisplayState();
+}
 
-    if (compact) {
+class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
+  bool _isRetrying = false;
+
+  Future<void> _handleRetry() async {
+    if (_isRetrying) return;
+    setState(() => _isRetrying = true);
+    try {
+      widget.onRetry();
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+    } finally {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final info = _parseError(widget.error);
+
+    if (widget.compact) {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -65,9 +85,16 @@ class ValorantErrorDisplay extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded,
-                  color: AppColors.red, size: 20),
+              onPressed: _isRetrying ? null : _handleRetry,
+              icon: _isRetrying
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          color: AppColors.red, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded,
+                      color: AppColors.red, size: 20),
               tooltip: 'Retry',
             ),
           ],
@@ -136,7 +163,7 @@ class ValorantErrorDisplay extends StatelessWidget {
 
             // Error Headline
             Text(
-              (title ?? info.headline).toUpperCase(),
+              (widget.title ?? info.headline).toUpperCase(),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -187,7 +214,7 @@ class ValorantErrorDisplay extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: onRetry,
+                    onPressed: _isRetrying ? null : _handleRetry,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.red,
                       foregroundColor: Colors.white,
@@ -198,10 +225,19 @@ class ValorantErrorDisplay extends StatelessWidget {
                       elevation: 4,
                       shadowColor: AppColors.red.withAlpha(120),
                     ),
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text(
-                      'SYSTEM RECONNECT',
-                      style: TextStyle(
+                    icon: _isRetrying
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.refresh_rounded, size: 18),
+                    label: Text(
+                      _isRetrying ? 'RECONNECTING...' : 'SYSTEM RECONNECT',
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.8,
@@ -209,10 +245,10 @@ class ValorantErrorDisplay extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (info.isAuthRelated && onReauth != null) ...[
+                if (info.isAuthRelated && widget.onReauth != null) ...[
                   const SizedBox(width: 10),
                   OutlinedButton(
-                    onPressed: onReauth,
+                    onPressed: widget.onReauth,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.red,
                       side: const BorderSide(color: AppColors.red, width: 1.2),

@@ -751,7 +751,10 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                       error: (e, _) => Center(
                         child: ValorantErrorDisplay(
                           error: e,
-                          onRetry: () => ref.invalidate(_allSkinsListProvider),
+                          onRetry: () {
+                            ref.invalidate(currentCredentialsProvider);
+                            ref.invalidate(_allSkinsListProvider);
+                          },
                           title: 'Gagal Memuat Katalog Senjata',
                         ),
                       ),

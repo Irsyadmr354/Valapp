@@ -912,6 +912,7 @@ class _ErrorCard extends ConsumerWidget {
       error: message,
       compact: true,
       onRetry: () {
+        ref.invalidate(currentCredentialsProvider);
         ref.invalidate(playerMmrProvider);
         ref.invalidate(competitiveUpdatesProvider);
       },
