@@ -156,7 +156,7 @@ class ValorantInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final status = err.response?.statusCode;
 
-    if (status == 401) {
+    if (status == 401 || status == 403) {
       final handled = await _attemptReauthAndRetry(
         err,
         handler,

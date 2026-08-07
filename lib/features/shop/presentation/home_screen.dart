@@ -104,7 +104,32 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final storefrontState = ref.read(_storefrontProvider);
+      if (storefrontState.hasError || storefrontState.asData?.value == null) {
+        _refresh();
+      }
+    }
+  }
+
+
+
   void _listenForWishlistOffers() {
     ref.listen<AsyncValue<Storefront?>>(_storefrontProvider, (previous, next) {
       final storefront = next.asData?.value;
@@ -469,15 +494,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refresh() async {
-    // Invalidate cached storefront timestamp so loadCachedStorefront()
-    // won't return a stale cached response as fallback. The actual raw cache
-    // is already guarded by the expiry check in StoreLocalCache, but clearing
-    // the timestamp key is a belt-and-suspenders measure.
     final cache = CacheStorage.instance;
     await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
     await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
+    ref.invalidate(displayNameProvider);
+    ref.invalidate(accountXpProvider);
   }
 
   void _toggleWishlist(SkinOffer offer) {
