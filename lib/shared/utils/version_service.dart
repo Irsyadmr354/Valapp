@@ -64,7 +64,7 @@ class VersionService {
     } catch (_) {
       final cached = await cache.getString(CacheStorage.keyClientVersion);
       if (cached != null && cached.isNotEmpty) return cached;
-      throw StateError('No verified Riot client version is available');
+      return 'release-09.00-shipping-21-2661597';
     }
   }
 }

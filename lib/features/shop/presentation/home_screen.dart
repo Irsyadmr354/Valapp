@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,30 +28,6 @@ import '../../match/domain/models/match_history.dart';
 import '../../profile/domain/models/account_xp.dart';
 import '../../rank/domain/models/player_mmr.dart';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-bool _isOfflineOrConnectionError(Object e) {
-  if (e is SocketException) return true;
-  if (e is DioException) {
-    if (e.type == DioExceptionType.connectionError ||
-        e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.sendTimeout ||
-        e.type == DioExceptionType.receiveTimeout) {
-      return true;
-    }
-    if (e.error is SocketException) return true;
-  }
-  final str = e.toString().toLowerCase();
-  return str.contains('socketexception') ||
-      str.contains('failed host lookup') ||
-      str.contains('network is unreachable') ||
-      str.contains('connection refused') ||
-      str.contains('connection error') ||
-      str.contains('connection_error') ||
-      str.contains('timed out') ||
-      str.contains('webview error');
-}
-
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final _storefrontProvider =
@@ -61,41 +35,14 @@ final _storefrontProvider =
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final repo = await ref.watch(storeRepositoryProvider.future);
-  // loadCachedStorefront() now returns null if the cache is from a past
-  // rotation (elapsed time >= remainingSeconds), so cached is only non-null
-  // when the cached data is still valid for the current shop window.
   final cached = await repo.loadCachedStorefront(creds.puuid);
 
-  // Retry with exponential backoff — handles cold-start failures when
-  // auth tokens expired overnight (WidgetsBindingObserver only fires on
-  // background→foreground transitions, not on cold app launch).
-  const maxRetries = 3;
-  const baseDelay = Duration(seconds: 2);
-  Object? lastError;
-
-  for (var attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await repo.fetchStorefront(creds.shard, creds.puuid);
-    } catch (e) {
-      lastError = e;
-      // Fast-fail immediately on offline / connection errors (e.g. Airplane Mode).
-      // Do NOT retry 3 times in a loop, so ValorantErrorDisplay is shown INSTANTLY.
-      if (_isOfflineOrConnectionError(e)) {
-        break;
-      }
-      if (attempt < maxRetries) {
-        final delay = baseDelay * (1 << attempt); // 2s, 4s, 8s
-        debugPrint(
-            '[StorefrontProvider] Fetch failed (attempt ${attempt + 1}/$maxRetries), '
-            'retrying in ${delay.inSeconds}s: $e');
-        await Future<void>.delayed(delay);
-      }
-    }
+  try {
+    return await repo.fetchStorefront(creds.shard, creds.puuid);
+  } catch (e) {
+    if (cached != null) return cached;
+    rethrow;
   }
-
-  // All retries exhausted — fall back to valid cache or surface error.
-  if (cached != null) return cached;
-  throw lastError!;
 });
 
 final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {

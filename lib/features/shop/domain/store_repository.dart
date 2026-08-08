@@ -46,8 +46,12 @@ class StoreRepository {
 
   /// Enriches daily skin offers, Featured Bundle, and Night Market with metadata from valorant-api.
   Future<Storefront> _enrichStorefront(Storefront storefront) async {
-    final skinMap = await _assets.getSkinLevelsMap();
-    final bundleMap = await _assets.getBundlesMap();
+    final skinMap = await _assets
+        .getSkinLevelsMap()
+        .catchError((_) => <String, dynamic>{});
+    final bundleMap = await _assets
+        .getBundlesMap()
+        .catchError((_) => <String, dynamic>{});
 
     // Enrich daily offers
     final enrichedOffers = storefront.dailyOffers.map((offer) {
