@@ -128,25 +128,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
 
 
-  void _listenForWishlistOffers() {
-    ref.listen<AsyncValue<Storefront?>>(_storefrontProvider, (previous, next) {
-      final storefront = next.asData?.value;
-      if (storefront == null) return;
-      final wishlist = ref.read(wishlistProvider).toSet();
-      final shopIdentity = storefront.dailyOffers
-          .map((offer) => offer.skinLevelUuid)
-          .toList()
-        ..sort();
-      for (final offer in storefront.dailyOffers) {
-        if (wishlist.contains(offer.skinLevelUuid)) {
-          NotificationService.instance.showWishlistAlertOnce(
-            shopIdentity: shopIdentity.join(','),
-            skinId: offer.skinLevelUuid,
-            skinName: offer.displayName ?? 'Wishlist Skin',
-            price: offer.price,
-          );
-        }
+  void _checkAndTriggerWishlistAlerts(Storefront? storefront) {
+    if (storefront == null) return;
+    final wishlist = ref.read(wishlistProvider).toSet();
+    if (wishlist.isEmpty) return;
+
+    final shopIdentity = storefront.dailyOffers
+        .map((offer) => offer.skinLevelUuid)
+        .toList()
+      ..sort();
+    for (final offer in storefront.dailyOffers) {
+      if (wishlist.contains(offer.skinLevelUuid)) {
+        NotificationService.instance.showWishlistAlertOnce(
+          shopIdentity: shopIdentity.join(','),
+          skinId: offer.skinLevelUuid,
+          skinName: offer.displayName ?? 'Wishlist Skin',
+          price: offer.price,
+        );
       }
+    }
+  }
+
+  void _listenForWishlistOffers() {
+    ref.listen<AsyncValue<Storefront?>>(_storefrontProvider, (_, next) {
+      _checkAndTriggerWishlistAlerts(next.asData?.value);
+    });
+    ref.listen<List<String>>(wishlistProvider, (_, __) {
+      _checkAndTriggerWishlistAlerts(ref.read(_storefrontProvider).asData?.value);
     });
   }
 
@@ -154,6 +162,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     _listenForWishlistOffers();
     final storefrontAsync = ref.watch(_storefrontProvider);
+    _checkAndTriggerWishlistAlerts(storefrontAsync.asData?.value);
     final walletAsync = ref.watch(_walletProvider);
     final wishlist = ref.watch(wishlistProvider);
 
