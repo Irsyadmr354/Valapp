@@ -5,7 +5,6 @@ import '../data/credentials_local_source.dart';
 import '../data/silent_webview_reauth.dart';
 import '../data/oauth_flow.dart';
 import '../domain/models/credentials.dart';
-import '../domain/models/rso_auth_result.dart';
 import '../../../core/exceptions/auth_exception.dart';
 
 /// Orchestrates the full RSO auth flow and token lifecycle.
@@ -18,25 +17,6 @@ class AuthRepository {
 
   final AuthRemoteSource _remote;
   final CredentialsLocalSource _local;
-
-  // ── Native Login & 2FA ───────────────────────────────────────────────────
-
-  Future<RsoAuthResult> loginNative({
-    required String username,
-    required String password,
-    required bool rememberMe,
-    required OAuthAttempt attempt,
-  }) async {
-    await _remote.initRsoAuthorization(attempt);
-    return await _remote.submitRsoCredentials(username, password, rememberMe);
-  }
-
-  Future<RsoAuthResult> submit2faCode({
-    required String code,
-    required bool rememberDevice,
-  }) async {
-    return await _remote.submitRsoMultifactor(code, rememberDevice);
-  }
 
   Future<Credentials> completeLoginFromRedirectUrl(
     String redirectUrl,
