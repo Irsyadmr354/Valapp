@@ -5,6 +5,7 @@ import '../data/credentials_local_source.dart';
 import '../data/silent_webview_reauth.dart';
 import '../data/oauth_flow.dart';
 import '../domain/models/credentials.dart';
+import '../domain/models/rso_auth_result.dart';
 import '../../../core/exceptions/auth_exception.dart';
 
 /// Orchestrates the full RSO auth flow and token lifecycle.
@@ -17,6 +18,45 @@ class AuthRepository {
 
   final AuthRemoteSource _remote;
   final CredentialsLocalSource _local;
+
+  // ── Native Login & 2FA ───────────────────────────────────────────────────
+
+  Future<RsoAuthResult> loginNative({
+    required String username,
+    required String password,
+    required bool rememberMe,
+    required OAuthAttempt attempt,
+  }) async {
+    await _remote.initRsoAuthorization(attempt);
+    return await _remote.submitRsoCredentials(username, password, rememberMe);
+  }
+
+  Future<RsoAuthResult> submit2faCode({
+    required String code,
+    required bool rememberDevice,
+  }) async {
+    return await _remote.submitRsoMultifactor(code, rememberDevice);
+  }
+
+  Future<Credentials> completeLoginFromRedirectUrl(
+    String redirectUrl,
+    OAuthAttempt attempt,
+  ) async {
+    final tokens = OAuthFlow.parseTokenRedirect(
+      redirectUrl,
+      expectedState: attempt.state,
+      expectedNonce: attempt.nonce,
+    );
+    final accessToken = tokens['access_token']!;
+    final idToken = tokens['id_token']!;
+    final expiresIn = int.parse(tokens['expires_in']!);
+
+    return completeLoginFromWebView(
+      accessToken: accessToken,
+      idToken: idToken,
+      expiresIn: expiresIn,
+    );
+  }
 
   // ── Login from WebView ─────────────────────────────────────────────────────
 
@@ -50,12 +90,8 @@ class AuthRepository {
 
   // ── Silent token refresh ───────────────────────────────────────────────────
 
-  /// Refreshes tokens silently using background WebView session cookies (primary)
-  /// or Dio cookie reauth (fallback).
-  ///
-  /// On iOS, WKWebView instances share cookies via the default WKWebsiteDataStore,
-  /// so the `ssid` session cookie from the initial WebView login is automatically
-  /// available to SilentWebviewReauth. This is why WebView reauth is tried FIRST.
+  /// Refreshes tokens silently using Dio HTTP cookie reauth (primary - ultra fast)
+  /// or WebView session cookies (fallback).
   Future<Credentials> reauth() async {
     final old = await _local.load();
     if (old == null) throw const TokenExpiredException();
@@ -63,19 +99,19 @@ class AuthRepository {
     String? uri;
     final attempt = OAuthAttempt.create();
 
-    // PRIMARY: WebView-based reauth — uses shared WKWebView cookie store (ssid)
+    // PRIMARY: Fast Dio HTTP cookie reauth — uses PersistCookieJar (ssid & remember_me cookies)
     try {
-      uri = await SilentWebviewReauth.instance.refreshTokens(attempt);
+      uri = await _remote.cookieReauth(attempt);
     } catch (e) {
-      debugPrint('[AuthRepo] WebView reauth failed: $e');
+      debugPrint('[AuthRepo] Dio cookie reauth failed: $e');
 
-      // FALLBACK: Dio HTTP cookie reauth — uses PersistCookieJar
+      if (e is InvalidSessionException) rethrow;
+
+      // FALLBACK: WebView-based reauth — uses shared WKWebView cookie store (ssid)
       try {
-        uri = await _remote.cookieReauth(attempt);
-      } on InvalidSessionException {
-        rethrow;
+        uri = await SilentWebviewReauth.instance.refreshTokens(attempt);
       } catch (e2) {
-        debugPrint('[AuthRepo] Dio cookie reauth also failed: $e2');
+        debugPrint('[AuthRepo] WebView reauth fallback also failed: $e2');
         throw const TransientReauthException();
       }
     }
@@ -120,3 +156,4 @@ class AuthRepository {
 
   Future<void> logout() => _local.clear();
 }
+
