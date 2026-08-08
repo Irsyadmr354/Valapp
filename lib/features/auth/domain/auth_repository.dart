@@ -99,19 +99,20 @@ class AuthRepository {
     String? uri;
     final attempt = OAuthAttempt.create();
 
-    // PRIMARY: Fast Dio HTTP cookie reauth — uses PersistCookieJar (ssid & remember_me cookies)
+    // PRIMARY: WebView-based silent reauth — uses shared OS native cookie store (WKWebsiteDataStore / CookieManager)
     try {
-      uri = await _remote.cookieReauth(attempt);
+      uri = await SilentWebviewReauth.instance.refreshTokens(attempt);
     } catch (e) {
-      debugPrint('[AuthRepo] Dio cookie reauth failed: $e');
+      debugPrint('[AuthRepo] Silent WebView reauth failed: $e');
 
-      if (e is InvalidSessionException) rethrow;
-
-      // FALLBACK: WebView-based reauth — uses shared WKWebView cookie store (ssid)
+      // FALLBACK: Dio HTTP cookie reauth
       try {
-        uri = await SilentWebviewReauth.instance.refreshTokens(attempt);
+        uri = await _remote.cookieReauth(attempt);
       } catch (e2) {
-        debugPrint('[AuthRepo] WebView reauth fallback also failed: $e2');
+        debugPrint('[AuthRepo] Dio cookie reauth also failed: $e2');
+        if (e is InvalidSessionException || e2 is InvalidSessionException) {
+          throw const InvalidSessionException();
+        }
         throw const TransientReauthException();
       }
     }
