@@ -1,6 +1,7 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../network/auth_dio.dart';
 import '../network/api_dio.dart';
@@ -253,6 +254,15 @@ class SessionActions {
       final local = _ref.read(credentialsLocalSourceProvider);
       final current = await local.load();
       if (current?.puuid == account.puuid) return;
+
+      // Purge old account's webview & HTTP cookies to prevent cookie bleed
+      try {
+        final jar = await _ref.read(cookieJarProvider.future);
+        await jar.deleteAll();
+      } catch (_) {}
+      try {
+        await WebViewCookieManager().clearCookies();
+      } catch (_) {}
 
       await local.save(
         account.credentials,

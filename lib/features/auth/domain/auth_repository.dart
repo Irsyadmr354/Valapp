@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../data/auth_remote_source.dart';
 import '../data/credentials_local_source.dart';
@@ -160,8 +161,11 @@ class AuthRepository {
     final expiresIn = int.parse(tokens['expires_in']!);
     final refreshedPuuid = AuthRemoteSource.extractPuuid(accessToken);
     if (refreshedPuuid != old.puuid) {
-      debugPrint('[AuthRepo] Reauth returned a token for another account');
-      throw StateError('Reauth returned credentials for another account');
+      debugPrint('[AuthRepo] Reauth returned a token for another account — purging stale cookies');
+      try {
+        await WebViewCookieManager().clearCookies();
+      } catch (_) {}
+      throw const InvalidSessionException();
     }
 
     final entitlementToken = await _remote.fetchEntitlementToken(accessToken);
