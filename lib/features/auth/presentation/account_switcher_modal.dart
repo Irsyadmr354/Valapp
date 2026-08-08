@@ -329,107 +329,115 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                         ),
                                       ),
                                     ),
-                                  ] else ...[
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline,
-                                          color: Colors.white38, size: 20),
-                                      onPressed: () async {
-                                        final confirmed =
-                                            await showDialog<bool>(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            backgroundColor:
-                                                const Color(0xFF0E1622),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              side: const BorderSide(
-                                                  color: AppColors.red,
-                                                  width: 1.5),
-                                            ),
-                                            title: const Text(
-                                              'Hapus Akun?',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w900,
-                                              ),
-                                            ),
-                                            content: Text(
-                                              'Akun "${acc.displayName}" akan dihapus dari daftar. Kamu bisa login kembali kapan saja.',
-                                              style: const TextStyle(
-                                                color: Colors.white60,
-                                                fontSize: 13,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                            actionsPadding:
-                                                const EdgeInsets.fromLTRB(
-                                                    16, 0, 16, 16),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.of(ctx)
-                                                        .pop(false),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor:
-                                                      Colors.white54,
-                                                ),
-                                                child: const Text(
-                                                  'BATAL',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w800,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                              ),
-                                              FilledButton(
-                                                onPressed: () =>
-                                                    Navigator.of(ctx).pop(true),
-                                                style: FilledButton.styleFrom(
-                                                  backgroundColor:
-                                                      AppColors.red,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 20,
-                                                      vertical: 10),
-                                                ),
-                                                child: const Text(
-                                                  'HAPUS',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.w900,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                    const SizedBox(width: 4),
+                                  ],
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.white38, size: 20),
+                                    tooltip: 'Hapus Akun',
+                                    onPressed: () async {
+                                      final nav = Navigator.of(context);
+                                      final confirmed =
+                                          await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          backgroundColor:
+                                              const Color(0xFF0E1622),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            side: const BorderSide(
+                                                color: AppColors.red,
+                                                width: 1.5),
                                           ),
-                                        );
-                                        if (confirmed == true) {
-                                          if (_actionInProgress) return;
-                                          setState(
-                                              () => _actionInProgress = true);
-                                          try {
-                                            await ref
-                                                .read(sessionActionsProvider)
-                                                .removeAccount(acc.puuid);
-                                            if (mounted) await _loadAccounts();
-                                          } finally {
-                                            if (mounted) {
-                                              setState(() =>
-                                                  _actionInProgress = false);
-                                            }
+                                          title: const Text(
+                                            'Hapus Akun?',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          content: Text(
+                                            isActive
+                                                ? 'Akun "${acc.displayName}" (Aktif) akan dihapus dari daftar dan sistem akan beralih ke akun lain.'
+                                                : 'Akun "${acc.displayName}" akan dihapus dari daftar. Kamu bisa login kembali kapan saja.',
+                                            style: const TextStyle(
+                                              color: Colors.white60,
+                                              fontSize: 13,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                          actionsPadding:
+                                              const EdgeInsets.fromLTRB(
+                                                  16, 0, 16, 16),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.of(ctx)
+                                                      .pop(false),
+                                              style: TextButton.styleFrom(
+                                                foregroundColor:
+                                                    Colors.white54,
+                                              ),
+                                              child: const Text(
+                                                'BATAL',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                            FilledButton(
+                                              onPressed: () =>
+                                                  Navigator.of(ctx).pop(true),
+                                              style: FilledButton.styleFrom(
+                                                backgroundColor:
+                                                    AppColors.red,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          8),
+                                                ),
+                                                padding: const EdgeInsets
+                                                    .symmetric(
+                                                    horizontal: 20,
+                                                    vertical: 10),
+                                              ),
+                                              child: const Text(
+                                                'HAPUS',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirmed == true) {
+                                        if (_actionInProgress) return;
+                                        setState(
+                                            () => _actionInProgress = true);
+                                        try {
+                                          await ref
+                                              .read(sessionActionsProvider)
+                                              .removeAccount(acc.puuid);
+                                          if (!mounted) return;
+                                          await _loadAccounts();
+                                          if (_savedAccounts.isEmpty) {
+                                            nav.pop();
+                                          }
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() =>
+                                                _actionInProgress = false);
                                           }
                                         }
-                                      },
-                                    ),
-                                  ],
+                                      }
+                                    },
+                                  ),
                                 ],
                               ),
                             ),
