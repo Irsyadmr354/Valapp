@@ -126,56 +126,65 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final js = '''
     (function() {
-      function setValue(selector, val) {
-        var el = document.querySelector(selector);
-        if (el) {
-          el.value = val;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          el.dispatchEvent(new Event('blur', { bubbles: true }));
-          return true;
+      function setReactInputValue(input, val) {
+        if (!input) return false;
+        var lastValue = input.value;
+        input.value = val;
+        var event = new Event('input', { bubbles: true });
+        var tracker = input._valueTracker;
+        if (tracker) {
+          tracker.setValue(lastValue);
         }
-        return false;
+        input.dispatchEvent(event);
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        return true;
       }
 
-      setValue("input[name='username'], input[type='text']", '$usernameEscaped');
-      setValue("input[name='password'], input[type='password']", '$passwordEscaped');
+      function trySubmit() {
+        var userInput = document.querySelector("input[name='username']") || document.querySelector("input[type='text']");
+        var passInput = document.querySelector("input[name='password']") || document.querySelector("input[type='password']");
 
-      var rem = document.querySelector("input[name='remember'], input[type='checkbox']");
-      if (rem && ${_rememberMe ? 'true' : 'false'}) {
-        if (!rem.checked) {
-          rem.click();
-          rem.dispatchEvent(new Event('change', { bubbles: true }));
+        if (userInput && passInput) {
+          setReactInputValue(userInput, "$usernameEscaped");
+          setReactInputValue(passInput, "$passwordEscaped");
+
+          var rem = document.querySelector("input[name='remember'], input[type='checkbox']");
+          if (rem && ${_rememberMe ? 'true' : 'false'}) {
+            if (!rem.checked) {
+              rem.click();
+            }
+          }
+
+          setTimeout(function() {
+            var btn = document.querySelector("button[type='submit']") || document.querySelector("button[data-testid='btn-signin']") || document.querySelector(".mobile-button") || document.querySelector("button");
+            if (btn) {
+              btn.click();
+            }
+          }, 350);
         }
       }
 
-      setTimeout(function() {
-        var btn = document.querySelector("button[type='submit'], button[data-testid='btn-signin'], .mobile-button");
-        if (btn) {
-          btn.click();
-        }
-      }, 350);
+      trySubmit();
     })();
     ''';
 
     try {
       await _webViewController.runJavaScript(js);
 
-      // Delayed check to detect if 2FA or Captcha appeared
-      Future.delayed(const Duration(seconds: 4), () async {
+      // Safety timer: If login doesn't redirect within 6 seconds, fall back cleanly to WebView
+      Future.delayed(const Duration(seconds: 6), () async {
         if (!mounted || !_isLoading) return;
         final currentUrl = await _webViewController.currentUrl();
         if (currentUrl != null &&
             !OAuthFlow.isRedirectUri(Uri.parse(currentUrl))) {
-          if (currentUrl.contains('multifactor') ||
-              currentUrl.contains('mfa') ||
-              currentUrl.contains('two_factor')) {
-            setState(() {
-              _isLoading = false;
-              _isSubmittingJS = false;
-              _errorMessage =
-                  'Two-factor authentication (2FA) is enabled on your account. Please tap "LOGIN WITH RIOT WEBVIEW" below to verify.';
-            });
+          setState(() {
+            _isLoading = false;
+            _isSubmittingJS = false;
+          });
+          // Push WebView so user can see 2FA or Captcha prompt directly
+          if (mounted) {
+            context.push('/login/webview');
           }
         }
       });
@@ -290,12 +299,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       body: Stack(
         children: [
           // Offscreen Invisible WebView Instance for JS Injection & Bot Check Bypass
-          Offstage(
-            offstage: true,
-            child: SizedBox(
-              width: 1,
-              height: 1,
-              child: WebViewWidget(controller: _webViewController),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: true,
+              child: Opacity(
+                opacity: 0.005,
+                child: WebViewWidget(controller: _webViewController),
+              ),
             ),
           ),
 
