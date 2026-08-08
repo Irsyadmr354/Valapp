@@ -498,6 +498,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _refresh() async {
+    // Wait briefly (1.2s) to allow Wi-Fi/cellular connection to stabilize after reconnecting
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+
     final cache = CacheStorage.instance;
     await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
     await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
@@ -506,9 +509,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.invalidate(_walletProvider);
     ref.invalidate(displayNameProvider);
     ref.invalidate(accountXpProvider);
+
     try {
       await ref.read(_storefrontProvider.future);
-    } catch (_) {}
+    } catch (_) {
+      // Retry once more after 1s if first attempt hit network warmup lag
+      await Future<void>.delayed(const Duration(milliseconds: 1000));
+      ref.invalidate(_storefrontProvider);
+      try {
+        await ref.read(_storefrontProvider.future);
+      } catch (_) {}
+    }
   }
 
   void _toggleWishlist(SkinOffer offer) {
