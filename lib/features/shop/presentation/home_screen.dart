@@ -65,6 +65,11 @@ final _homePlayerCardProvider =
   return info.smallArt;
 });
 
+final _skinMetaMapProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  return ref.watch(valorantAssetsProvider).getSkinLevelsMap();
+});
+
 final _homeMatchesProvider =
     FutureProvider.autoDispose<MatchHistoryResult?>((ref) async {
   // Delegate to shared enriched history provider — no duplication.
@@ -128,21 +133,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
 
 
-  void _checkAndTriggerWishlistAlerts(Storefront? storefront) {
+  Future<void> _checkAndTriggerWishlistAlerts(Storefront? storefront) async {
     if (storefront == null) return;
     final wishlist = ref.read(wishlistProvider).toSet();
     if (wishlist.isEmpty) return;
+
+    final skinMap =
+        await ref.read(valorantAssetsProvider).getSkinLevelsMap().catchError((_) => <String, dynamic>{});
 
     final shopIdentity = storefront.dailyOffers
         .map((offer) => offer.skinLevelUuid)
         .toList()
       ..sort();
     for (final offer in storefront.dailyOffers) {
-      if (wishlist.contains(offer.skinLevelUuid)) {
+      final meta = skinMap[offer.skinLevelUuid] as Map<String, dynamic>?;
+      final skinUuid = meta?['skinUuid'] as String?;
+      final isMatch = wishlist.contains(offer.skinLevelUuid) ||
+          (skinUuid != null && wishlist.contains(skinUuid));
+
+      if (isMatch) {
         NotificationService.instance.showWishlistAlertOnce(
           shopIdentity: shopIdentity.join(','),
           skinId: offer.skinLevelUuid,
-          skinName: offer.displayName ?? 'Wishlist Skin',
+          skinName: offer.displayName ?? meta?['skinName'] as String? ?? 'Wishlist Skin',
           price: offer.price,
         );
       }
@@ -462,11 +475,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
 
         // Wishlist match banner — purely declarative, no side-effects.
-        // Notifications are fired via ref.listen in didChangeDependencies.
         Builder(builder: (context) {
-          final matches = storefront.dailyOffers
-              .where((o) => wishlist.contains(o.skinLevelUuid))
-              .toList();
+          final skinMap = ref.watch(_skinMetaMapProvider).asData?.value;
+          final matches = storefront.dailyOffers.where((o) {
+            if (wishlist.contains(o.skinLevelUuid)) return true;
+            final meta = skinMap?[o.skinLevelUuid] as Map<String, dynamic>?;
+            final skinUuid = meta?['skinUuid'] as String?;
+            return skinUuid != null && wishlist.contains(skinUuid);
+          }).toList();
           if (matches.isEmpty) return const SizedBox();
           return _WishlistMatchBanner(matchedSkins: matches);
         }),
@@ -485,6 +501,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         _DailyShopCarousel(
           offers: storefront.dailyOffers,
           wishlist: wishlist,
+          skinMap: ref.watch(_skinMetaMapProvider).asData?.value,
           onWishlistToggle: _toggleWishlist,
         ),
         const SizedBox(height: 24),
@@ -879,11 +896,13 @@ class _DailyShopCarousel extends StatefulWidget {
   const _DailyShopCarousel({
     required this.offers,
     required this.wishlist,
+    this.skinMap,
     required this.onWishlistToggle,
   });
 
   final List<SkinOffer> offers;
   final Set<String> wishlist;
+  final Map<String, dynamic>? skinMap;
   final ValueChanged<SkinOffer> onWishlistToggle;
 
   @override
@@ -920,7 +939,11 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
             onPageChanged: (idx) => setState(() => _currentPage = idx),
             itemBuilder: (context, i) {
               final offer = widget.offers[i];
-              final inWishlist = widget.wishlist.contains(offer.skinLevelUuid);
+              final meta = widget.skinMap?[offer.skinLevelUuid] as Map<String, dynamic>?;
+              final skinUuid = meta?['skinUuid'] as String?;
+              final inWishlist = widget.wishlist.contains(offer.skinLevelUuid) ||
+                  (skinUuid != null && widget.wishlist.contains(skinUuid));
+
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: GestureDetector(

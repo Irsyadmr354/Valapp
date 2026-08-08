@@ -725,9 +725,17 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     tierColor: tierColor,
                                     tierUuid: tierUuid,
                                     isWishlisted: isWishlisted,
-                                    onToggleWishlist: () => ref
-                                        .read(wishlistProvider.notifier)
-                                        .toggle(levelUuid),
+                                    onToggleWishlist: () {
+                                      ref
+                                          .read(wishlistProvider.notifier)
+                                          .toggle(levelUuid);
+                                      if (skinUuid.isNotEmpty &&
+                                          skinUuid != levelUuid) {
+                                        ref
+                                            .read(wishlistProvider.notifier)
+                                            .toggle(skinUuid);
+                                      }
+                                    },
                                     onTap: () {
                                       final offer = SkinOffer(
                                         offerId: levelUuid,
