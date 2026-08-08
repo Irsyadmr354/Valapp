@@ -209,6 +209,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   child: ValorantErrorDisplay(
                     error: e,
                     onRetry: _refresh,
+                    onReauth: () async {
+                      await ref
+                          .read(credentialsLocalSourceProvider)
+                          .clearActiveSessionOnly();
+                      ref.invalidate(currentCredentialsProvider);
+                    },
                     title: 'Gagal Memuat Toko Harian',
                   ),
                 ),
@@ -500,6 +506,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.invalidate(_walletProvider);
     ref.invalidate(displayNameProvider);
     ref.invalidate(accountXpProvider);
+    try {
+      await ref.read(_storefrontProvider.future);
+    } catch (_) {}
   }
 
   void _toggleWishlist(SkinOffer offer) {

@@ -15,7 +15,7 @@ class ValorantErrorDisplay extends StatefulWidget {
   });
 
   final Object error;
-  final VoidCallback onRetry;
+  final Future<void> Function() onRetry;
   final VoidCallback? onReauth;
   final String? title;
   final bool compact;
@@ -31,8 +31,8 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
     if (_isRetrying) return;
     setState(() => _isRetrying = true);
     try {
-      widget.onRetry();
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await widget.onRetry();
+      await Future<void>.delayed(const Duration(milliseconds: 600));
     } finally {
       if (mounted) {
         setState(() => _isRetrying = false);
@@ -280,14 +280,19 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
     final str = error.toString();
 
     if (str.contains('401') ||
+        str.contains('403') ||
+        str.contains('400') ||
+        str.contains('bad response') ||
         str.contains('AuthException') ||
         str.contains('TokenExpired') ||
-        str.contains('InvalidSession')) {
+        str.contains('InvalidSession') ||
+        str.contains('unauthorized') ||
+        str.contains('forbidden')) {
       return _ErrorDetail(
         code: 'ERR // AUTH_SESSION_EXPIRED',
         headline: 'Sesi Autentikasi Riot Berakhir',
         explanation:
-            'Sesi token Riot Anda telah kedaluwarsa. Aplikasi akan mencoba memperbarui token secara otomatis saat Anda menekan tombol di bawah.',
+            'Sesi token Riot Anda telah kedaluwarsa atau terputus. Tekan SYSTEM RECONNECT untuk mencoba menghubungkan ulang, atau RE-LOGIN untuk masuk kembali.',
         isAuthRelated: true,
         rawMessage: str,
       );
