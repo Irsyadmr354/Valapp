@@ -101,7 +101,10 @@ class LoadoutScreen extends ConsumerWidget {
             child: ValorantErrorDisplay(
               error: e,
               title: 'Gagal Memuat Loadout Senjata',
-              onRetry: () => ref.invalidate(_loadoutProvider),
+              onRetry: () {
+                ref.invalidate(currentCredentialsProvider);
+                ref.invalidate(_loadoutProvider);
+              },
             ),
           ),
         ),

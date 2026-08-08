@@ -38,14 +38,32 @@ final _storefrontProvider =
   // rotation (elapsed time >= remainingSeconds), so cached is only non-null
   // when the cached data is still valid for the current shop window.
   final cached = await repo.loadCachedStorefront(creds.puuid);
-  try {
-    return await repo.fetchStorefront(creds.shard, creds.puuid);
-  } catch (e) {
-    // Only fall back to cache if it is still valid (not expired).
-    // loadCachedStorefront() already filters out expired caches.
-    if (cached != null) return cached;
-    rethrow;
+
+  // Retry with exponential backoff — handles cold-start failures when
+  // auth tokens expired overnight (WidgetsBindingObserver only fires on
+  // background→foreground transitions, not on cold app launch).
+  const maxRetries = 3;
+  const baseDelay = Duration(seconds: 2);
+  Object? lastError;
+
+  for (var attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await repo.fetchStorefront(creds.shard, creds.puuid);
+    } catch (e) {
+      lastError = e;
+      if (attempt < maxRetries) {
+        final delay = baseDelay * (1 << attempt); // 2s, 4s, 8s
+        debugPrint(
+            '[StorefrontProvider] Fetch failed (attempt ${attempt + 1}/$maxRetries), '
+            'retrying in ${delay.inSeconds}s: $e');
+        await Future<void>.delayed(delay);
+      }
+    }
   }
+
+  // All retries exhausted — fall back to valid cache or surface error.
+  if (cached != null) return cached;
+  throw lastError!;
 });
 
 final _walletProvider = FutureProvider.autoDispose<Wallet?>((ref) async {
@@ -121,10 +139,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      final storefrontState = ref.read(_storefrontProvider);
-      if (storefrontState.hasError || storefrontState.asData?.value == null) {
-        _refresh();
-      }
+      // Always invalidate on resume — the shop may have rotated while the
+      // app was in the background (daily reset at 07:00 WIB / 00:00 UTC).
+      // The provider's internal retry + cache-expiry logic ensures we only
+      // fetch when actually needed.
+      _refresh();
     }
   }
 
