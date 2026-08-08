@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import 'valorant_icons.dart';
@@ -15,7 +16,7 @@ class ValorantErrorDisplay extends StatefulWidget {
   });
 
   final Object error;
-  final Future<void> Function() onRetry;
+  final FutureOr<void> Function() onRetry;
   final VoidCallback? onReauth;
   final String? title;
   final bool compact;
