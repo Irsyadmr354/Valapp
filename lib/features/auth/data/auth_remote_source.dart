@@ -93,6 +93,7 @@ class AuthRemoteSource {
     }
 
     final type = data['type'] as String?;
+    final error = data['error'] as String?;
 
     if (type == 'response') {
       final uri = data['response']?['parameters']?['uri'] as String?;
@@ -120,21 +121,25 @@ class AuthRemoteSource {
       );
     }
 
-    if (type == 'error') {
-      final error = data['error'] as String? ?? '';
-      if (error == 'auth_failure') {
+    if (error != null && error.isNotEmpty || type == 'error' || type == 'auth') {
+      final errKey = error ?? data['error_description'] as String? ?? '';
+      if (errKey == 'auth_failure' || errKey.contains('auth_failure')) {
         return const RsoAuthError('Invalid username or password. Please check your credentials.');
-      } else if (error == 'rate_limited') {
+      } else if (errKey == 'rate_limited') {
         return const RsoAuthError('Too many login attempts. Please wait a few minutes and try again.');
-      } else if (error == 'captcha_needed' || error == 'cloudflare_challenge') {
-        return const RsoAuthError('Captcha security check required.', isCaptcha: true);
-      } else if (error == 'multifactor_attempt_failed') {
+      } else if (errKey == 'captcha_needed' || errKey == 'cloudflare_challenge' || errKey.contains('captcha')) {
+        return const RsoAuthError('Security check / Captcha required. Please use WebView login below.', isCaptcha: true);
+      } else if (errKey == 'multifactor_attempt_failed') {
         return const RsoAuthError('Invalid 2FA verification code. Please try again.');
       }
-      return RsoAuthError('Riot login error: $error');
+      return RsoAuthError(
+        errKey.isNotEmpty
+            ? 'Authentication failed ($errKey). Please check your credentials.'
+            : 'Invalid username or password. Please check your credentials.',
+      );
     }
 
-    return RsoAuthError('Unexpected response from Riot servers ($type).');
+    return const RsoAuthError('Invalid username or password. Please check your credentials.');
   }
 
   // ── Step 4: Entitlement Token ─────────────────────────────────────────────

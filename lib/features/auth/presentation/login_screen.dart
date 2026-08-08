@@ -559,46 +559,23 @@ class _ValAppLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: AppColors.redSubtle,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.red, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.red.withAlpha(80),
-                blurRadius: 24,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Center(
-            child: CustomPaint(
-              size: const Size(32, 32),
-              painter: _VLogoPainter(),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
         const Text(
           'VALAPP',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 26,
+            fontSize: 28,
             fontWeight: FontWeight.w900,
             letterSpacing: 8,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(width: 24, height: 1.5, color: AppColors.red),
             const SizedBox(width: 8),
             const Text(
-              'SHOP MONITOR',
+              'ACCOUNT MONITORING',
               style: TextStyle(
                 color: AppColors.red,
                 fontSize: 10,
@@ -613,29 +590,6 @@ class _ValAppLogo extends StatelessWidget {
       ],
     );
   }
-}
-
-class _VLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.red
-      ..style = PaintingStyle.fill;
-
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width * 0.38, 0)
-      ..lineTo(size.width * 0.5, size.height * 0.55)
-      ..lineTo(size.width * 0.62, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width * 0.5, size.height)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _SecurityRow extends StatelessWidget {
