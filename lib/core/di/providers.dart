@@ -131,29 +131,15 @@ final apiDioProvider = FutureProvider<Dio>((ref) async {
       await authRepo!.reauth();
     },
     onAuthFailed: () async {
-      // A permanent reauth failure for the current account.
-      // Strategy: remove the failed account from the saved list, then
-      // auto-switch to the next account if one exists. removeAccount()
-      // handles the switch internally (calls _saveInternal), so we just
-      // invalidate the credentials provider afterward to trigger a re-read.
+      // Reauth failed for the active session (e.g. cookie expired or 401).
+      // We clear the active session tokens so the app falls back to the
+      // unauthenticated/expired state, but we PRESERVE all saved account profiles
+      // in Multi-Account Manager so the user can reconnect or switch accounts.
       final local = ref.read(credentialsLocalSourceProvider);
-      final failedPuuid = (await local.load())?.puuid;
-
       await ref.read(cacheStorageProvider).clearUserCache();
+      await local.clearActiveSessionOnly();
 
-      if (failedPuuid != null) {
-        // removeAccount removes the entry from the saved list AND
-        // automatically switches to the next available account (or calls
-        // clear() if none remain). No separate save() call is needed.
-        await local.removeAccount(failedPuuid);
-      } else {
-        // No puuid readable — wipe active session tokens so the app
-        // falls back to the login screen.
-        await local.clearActiveSessionOnly();
-      }
-
-      // Trigger re-read of credentials — routes to /login if no account
-      // remains, or reflects the newly active account if one was switched in.
+      // Trigger re-read of credentials — routes to /login cleanly if no active token
       ref.invalidate(currentCredentialsProvider);
     },
   );

@@ -191,33 +191,35 @@ class ValorantInterceptor extends Interceptor {
   /// 2. **Body keyword heuristic** — for other endpoints, check the response
   ///    body for auth-related keywords.
   bool _isLikelyAuthError(DioException err) {
-    // Strategy 1: Riot game API endpoints — 400 = auth error.
+    final data = err.response?.data;
+    if (data != null) {
+      final body =
+          data is String ? data.toLowerCase() : jsonEncode(data).toLowerCase();
+
+      const authHints = [
+        'entitlement',
+        'unauthorized',
+        'bad_claims',
+        'bad claims',
+        'invalid_token',
+        'invalid token',
+        'forbidden',
+        'authentication',
+        'token_expired',
+        'token expired',
+        'session_expired',
+      ];
+
+      if (authHints.any(body.contains)) return true;
+    }
+
+    // Strategy 2: Riot PD endpoints returning empty body on 400 are usually stale tokens.
     final url = err.requestOptions.uri;
-    if (_isRiotGameApiEndpoint(url)) {
+    if (_isRiotGameApiEndpoint(url) && (data == null || (data is Map && data.isEmpty))) {
       return true;
     }
 
-    // Strategy 2: Body keyword scan for non-game-API endpoints.
-    final data = err.response?.data;
-    if (data == null) {
-      return false;
-    }
-
-    final body =
-        data is String ? data.toLowerCase() : jsonEncode(data).toLowerCase();
-
-    const authHints = [
-      'entitlement',
-      'unauthorized',
-      'bad_claims',
-      'bad claims',
-      'invalid_token',
-      'invalid token',
-      'forbidden',
-      'authentication',
-    ];
-
-    return authHints.any(body.contains);
+    return false;
   }
 
   /// Returns true for Riot PD (player data) endpoints that always require

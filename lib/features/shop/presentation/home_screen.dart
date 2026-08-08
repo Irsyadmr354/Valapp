@@ -208,13 +208,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: Center(
                   child: ValorantErrorDisplay(
                     error: e,
-                    onRetry: _refresh,
-                    onReauth: () async {
-                      await ref
-                          .read(credentialsLocalSourceProvider)
-                          .clearActiveSessionOnly();
-                      ref.invalidate(currentCredentialsProvider);
+                    onRetry: () async {
+                      try {
+                        final authRepo =
+                            await ref.read(authRepositoryProvider.future);
+                        await authRepo.reauth();
+                      } catch (_) {}
+                      await _refresh();
                     },
+                    onReauth: () => context.push('/login/webview'),
                     title: 'Gagal Memuat Toko Harian',
                   ),
                 ),
