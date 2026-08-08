@@ -70,10 +70,9 @@ class SilentWebviewReauth {
               // Ignore errors for the redirect URI — it's not a real page
               final uri = Uri.tryParse(url);
               if (uri != null && OAuthFlow.isRedirectUri(uri)) return;
-              // Only fail on main frame errors, not sub-resource (CSS/JS) errors
-              if (err.isForMainFrame == true && !completer.isCompleted) {
+              if (!completer.isCompleted) {
                 debugPrint(
-                    '[SilentReauth] WebView main frame error: ${err.description} (url: $url)');
+                    '[SilentReauth] WebView error: ${err.description} (url: $url)');
                 completer.completeError(
                   Exception('WebView error: ${err.description}'),
                 );
@@ -86,9 +85,9 @@ class SilentWebviewReauth {
       debugPrint('[SilentReauth] Started silent WebView reauth...');
 
       return await completer.future.timeout(
-        const Duration(seconds: 20),
+        const Duration(seconds: 5),
         onTimeout: () {
-          debugPrint('[SilentReauth] Timed out after 20 seconds');
+          debugPrint('[SilentReauth] Timed out after 5 seconds');
           throw Exception('Silent WebView reauth timed out');
         },
       );

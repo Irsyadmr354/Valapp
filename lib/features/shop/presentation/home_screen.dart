@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +29,31 @@ import '../../auth/presentation/account_switcher_modal.dart';
 import '../../match/domain/models/match_history.dart';
 import '../../profile/domain/models/account_xp.dart';
 import '../../rank/domain/models/player_mmr.dart';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+bool _isOfflineOrConnectionError(Object e) {
+  if (e is SocketException) return true;
+  if (e is DioException) {
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return true;
+    }
+    if (e.error is SocketException) return true;
+  }
+  final str = e.toString().toLowerCase();
+  return str.contains('socketexception') ||
+      str.contains('failed host lookup') ||
+      str.contains('network is unreachable') ||
+      str.contains('connection refused') ||
+      str.contains('connection error') ||
+      str.contains('connection_error') ||
+      str.contains('timed out') ||
+      str.contains('webview error');
+}
+
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final _storefrontProvider =
@@ -51,6 +78,11 @@ final _storefrontProvider =
       return await repo.fetchStorefront(creds.shard, creds.puuid);
     } catch (e) {
       lastError = e;
+      // Fast-fail immediately on offline / connection errors (e.g. Airplane Mode).
+      // Do NOT retry 3 times in a loop, so ValorantErrorDisplay is shown INSTANTLY.
+      if (_isOfflineOrConnectionError(e)) {
+        break;
+      }
       if (attempt < maxRetries) {
         final delay = baseDelay * (1 << attempt); // 2s, 4s, 8s
         debugPrint(
