@@ -115,51 +115,16 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
         expiresIn: expiresIn,
       );
 
-      // Attempt to resolve real Riot ID display name and Player Card Avatar for multi-account profile
-      try {
-        final source = await ref.read(accountRemoteSourceProvider.future);
-        final loadoutSource =
-            await ref.read(loadoutRemoteSourceProvider.future);
-        final assets = ref.read(valorantAssetsProvider);
-        final localSource = ref.read(credentialsLocalSourceProvider);
+      final accountSource = await ref.read(accountRemoteSourceProvider.future);
+      final loadoutSource = await ref.read(loadoutRemoteSourceProvider.future);
+      final assets = ref.read(valorantAssetsProvider);
 
-        final realName = await source.fetchDisplayName(
-          creds.shard,
-          creds.puuid,
-          accessToken: creds.accessToken,
-        );
-        String? avatarUrl;
-        String? cardId;
-
-        try {
-          final rawLoadout =
-              await loadoutSource.fetchLoadoutRaw(creds.shard, creds.puuid);
-          final loadoutRoot = rawLoadout.containsKey('Loadout')
-              ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
-              : rawLoadout;
-          final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
-              rawLoadout['Identity'] as Map<String, dynamic>? ??
-              {};
-          cardId = identity['PlayerCardID'] as String? ??
-              loadoutRoot['PlayerCardID'] as String? ??
-              rawLoadout['PlayerCardID'] as String?;
-          if (cardId != null && cardId.isNotEmpty) {
-            final cardsMap = await assets.getPlayerCardsMap();
-            final cardInfo = (cardsMap[cardId] ??
-                cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
-            avatarUrl = cardInfo?['smallArt'] as String? ??
-                cardInfo?['displayIcon'] as String?;
-          }
-        } catch (_) {}
-
-        await localSource.save(
-          creds,
-          displayName:
-              (realName != null && realName.isNotEmpty) ? realName : null,
-          playerCardId: cardId,
-          avatarUrl: avatarUrl,
-        );
-      } catch (_) {}
+      await repo.resolveAndSaveMetadata(
+        creds,
+        accountSource: accountSource,
+        loadoutSource: loadoutSource,
+        assets: assets,
+      );
 
       // Invalidate credentials & session providers so router and UI pick up the new session
       ref.read(sessionActionsProvider).invalidateSession();

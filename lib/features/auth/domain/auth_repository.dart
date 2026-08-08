@@ -6,6 +6,9 @@ import '../data/silent_webview_reauth.dart';
 import '../data/oauth_flow.dart';
 import '../domain/models/credentials.dart';
 import '../../../core/exceptions/auth_exception.dart';
+import '../../../shared/utils/valorant_assets.dart';
+import '../../loadout/data/loadout_remote_source.dart';
+import '../../profile/data/account_remote_source.dart';
 
 /// Orchestrates the full RSO auth flow and token lifecycle.
 class AuthRepository {
@@ -66,6 +69,56 @@ class AuthRepository {
 
     await _local.save(credentials);
     return credentials;
+  }
+
+  /// Resolves the real Riot ID display name and Player Card avatar,
+  /// then persists the updated profile metadata.
+  Future<void> resolveAndSaveMetadata(
+    Credentials creds, {
+    required AccountRemoteSource accountSource,
+    required LoadoutRemoteSource loadoutSource,
+    required ValorantAssets assets,
+  }) async {
+    String? realName;
+    String? avatarUrl;
+    String? cardId;
+
+    try {
+      realName = await accountSource.fetchDisplayName(
+        creds.shard,
+        creds.puuid,
+        accessToken: creds.accessToken,
+      );
+    } catch (_) {}
+
+    try {
+      final rawLoadout =
+          await loadoutSource.fetchLoadoutRaw(creds.shard, creds.puuid);
+      final loadoutRoot = rawLoadout.containsKey('Loadout')
+          ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
+          : rawLoadout;
+      final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
+          rawLoadout['Identity'] as Map<String, dynamic>? ??
+          {};
+      cardId = identity['PlayerCardID'] as String? ??
+          loadoutRoot['PlayerCardID'] as String? ??
+          rawLoadout['PlayerCardID'] as String?;
+      if (cardId != null && cardId.isNotEmpty) {
+        final cardsMap = await assets.getPlayerCardsMap();
+        final cardInfo = (cardsMap[cardId] ??
+            cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
+        avatarUrl = cardInfo?['smallArt'] as String? ??
+            cardInfo?['displayIcon'] as String?;
+      }
+    } catch (_) {}
+
+    await _local.save(
+      creds,
+      displayName:
+          (realName != null && realName.isNotEmpty) ? realName : null,
+      playerCardId: cardId,
+      avatarUrl: avatarUrl,
+    );
   }
 
   // ── Silent token refresh ───────────────────────────────────────────────────

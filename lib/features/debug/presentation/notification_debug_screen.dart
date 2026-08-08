@@ -93,21 +93,27 @@ class _NotificationDebugScreenState
 
     try {
       await NotificationService.instance.requestPermissions();
+      if (!mounted) return;
       final wishlist = ref.read(wishlistProvider).toSet();
 
       if (wishlist.isEmpty) {
-        setState(() => _lastResult = 'Wishlist kosong — tambahkan skin dulu.');
+        if (mounted) {
+          setState(() => _lastResult = 'Wishlist kosong — tambahkan skin dulu.');
+        }
         return;
       }
       if (_mockShopIds.isEmpty) {
-        setState(
-          () => _lastResult =
-              'Mock shop kosong — tap skin untuk menambahkan ke shop simulasi.',
-        );
+        if (mounted) {
+          setState(
+            () => _lastResult =
+                'Mock shop kosong — tap skin untuk menambahkan ke shop simulasi.',
+          );
+        }
         return;
       }
 
       final skins = await ref.read(_debugSkinsProvider.future);
+      if (!mounted) return;
       final nameByLevelId = <String, String>{
         for (final skin in skins)
           skin['skinLevelUuid'] as String: skin['displayName'] as String,
@@ -119,10 +125,12 @@ class _NotificationDebugScreenState
         ..sort();
 
       if (matched.isEmpty) {
-        setState(
-          () => _lastResult =
-              'Tidak ada match — skin di mock shop tidak ada di wishlist.',
-        );
+        if (mounted) {
+          setState(
+            () => _lastResult =
+                'Tidak ada match — skin di mock shop tidak ada di wishlist.',
+          );
+        }
         return;
       }
 
@@ -147,12 +155,14 @@ class _NotificationDebugScreenState
         wishlistMatchCount: matched.length,
       );
 
-      setState(() {
-        _lastResult =
-            'Triggered! $notifiedCount wishlist alert(s), ${matched.length} match(es).';
-      });
+      if (mounted) {
+        setState(() {
+          _lastResult =
+              'Triggered! $notifiedCount wishlist alert(s), ${matched.length} match(es).';
+        });
+      }
     } catch (e) {
-      setState(() => _lastResult = 'Error: $e');
+      if (mounted) setState(() => _lastResult = 'Error: $e');
     } finally {
       if (mounted) setState(() => _isTriggering = false);
     }
@@ -163,13 +173,15 @@ class _NotificationDebugScreenState
     try {
       final granted =
           await NotificationService.instance.showTestNotification();
-      setState(() {
-        _lastResult = granted == true
-            ? 'Test notification sent! Check your top bar / lock screen.'
-            : 'Permission status: false. Enable notifications in device settings.';
-      });
+      if (mounted) {
+        setState(() {
+          _lastResult = granted == true
+              ? 'Test notification sent! Check your top bar / lock screen.'
+              : 'Permission status: false. Enable notifications in device settings.';
+        });
+      }
     } catch (e) {
-      setState(() => _lastResult = 'Test Error: $e');
+      if (mounted) setState(() => _lastResult = 'Test Error: $e');
     }
   }
 

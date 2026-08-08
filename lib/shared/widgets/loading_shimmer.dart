@@ -170,9 +170,33 @@ class HomeSkeleton extends StatelessWidget {
         ),
       );
 
-  // Kept for any call-sites that still use HomeSkeleton() directly.
   @override
-  Widget build(BuildContext context) => HomeSkeleton.asSliver();
+  Widget build(BuildContext context) => const SingleChildScrollView(
+        physics: NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 80),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ShimmerBox(height: 36, radius: 10),
+            SizedBox(height: 20),
+            _ShimmerLine(width: 140, height: 12),
+            SizedBox(height: 10),
+            _ShimmerBox(height: 190, radius: 16),
+            SizedBox(height: 20),
+            _ShimmerLine(width: 100, height: 12),
+            SizedBox(height: 10),
+            SkinCardShimmer(),
+            SizedBox(height: 10),
+            _HomeSkeletonDotsRow(),
+            SizedBox(height: 20),
+            _HomeSkeletonQuickCards(),
+            SizedBox(height: 20),
+            _ShimmerLine(width: 120, height: 12),
+            SizedBox(height: 10),
+            _HomeSkeletonNewsRow(),
+          ],
+        ),
+      );
 }
 
 class _HomeSkeletonDotsRow extends StatelessWidget {

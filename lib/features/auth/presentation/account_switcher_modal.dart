@@ -78,61 +78,19 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
       final loadoutSource = await ref.read(loadoutRemoteSourceProvider.future);
       final assets = ref.read(valorantAssetsProvider);
       final localSource = ref.read(credentialsLocalSourceProvider);
+      final repo = await ref.read(authRepositoryProvider.future);
       final activeCredentials = await localSource.load();
-      final cardsMap = await assets.getPlayerCardsMap();
 
       for (final acc in list) {
-        // Private account metadata must be fetched with that account's token.
         if (acc.puuid != activeCredentials?.puuid) continue;
-        String? newName = acc.displayName;
-        String? newAvatar = acc.avatarUrl;
-        String? newCardId = acc.playerCardId;
-        bool needsUpdate = false;
-
-        if (DisplayNameUtil.isPlaceholder(newName)) {
-          final realName = await remoteSource.fetchDisplayName(
-            acc.shard,
-            acc.puuid,
-            accessToken: acc.credentials.accessToken,
-          );
-          if (realName != null && realName.isNotEmpty) {
-            newName = realName;
-            needsUpdate = true;
-          }
-        }
-
-        if (newAvatar == null || newAvatar.isEmpty) {
-          try {
-            final rawLoadout =
-                await loadoutSource.fetchLoadoutRaw(acc.shard, acc.puuid);
-            final loadoutRoot = rawLoadout.containsKey('Loadout')
-                ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
-                : rawLoadout;
-            final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
-                rawLoadout['Identity'] as Map<String, dynamic>? ??
-                {};
-            final cardId = identity['PlayerCardID'] as String? ??
-                loadoutRoot['PlayerCardID'] as String? ??
-                rawLoadout['PlayerCardID'] as String?;
-            if (cardId != null && cardId.isNotEmpty) {
-              newCardId = cardId;
-              final cardInfo = (cardsMap[cardId] ??
-                  cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
-              newAvatar = cardInfo?['smallArt'] as String? ??
-                  cardInfo?['displayIcon'] as String?;
-              if (newAvatar != null && newAvatar.isNotEmpty) {
-                needsUpdate = true;
-              }
-            }
-          } catch (_) {}
-        }
-
-        if (needsUpdate) {
-          await localSource.updateAccountMetadata(
-            acc.puuid,
-            displayName: newName,
-            playerCardId: newCardId,
-            avatarUrl: newAvatar,
+        if (DisplayNameUtil.isPlaceholder(acc.displayName) ||
+            acc.avatarUrl == null ||
+            acc.avatarUrl!.isEmpty) {
+          await repo.resolveAndSaveMetadata(
+            acc.credentials,
+            accountSource: remoteSource,
+            loadoutSource: loadoutSource,
+            assets: assets,
           );
         }
       }
