@@ -126,28 +126,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final js = '''
     (function() {
-      function setReactInputValue(input, val) {
-        if (!input) return false;
-        var lastValue = input.value;
-        input.value = val;
-        var event = new Event('input', { bubbles: true });
-        var tracker = input._valueTracker;
-        if (tracker) {
-          tracker.setValue(lastValue);
-        }
-        input.dispatchEvent(event);
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        input.dispatchEvent(new Event('blur', { bubbles: true }));
-        return true;
-      }
-
-      function trySubmit() {
+      var attempts = 0;
+      var interval = setInterval(function() {
+        attempts++;
         var userInput = document.querySelector("input[name='username']") || document.querySelector("input[type='text']");
         var passInput = document.querySelector("input[name='password']") || document.querySelector("input[type='password']");
+        var btn = document.querySelector("button[type='submit']") || document.querySelector("button[data-testid='btn-signin']") || document.querySelector(".mobile-button") || document.querySelector("button");
 
-        if (userInput && passInput) {
-          setReactInputValue(userInput, "$usernameEscaped");
-          setReactInputValue(passInput, "$passwordEscaped");
+        if (userInput && passInput && btn) {
+          clearInterval(interval);
+
+          function setReactValue(input, val) {
+            if (!input) return;
+            var lastValue = input.value;
+            input.value = val;
+            var tracker = input._valueTracker;
+            if (tracker) {
+              tracker.setValue(lastValue);
+            }
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.dispatchEvent(new Event('blur', { bubbles: true }));
+          }
+
+          setReactValue(userInput, "$usernameEscaped");
+          setReactValue(passInput, "$passwordEscaped");
 
           var rem = document.querySelector("input[name='remember'], input[type='checkbox']");
           if (rem && ${_rememberMe ? 'true' : 'false'}) {
@@ -157,23 +160,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           }
 
           setTimeout(function() {
-            var btn = document.querySelector("button[type='submit']") || document.querySelector("button[data-testid='btn-signin']") || document.querySelector(".mobile-button") || document.querySelector("button");
-            if (btn) {
-              btn.click();
-            }
+            btn.click();
           }, 350);
+        } else if (attempts > 30) {
+          clearInterval(interval);
         }
-      }
-
-      trySubmit();
+      }, 300);
     })();
     ''';
 
     try {
       await _webViewController.runJavaScript(js);
 
-      // Safety timer: If login doesn't redirect within 6 seconds, fall back cleanly to WebView
-      Future.delayed(const Duration(seconds: 6), () async {
+      // Safety timer: Check after 8 seconds if redirect occurred
+      Future.delayed(const Duration(seconds: 8), () async {
         if (!mounted || !_isLoading) return;
         final currentUrl = await _webViewController.currentUrl();
         if (currentUrl != null &&
@@ -181,11 +181,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           setState(() {
             _isLoading = false;
             _isSubmittingJS = false;
+            _errorMessage =
+                'Login taking longer than expected or requires 2FA / Captcha verification. Please check your credentials or tap "LOGIN WITH RIOT WEBVIEW" below.';
           });
-          // Push WebView so user can see 2FA or Captcha prompt directly
-          if (mounted) {
-            context.push('/login/webview');
-          }
         }
       });
     } catch (e) {
