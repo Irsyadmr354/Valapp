@@ -132,28 +132,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       var attempts = 0;
       var interval = setInterval(function() {
         attempts++;
-        var userInput = document.querySelector("input[name='username']") || document.querySelector("input[type='text']");
-        var passInput = document.querySelector("input[name='password']") || document.querySelector("input[type='password']");
-        var btn = document.querySelector("button[type='submit']") || document.querySelector("button[data-testid='btn-signin']") || document.querySelector(".mobile-button") || document.querySelector("button");
+        var userInput = document.querySelector("input[name='username']") || 
+                        document.querySelector("input[type='text']") || 
+                        document.querySelector("#username");
+        var passInput = document.querySelector("input[name='password']") || 
+                        document.querySelector("input[type='password']") || 
+                        document.querySelector("#password");
+        var btn = document.querySelector("button[type='submit']") || 
+                  document.querySelector("button[data-testid='btn-signin']") || 
+                  document.querySelector(".mobile-button") || 
+                  document.querySelector("button.btn-signin") || 
+                  document.querySelector("button");
 
         if (userInput && passInput && btn) {
           clearInterval(interval);
 
-          function setReactValue(input, val) {
-            if (!input) return;
-            var lastValue = input.value;
-            input.value = val;
-            var tracker = input._valueTracker;
-            if (tracker) {
-              tracker.setValue(lastValue);
+          function setReact18Value(element, val) {
+            if (!element) return;
+            var valueSetter;
+            try {
+              var proto = Object.getPrototypeOf(element);
+              valueSetter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+            } catch(e) {}
+
+            if (valueSetter) {
+              valueSetter.call(element, val);
+            } else {
+              element.value = val;
             }
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            input.dispatchEvent(new Event('blur', { bubbles: true }));
+            var tracker = element._valueTracker;
+            if (tracker) {
+              tracker.setValue(val);
+            }
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+            element.dispatchEvent(new Event('blur', { bubbles: true }));
           }
 
-          setReactValue(userInput, "$usernameEscaped");
-          setReactValue(passInput, "$passwordEscaped");
+          setReact18Value(userInput, "$usernameEscaped");
+          setReact18Value(passInput, "$passwordEscaped");
 
           var rem = document.querySelector("input[name='remember'], input[type='checkbox']");
           if (rem && ${_rememberMe ? 'true' : 'false'}) {
@@ -163,21 +180,81 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           }
 
           setTimeout(function() {
+            btn.disabled = false;
+            btn.removeAttribute('disabled');
             btn.click();
-          }, 300);
-        } else if (attempts > 40) {
+          }, 350);
+        } else if (attempts > 30) {
           clearInterval(interval);
         }
-      }, 200);
+      }, 150);
+    })();
+    ''';
+
+    const checkDomJs = '''
+    (function() {
+      var errEl = document.querySelector("div[data-testid='error-message']") || 
+                  document.querySelector(".error-message") || 
+                  document.querySelector(".field__error") || 
+                  document.querySelector(".form-error") ||
+                  document.querySelector("[data-testid='input-error']");
+      if (errEl && errEl.innerText && errEl.innerText.trim().length > 0) {
+        return "ERROR:" + errEl.innerText.trim();
+      }
+      var mfaEl = document.querySelector("input[name='multifactorCode']") || 
+                  document.querySelector("input[name='code']") || 
+                  document.querySelector("div[data-testid='mfa-container']") ||
+                  document.querySelector(".mfa-container");
+      if (mfaEl) {
+        return "MFA";
+      }
+      return "OK";
     })();
     ''';
 
     try {
       await _webViewController.runJavaScript(js);
 
-      // Check after 12 seconds if redirect occurred
-      Future.delayed(const Duration(seconds: 12), () async {
+      // Check Riot DOM for errors or MFA after 3, 6, and 9 seconds
+      for (final delaySeconds in [3, 6, 9]) {
+        await Future.delayed(Duration(seconds: delaySeconds == 3 ? 3 : 3));
         if (!mounted || !_isLoading) return;
+
+        final currentUrl = await _webViewController.currentUrl();
+        if (currentUrl != null &&
+            OAuthFlow.isRedirectUri(Uri.parse(currentUrl))) {
+          return; // Redirect handled by navigation delegate
+        }
+
+        try {
+          final result = await _webViewController
+              .runJavaScriptReturningResult(checkDomJs);
+          final resStr = result.toString().replaceAll('"', '');
+
+          if (resStr.startsWith('ERROR:')) {
+            final errorText = resStr.substring(6);
+            setState(() {
+              _isLoading = false;
+              _isSubmittingJS = false;
+              _errorMessage = errorText;
+            });
+            return;
+          } else if (resStr == 'MFA') {
+            setState(() {
+              _isLoading = false;
+              _isSubmittingJS = false;
+              _errorMessage =
+                  '2FA Code required for this account. Redirecting to Riot Webview...';
+            });
+            await Future.delayed(const Duration(milliseconds: 800));
+            if (mounted) context.push('/login/webview');
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Fallback check after 10 seconds total
+      if (mounted && _isLoading) {
         final currentUrl = await _webViewController.currentUrl();
         if (currentUrl != null &&
             !OAuthFlow.isRedirectUri(Uri.parse(currentUrl))) {
@@ -185,10 +262,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _isLoading = false;
             _isSubmittingJS = false;
             _errorMessage =
-                'Authentication taking longer than expected or requires 2FA verification. Please check your credentials or tap "LOGIN WITH RIOT WEBVIEW" below.';
+                'Authentication taking longer than expected. Please check your credentials or tap "LOGIN WITH RIOT WEBVIEW" below.';
           });
         }
-      });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
