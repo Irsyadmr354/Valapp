@@ -54,6 +54,7 @@ import '../../features/profile/domain/models/account_xp.dart';
 
 import '../../features/loadout/data/loadout_remote_source.dart';
 import '../../features/loadout/data/loadout_local_cache.dart';
+import '../../features/loadout/domain/models/player_loadout.dart';
 
 // ── News ──────────────────────────────────────────────────────────────────
 
@@ -478,29 +479,16 @@ final playerCardArtProvider = FutureProvider<PlayerCardArtInfo>((ref) async {
       }
     }
 
-    // v3 wraps fields under 'Loadout' key; v2 exposes them at root.
-    final loadoutRoot = raw.containsKey('Loadout')
-        ? (raw['Loadout'] as Map<String, dynamic>? ?? {})
-        : raw;
-    final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
-        raw['Identity'] as Map<String, dynamic>? ??
-        {};
-    final cardId = identity['PlayerCardID'] as String? ??
-        loadoutRoot['PlayerCardID'] as String? ??
-        raw['PlayerCardID'] as String?;
+    final cardId = PlayerLoadout.extractPlayerCardId(raw);
     if (cardId == null) return const PlayerCardArtInfo();
 
     final cardsMap =
         await ref.watch(valorantAssetsProvider).getPlayerCardsMap();
-    final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
-        as Map<String, dynamic>?;
+    final art = PlayerLoadout.resolveCardArtUrls(cardId, cardsMap);
 
     return PlayerCardArtInfo(
-      smallArt: cardInfo?['smallArt'] as String? ??
-          cardInfo?['displayIcon'] as String?,
-      wideArt: cardInfo?['largeArt'] as String? ??
-          cardInfo?['wideArt'] as String? ??
-          cardInfo?['displayIcon'] as String?,
+      smallArt: art.smallArt,
+      wideArt: art.wideArt,
     );
   } catch (_) {
     return const PlayerCardArtInfo();

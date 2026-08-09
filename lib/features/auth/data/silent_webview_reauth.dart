@@ -85,9 +85,9 @@ class SilentWebviewReauth {
       debugPrint('[SilentReauth] Started silent WebView reauth...');
 
       return await completer.future.timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 8),
         onTimeout: () {
-          debugPrint('[SilentReauth] Timed out after 5 seconds');
+          debugPrint('[SilentReauth] Timed out after 8 seconds');
           throw Exception('Silent WebView reauth timed out');
         },
       );

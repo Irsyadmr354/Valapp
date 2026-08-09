@@ -117,7 +117,6 @@ class CacheStorage {
   static const keyCompetitiveTiers = 'competitive_tiers';
   static const keyCompetitiveTiersFetchedAt = 'competitive_tiers_fetched_at';
   static const keyWishlist = 'wishlist_skin_ids';
-  static const keyLastShopReset = 'last_shop_reset';
   static const keyWishlistNotificationDedupe =
       'wishlist_notification_dedupe_v1';
 
@@ -219,18 +218,22 @@ class CacheStorage {
     await prefs.setStringList(keyWishlist, skinIds);
   }
 
-  Future<void> addToWishlist(String skinId) async {
-    final list = await getWishlist();
-    if (!list.contains(skinId)) {
-      list.add(skinId);
-      await setWishlist(list);
-    }
+  Future<void> addToWishlist(String skinId) {
+    return AsyncLock.run('wishlist', () async {
+      final list = await getWishlist();
+      if (!list.contains(skinId)) {
+        list.add(skinId);
+        await setWishlist(list);
+      }
+    });
   }
 
-  Future<void> removeFromWishlist(String skinId) async {
-    final list = await getWishlist();
-    list.remove(skinId);
-    await setWishlist(list);
+  Future<void> removeFromWishlist(String skinId) {
+    return AsyncLock.run('wishlist', () async {
+      final list = await getWishlist();
+      list.remove(skinId);
+      await setWishlist(list);
+    });
   }
 
   // ── Match Map Cache ────────────────────────────────────────────────────────

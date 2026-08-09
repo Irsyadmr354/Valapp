@@ -9,6 +9,7 @@ import '../domain/models/credentials.dart';
 import '../../../core/exceptions/auth_exception.dart';
 import '../../../shared/utils/valorant_assets.dart';
 import '../../loadout/data/loadout_remote_source.dart';
+import '../../loadout/domain/models/player_loadout.dart';
 import '../../profile/data/account_remote_source.dart';
 
 /// Orchestrates the full RSO auth flow and token lifecycle.
@@ -95,21 +96,11 @@ class AuthRepository {
     try {
       final rawLoadout =
           await loadoutSource.fetchLoadoutRaw(creds.shard, creds.puuid);
-      final loadoutRoot = rawLoadout.containsKey('Loadout')
-          ? (rawLoadout['Loadout'] as Map<String, dynamic>? ?? {})
-          : rawLoadout;
-      final identity = loadoutRoot['Identity'] as Map<String, dynamic>? ??
-          rawLoadout['Identity'] as Map<String, dynamic>? ??
-          {};
-      cardId = identity['PlayerCardID'] as String? ??
-          loadoutRoot['PlayerCardID'] as String? ??
-          rawLoadout['PlayerCardID'] as String?;
+      cardId = PlayerLoadout.extractPlayerCardId(rawLoadout);
       if (cardId != null && cardId.isNotEmpty) {
         final cardsMap = await assets.getPlayerCardsMap();
-        final cardInfo = (cardsMap[cardId] ??
-            cardsMap[cardId.toLowerCase()]) as Map<String, dynamic>?;
-        avatarUrl = cardInfo?['smallArt'] as String? ??
-            cardInfo?['displayIcon'] as String?;
+        final art = PlayerLoadout.resolveCardArtUrls(cardId, cardsMap);
+        avatarUrl = art.smallArt;
       }
     } catch (_) {}
 

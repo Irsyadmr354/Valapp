@@ -25,29 +25,6 @@ class StoreRemoteSource {
     }
   }
 
-  Future<Map<String, int>> fetchPrices(String shard) async {
-    final url = 'https://pd.$shard.a.pvp.net/store/v1/offers/';
-    final response = await _dio.get<dynamic>(url);
-    final data = ApiResponseDecoder.decodeMap(response.data, source: url);
-    ApiResponseDecoder.requireShape(data, source: url, lists: ['Offers']);
-    final offers = data['Offers'] as List<dynamic>;
-
-    final map = <String, int>{};
-    for (final offer in offers) {
-      if (offer is Map) {
-        final id = offer['OfferID'] as String?;
-        final rawCosts = offer['Cost'];
-        final costs =
-            rawCosts is Map ? Map<String, dynamic>.from(rawCosts) : null;
-        if (id != null && costs != null) {
-          final vp = (costs[ValorantCurrency.vpUuid] as num?)?.toInt();
-          if (vp != null) map[id] = vp;
-        }
-      }
-    }
-    return map;
-  }
-
   Future<Wallet> fetchWallet(String shard, String puuid) async {
     final url = 'https://pd.$shard.a.pvp.net/store/v1/wallet/$puuid';
     final response = await _dio.get<dynamic>(url);

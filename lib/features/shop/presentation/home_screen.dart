@@ -238,18 +238,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             await ref.read(authRepositoryProvider.future);
                         await authRepo.reauth();
                         await _refresh();
-                      } on InvalidSessionException catch (_) {
+                      } catch (e) {
+                        debugPrint('[HomeScreen] Reauth failed: $e — redirecting to login');
                         final local = ref.read(credentialsLocalSourceProvider);
                         await local.clearActiveSessionOnly();
                         ref.invalidate(currentCredentialsProvider);
-                        router.push('/login/webview');
-                      } on TokenExpiredException catch (_) {
-                        final local = ref.read(credentialsLocalSourceProvider);
-                        await local.clearActiveSessionOnly();
-                        ref.invalidate(currentCredentialsProvider);
-                        router.push('/login/webview');
-                      } catch (_) {
-                        await _refresh();
+                        if (context.mounted) {
+                          router.push('/login/webview');
+                        }
                       }
                     },
                     onReauth: () => context.push('/login/webview'),

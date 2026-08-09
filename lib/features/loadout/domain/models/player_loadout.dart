@@ -75,6 +75,40 @@ class PlayerLoadout {
       weapons: weapons,
     );
   }
+
+  /// Extracts the PlayerCardID from a raw loadout JSON response.
+  /// Handles both v2 (fields at root) and v3 (`Loadout` wrapper) formats.
+  ///
+  /// Shared by [playerCardArtProvider] and [AuthRepository.resolveAndSaveMetadata]
+  /// to avoid duplicating the `Loadout → Identity → PlayerCardID` extraction.
+  static String? extractPlayerCardId(Map<String, dynamic> raw) {
+    final root = raw.containsKey('Loadout')
+        ? _asMap(raw['Loadout'])
+        : raw;
+    final identity = _asMap(root['Identity'] ?? raw['Identity']);
+    return identity['PlayerCardID'] as String? ??
+        root['PlayerCardID'] as String? ??
+        raw['PlayerCardID'] as String?;
+  }
+
+  /// Resolves player card art URLs (smallArt, wideArt) from a valorant-api
+  /// player cards map, given a [cardId].
+  ///
+  /// Returns a `(smallArt, wideArt)` record, either or both of which may be null.
+  static ({String? smallArt, String? wideArt}) resolveCardArtUrls(
+    String cardId,
+    Map<String, dynamic> cardsMap,
+  ) {
+    final cardInfo = (cardsMap[cardId] ?? cardsMap[cardId.toLowerCase()])
+        as Map<String, dynamic>?;
+    return (
+      smallArt: cardInfo?['smallArt'] as String? ??
+          cardInfo?['displayIcon'] as String?,
+      wideArt: cardInfo?['largeArt'] as String? ??
+          cardInfo?['wideArt'] as String? ??
+          cardInfo?['displayIcon'] as String?,
+    );
+  }
 }
 
 /// A single weapon slot in the loadout.

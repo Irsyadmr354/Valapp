@@ -20,21 +20,6 @@ class MmrRemoteSource {
     );
   }
 
-  Future<List<CompetitiveUpdate>> fetchCompetitiveUpdates(
-    String shard,
-    String puuid, {
-    int startIndex = 0,
-    int endIndex = 20,
-  }) async {
-    final data = await fetchCompetitiveUpdatesRaw(
-      shard,
-      puuid,
-      startIndex: startIndex,
-      endIndex: endIndex,
-    );
-    return _parseCompetitiveUpdates(data);
-  }
-
   List<CompetitiveUpdate> parseCompetitiveUpdates(Map<String, dynamic> data) =>
       _parseCompetitiveUpdates(data);
 
