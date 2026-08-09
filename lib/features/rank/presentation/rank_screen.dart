@@ -26,10 +26,10 @@ final _competitiveTiersMapProvider =
   return assets.getCompetitiveTiersMap();
 });
 
-final _seasonsNameMapProvider =
-    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+final _seasonsMetaMapProvider =
+    FutureProvider.autoDispose<Map<String, Map<String, dynamic>>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
-  return assets.getSeasonsNameMap();
+  return assets.getSeasonsMetadataMap();
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -634,11 +634,11 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
   @override
   Widget build(BuildContext context) {
     final seasonAsync = ref.watch(_activeSeasonProvider);
-    final seasonsMapAsync = ref.watch(_seasonsNameMapProvider);
+    final seasonsMetaAsync = ref.watch(_seasonsMetaMapProvider);
     final tiersAsync = ref.watch(_competitiveTiersMapProvider);
     final activeSeasonData = seasonAsync.asData?.value;
     final currentSeasonLabel = activeSeasonData?['label'] ?? '';
-    final seasonsNameMap = seasonsMapAsync.asData?.value ?? {};
+    final seasonsMetaMap = seasonsMetaAsync.asData?.value ?? {};
 
     return widget.mmrAsync.when(
       data: (result) {
@@ -668,18 +668,33 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
         final tierName =
             tierData?['tierName'] as String? ?? TierNameUtil.name(displayTier);
 
-        // Build list of seasons available in mmr.seasonalData
+        // Build list of seasons available in mmr.seasonalData and sort chronologically (Newest first)
         final availableSeasonIds = mmr.seasonalData.keys.toList();
         if (selectedId != null && !availableSeasonIds.contains(selectedId)) {
           availableSeasonIds.insert(0, selectedId);
         }
 
+        availableSeasonIds.sort((a, b) {
+          final metaA = seasonsMetaMap[a] ?? seasonsMetaMap[a.toLowerCase()];
+          final metaB = seasonsMetaMap[b] ?? seasonsMetaMap[b.toLowerCase()];
+          final timeA =
+              DateTime.tryParse(metaA?['startTime']?.toString() ?? '') ??
+                  DateTime(2020);
+          final timeB =
+              DateTime.tryParse(metaB?['startTime']?.toString() ?? '') ??
+                  DateTime(2020);
+          return timeB.compareTo(timeA); // Newest episode & act first!
+        });
+
         // Helper to format season UUID to human readable label
         String formatSeasonLabel(String sId) {
           final isCurrent = sId == mmr.activeSeasonId;
-          final resolved = seasonsNameMap[sId] ?? seasonsNameMap[sId.toLowerCase()];
+          final meta = seasonsMetaMap[sId] ?? seasonsMetaMap[sId.toLowerCase()];
+          final resolved = meta?['label']?.toString();
           if (resolved != null && resolved.isNotEmpty) return resolved;
-          if (isCurrent && currentSeasonLabel.isNotEmpty) return currentSeasonLabel;
+          if (isCurrent && currentSeasonLabel.isNotEmpty) {
+            return currentSeasonLabel;
+          }
           final shortId = sId.length > 8 ? sId.substring(0, 8) : sId;
           return 'ACT ${shortId.toUpperCase()}';
         }

@@ -587,19 +587,21 @@ class ValorantAssets {
     }
   }
 
-  /// Returns a map of Season UUID -> Readable Label (e.g. 'EPISODE 8 // ACT 3').
-  Future<Map<String, String>> getSeasonsNameMap() async {
+  /// Returns a map of Season UUID -> Season Metadata Map:
+  /// { 'label': 'EPISODE 9 // ACT III', 'startTime': '2024-06-25T00:00:00Z' }
+  Future<Map<String, Map<String, dynamic>>> getSeasonsMetadataMap() async {
     final cache = CacheStorage.instance;
-    const keySeasonsNameMap = 'seasons_name_map';
-    const keySeasonsNameMapFetchedAt = 'seasons_name_map_fetched_at';
+    const keySeasonsMetaMap = 'seasons_meta_map';
+    const keySeasonsMetaMapFetchedAt = 'seasons_meta_map_fetched_at';
 
     final isStale =
-        await cache.isStale(keySeasonsNameMapFetchedAt, _cacheDuration);
+        await cache.isStale(keySeasonsMetaMapFetchedAt, _cacheDuration);
     if (!isStale) {
-      final cached = await cache.getJson(keySeasonsNameMap);
+      final cached = await cache.getJson(keySeasonsMetaMap);
       if (cached != null) {
-        return Map<String, String>.from(
-            cached.map((k, v) => MapEntry(k, v?.toString() ?? '')));
+        return Map<String, Map<String, dynamic>>.from(cached.map((k, v) =>
+            MapEntry(
+                k, Map<String, dynamic>.from(v is Map ? v : <String, dynamic>{}))));
       }
     }
 
@@ -610,6 +612,7 @@ class ValorantAssets {
       final episodesByUuid = <String, String>{};
       final seasonsList = <Map<String, dynamic>>[];
 
+      // Phase 1: Collect all episodes first
       for (final s in seasons) {
         if (s is! Map) continue;
         final map = Map<String, dynamic>.from(s);
@@ -621,50 +624,70 @@ class ValorantAssets {
           if (type.toLowerCase().contains('episode') ||
               type == 'EAresSeasonType::Episode') {
             final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-            episodesByUuid[uuid] =
+            final label =
                 numStr.isNotEmpty ? 'EPISODE $numStr' : name.toUpperCase();
+            episodesByUuid[uuid] = label;
+            episodesByUuid[uuid.toLowerCase()] = label;
           }
           seasonsList.add(map);
         }
       }
 
-      final result = <String, String>{};
+      // Phase 2: Build labels & metadata for all seasons
+      final result = <String, Map<String, dynamic>>{};
       for (final s in seasonsList) {
         final uuid = s['uuid'] as String?;
         final parentUuid = s['parentUuid'] as String?;
         final type = s['type']?.toString() ?? '';
         final name = s['displayName']?.toString() ?? '';
+        final startTime = s['startTime']?.toString() ?? '';
 
         if (uuid == null) continue;
 
+        String fullLabel = name.toUpperCase();
         if (type.toLowerCase().contains('act') ||
             type == 'EAresSeasonType::Act') {
-          final episodeLabel =
-              parentUuid != null ? episodesByUuid[parentUuid] : null;
+          final episodeLabel = parentUuid != null
+              ? (episodesByUuid[parentUuid] ??
+                  episodesByUuid[parentUuid.toLowerCase()])
+              : null;
           final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
           final actLabel =
               numStr.isNotEmpty ? 'ACT $numStr' : name.toUpperCase();
-          final fullLabel = episodeLabel != null
+          fullLabel = episodeLabel != null
               ? '$episodeLabel // $actLabel'
               : actLabel;
-          result[uuid] = fullLabel;
         } else if (type.toLowerCase().contains('episode') ||
             type == 'EAresSeasonType::Episode') {
-          result[uuid] = episodesByUuid[uuid] ?? name.toUpperCase();
+          fullLabel = episodesByUuid[uuid] ?? name.toUpperCase();
         }
+
+        final meta = {
+          'label': fullLabel,
+          'startTime': startTime,
+        };
+        result[uuid] = meta;
+        result[uuid.toLowerCase()] = meta;
       }
 
-      await cache.setJson(keySeasonsNameMap, result);
-      await cache.setTimestamp(keySeasonsNameMapFetchedAt);
+      await cache.setJson(keySeasonsMetaMap, result);
+      await cache.setTimestamp(keySeasonsMetaMapFetchedAt);
       return result;
     } catch (_) {
-      final cached = await cache.getJson(keySeasonsNameMap);
+      final cached = await cache.getJson(keySeasonsMetaMap);
       if (cached != null) {
-        return Map<String, String>.from(
-            cached.map((k, v) => MapEntry(k, v?.toString() ?? '')));
+        return Map<String, Map<String, dynamic>>.from(cached.map((k, v) =>
+            MapEntry(
+                k, Map<String, dynamic>.from(v is Map ? v : <String, dynamic>{}))));
       }
       return {};
     }
+  }
+
+  /// Backward compatible wrapper returning Season UUID -> Label String.
+  Future<Map<String, String>> getSeasonsNameMap() async {
+    final meta = await getSeasonsMetadataMap();
+    return meta.map((k, v) => MapEntry(k, v['label']?.toString() ?? k));
   }
 
   // ── Themes (Skin Collections) ─────────────────────────────────────────────
