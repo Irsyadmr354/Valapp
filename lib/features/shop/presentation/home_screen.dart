@@ -16,7 +16,6 @@ import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_icons.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
-import '../../../core/exceptions/auth_exception.dart';
 import '../domain/models/storefront.dart';
 import '../domain/models/wallet.dart';
 import '../domain/models/skin_offer.dart';
