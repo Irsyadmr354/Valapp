@@ -587,6 +587,86 @@ class ValorantAssets {
     }
   }
 
+  /// Returns a map of Season UUID -> Readable Label (e.g. 'EPISODE 8 // ACT 3').
+  Future<Map<String, String>> getSeasonsNameMap() async {
+    final cache = CacheStorage.instance;
+    const keySeasonsNameMap = 'seasons_name_map';
+    const keySeasonsNameMapFetchedAt = 'seasons_name_map_fetched_at';
+
+    final isStale =
+        await cache.isStale(keySeasonsNameMapFetchedAt, _cacheDuration);
+    if (!isStale) {
+      final cached = await cache.getJson(keySeasonsNameMap);
+      if (cached != null) {
+        return Map<String, String>.from(
+            cached.map((k, v) => MapEntry(k, v?.toString() ?? '')));
+      }
+    }
+
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('$_base/seasons');
+      final seasons = (response.data?['data'] as List<dynamic>?) ?? [];
+
+      final episodesByUuid = <String, String>{};
+      final seasonsList = <Map<String, dynamic>>[];
+
+      for (final s in seasons) {
+        if (s is! Map) continue;
+        final map = Map<String, dynamic>.from(s);
+        final uuid = map['uuid'] as String?;
+        final type = map['type']?.toString() ?? '';
+        final name = map['displayName']?.toString() ?? '';
+
+        if (uuid != null) {
+          if (type.toLowerCase().contains('episode') ||
+              type == 'EAresSeasonType::Episode') {
+            final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
+            episodesByUuid[uuid] =
+                numStr.isNotEmpty ? 'EPISODE $numStr' : name.toUpperCase();
+          }
+          seasonsList.add(map);
+        }
+      }
+
+      final result = <String, String>{};
+      for (final s in seasonsList) {
+        final uuid = s['uuid'] as String?;
+        final parentUuid = s['parentUuid'] as String?;
+        final type = s['type']?.toString() ?? '';
+        final name = s['displayName']?.toString() ?? '';
+
+        if (uuid == null) continue;
+
+        if (type.toLowerCase().contains('act') ||
+            type == 'EAresSeasonType::Act') {
+          final episodeLabel =
+              parentUuid != null ? episodesByUuid[parentUuid] : null;
+          final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
+          final actLabel =
+              numStr.isNotEmpty ? 'ACT $numStr' : name.toUpperCase();
+          final fullLabel = episodeLabel != null
+              ? '$episodeLabel // $actLabel'
+              : actLabel;
+          result[uuid] = fullLabel;
+        } else if (type.toLowerCase().contains('episode') ||
+            type == 'EAresSeasonType::Episode') {
+          result[uuid] = episodesByUuid[uuid] ?? name.toUpperCase();
+        }
+      }
+
+      await cache.setJson(keySeasonsNameMap, result);
+      await cache.setTimestamp(keySeasonsNameMapFetchedAt);
+      return result;
+    } catch (_) {
+      final cached = await cache.getJson(keySeasonsNameMap);
+      if (cached != null) {
+        return Map<String, String>.from(
+            cached.map((k, v) => MapEntry(k, v?.toString() ?? '')));
+      }
+      return {};
+    }
+  }
+
   // ── Themes (Skin Collections) ─────────────────────────────────────────────
 
   /// Returns a map of theme UUID → { 'displayName', 'displayIcon' }

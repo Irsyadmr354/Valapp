@@ -26,6 +26,12 @@ final _competitiveTiersMapProvider =
   return assets.getCompetitiveTiersMap();
 });
 
+final _seasonsNameMapProvider =
+    FutureProvider.autoDispose<Map<String, String>>((ref) async {
+  final assets = ref.watch(valorantAssetsProvider);
+  return assets.getSeasonsNameMap();
+});
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class RankScreen extends ConsumerStatefulWidget {
@@ -628,9 +634,11 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
   @override
   Widget build(BuildContext context) {
     final seasonAsync = ref.watch(_activeSeasonProvider);
+    final seasonsMapAsync = ref.watch(_seasonsNameMapProvider);
     final tiersAsync = ref.watch(_competitiveTiersMapProvider);
     final activeSeasonData = seasonAsync.asData?.value;
     final currentSeasonLabel = activeSeasonData?['label'] ?? '';
+    final seasonsNameMap = seasonsMapAsync.asData?.value ?? {};
 
     return widget.mmrAsync.when(
       data: (result) {
@@ -666,6 +674,16 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
           availableSeasonIds.insert(0, selectedId);
         }
 
+        // Helper to format season UUID to human readable label
+        String formatSeasonLabel(String sId) {
+          final isCurrent = sId == mmr.activeSeasonId;
+          final resolved = seasonsNameMap[sId] ?? seasonsNameMap[sId.toLowerCase()];
+          if (resolved != null && resolved.isNotEmpty) return resolved;
+          if (isCurrent && currentSeasonLabel.isNotEmpty) return currentSeasonLabel;
+          final shortId = sId.length > 8 ? sId.substring(0, 8) : sId;
+          return 'ACT ${shortId.toUpperCase()}';
+        }
+
         return ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -677,64 +695,68 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Act Selector Dropdown
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgCard2,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white24, width: 0.8),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: availableSeasonIds.contains(selectedId)
-                          ? selectedId
-                          : null,
-                      hint: Text(
-                        currentSeasonLabel.isNotEmpty
-                            ? currentSeasonLabel
-                            : 'CURRENT ACT',
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard2,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white24, width: 0.8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: availableSeasonIds.contains(selectedId)
+                            ? selectedId
+                            : null,
+                        isExpanded: true,
+                        hint: Text(
+                          selectedId != null
+                              ? formatSeasonLabel(selectedId)
+                              : (currentSeasonLabel.isNotEmpty
+                                  ? currentSeasonLabel
+                                  : 'VALORANT COMPETITIVE'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        dropdownColor: AppColors.bgCard2,
+                        icon: const Icon(Icons.arrow_drop_down_rounded,
+                            color: AppColors.red, size: 22),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.8,
                         ),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedSeasonId = val);
+                          }
+                        },
+                        items: availableSeasonIds.map((sId) {
+                          return DropdownMenuItem<String>(
+                            value: sId,
+                            child: Text(
+                              formatSeasonLabel(sId),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
                       ),
-                      dropdownColor: AppColors.bgCard2,
-                      icon: const Icon(Icons.arrow_drop_down_rounded,
-                          color: AppColors.red, size: 22),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
-                      ),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedSeasonId = val);
-                        }
-                      },
-                      items: availableSeasonIds.map((sId) {
-                        final isCurrent = sId == mmr.activeSeasonId;
-                        final label = isCurrent
-                            ? (currentSeasonLabel.isNotEmpty
-                                ? currentSeasonLabel
-                                : 'CURRENT ACT')
-                            : 'ACT $sId';
-                        return DropdownMenuItem<String>(
-                          value: sId,
-                          child: Text(label),
-                        );
-                      }).toList(),
                     ),
                   ),
                 ),
+                const SizedBox(width: 12),
 
                 // Act Status Badge
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.red.withAlpha(30),
                     borderRadius: BorderRadius.circular(6),
@@ -752,39 +774,40 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // ── Act Rank Pyramid Container ────────────────────────────────────
             Center(
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Outer Glow & Metallic Border Frame
+                  // Outer Glow & Metallic Border Frame Container
                   Container(
                     width: 310,
-                    height: 280,
+                    height: 270,
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D1117),
+                      color: const Color(0xFF090D14),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: _getCompetitiveTierColor(actData.peakWinTier)
-                            .withAlpha(100),
-                        width: 1.2,
+                            .withAlpha(120),
+                        width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
                           color: _getCompetitiveTierColor(actData.peakWinTier)
-                              .withAlpha(35),
-                          blurRadius: 20,
+                              .withAlpha(45),
+                          blurRadius: 24,
                           spreadRadius: 2,
                         ),
                       ],
                     ),
                   ),
 
-                  // 49-Triangle Pyramid Painter
+                  // Upward 49-Triangle Pyramid Custom Painter
                   CustomPaint(
-                    size: const Size(260, 230),
+                    size: const Size(260, 220),
                     painter: _ActPyramidPainter(
                       winsTierList: actData.winTierList,
                       peakTier: actData.peakWinTier,
@@ -794,7 +817,7 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // ── Tier Name & Details ───────────────────────────────────────────
             Column(
@@ -805,8 +828,8 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                     if (iconUrl != null && iconUrl.isNotEmpty)
                       CachedNetworkImage(
                         imageUrl: iconUrl,
-                        width: 28,
-                        height: 28,
+                        width: 32,
+                        height: 32,
                         fit: BoxFit.contain,
                       ),
                     const SizedBox(width: 8),
@@ -968,7 +991,7 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
   }
 }
 
-// ── 49-Triangle Act Pyramid Painter ────────────────────────────────────────────
+// ── 49-Triangle Upward Act Pyramid Painter ────────────────────────────────────
 
 class _ActPyramidPainter extends CustomPainter {
   final List<int> winsTierList;
@@ -986,66 +1009,87 @@ class _ActPyramidPainter extends CustomPainter {
     final width = size.width;
     final height = size.height;
 
-    // 7 rows of triangles: row 0 has 13, row 1 has 11, row 2 has 9, row 3 has 7, row 4 has 5, row 5 has 3, row 6 has 1 = 49 triangles!
-    const totalRows = 7;
-    final rowHeight = height / totalRows;
+    // Upward Pyramid composed of 7 rows of triangles.
+    // Row 0 (top apex): 1 triangle pointing UP △
+    // Row 1: 3 triangles △ ▽ △
+    // Row 2: 5 triangles △ ▽ △ ▽ △
+    // Row 3: 7 triangles △ ▽ △ ▽ △ ▽ △
+    // Row 4: 9 triangles △ ▽ △ ▽ △ ▽ △ ▽ △
+    // Row 5: 11 triangles △ ▽ △ ▽ △ ▽ △ ▽ △ ▽ △
+    // Row 6 (bottom base): 13 triangles △ ▽ △ ▽ △ ▽ △ ▽ △ ▽ △ ▽ △
+    // Total = 1 + 3 + 5 + 7 + 9 + 11 + 13 = 49 triangles!
 
-    var winIndex = 0;
+    const numRows = 7;
+    final rowH = height / numRows;
+    final baseWidth = width;
 
-    for (var r = 0; r < totalRows; r++) {
-      // Row 0 is at bottom (7th level), Row 6 is top peak
-      final rowIndex = totalRows - 1 - r;
-      final trianglesInRow = (rowIndex * 2) + 1;
-      final triWidth = width / 13; // Max triangles in base row is 13
+    // Sort wins so highest tier wins fill top rows near apex, lower tier wins fill base
+    final sortedWins = List<int>.from(winsTierList)..sort((a, b) => b.compareTo(a));
 
-      final rowStartX = (width - (trianglesInRow * triWidth / 2)) / 2;
-      final yTop = r * rowHeight;
-      final yBottom = (r + 1) * rowHeight;
+    var winIdx = 0;
 
-      for (var t = 0; t < trianglesInRow; t++) {
-        final isPointUp = t % 2 == 0;
-        final xLeft = rowStartX + (t * triWidth / 2);
-        final xRight = xLeft + triWidth;
-        final xCenter = (xLeft + xRight) / 2;
+    for (var r = 0; r < numRows; r++) {
+      final numTris = (r * 2) + 1;
+      final triW = baseWidth / 7;
+
+      final yTop = r * rowH;
+      final yBot = (r + 1) * rowH;
+
+      final rowW = (r + 1) * triW;
+      final startX = (width - rowW) / 2;
+
+      for (var i = 0; i < numTris; i++) {
+        final isPointUp = i % 2 == 0;
+        final x1 = startX + (i * triW / 2);
+        final x2 = x1 + triW;
+        final xMid = (x1 + x2) / 2;
 
         final path = Path();
         if (isPointUp) {
-          path.moveTo(xCenter, yTop);
-          path.lineTo(xRight, yBottom);
-          path.lineTo(xLeft, yBottom);
+          path.moveTo(xMid, yTop + 0.5);
+          path.lineTo(x2 - 0.5, yBot - 0.5);
+          path.lineTo(x1 + 0.5, yBot - 0.5);
         } else {
-          path.moveTo(xLeft, yTop);
-          path.lineTo(xRight, yTop);
-          path.lineTo(xCenter, yBottom);
+          path.moveTo(x1 + 0.5, yTop + 0.5);
+          path.lineTo(x2 - 0.5, yTop + 0.5);
+          path.lineTo(xMid, yBot - 0.5);
         }
         path.close();
 
-        final tierForTriangle =
-            winIndex < winsTierList.length ? winsTierList[winIndex] : 0;
-        winIndex++;
+        final tierId = winIdx < sortedWins.length ? sortedWins[winIdx] : 0;
+        winIdx++;
 
-        final isFilled = tierForTriangle > 0;
-        final color = _getCompetitiveTierColor(tierForTriangle);
+        final isFilled = tierId > 0;
+        final tierColor = _getCompetitiveTierColor(tierId);
 
         if (isFilled) {
+          final gradient = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              tierColor,
+              Color.lerp(tierColor, Colors.black, 0.45) ?? tierColor,
+            ],
+          );
+
           final fillPaint = Paint()
-            ..color = color
+            ..shader = gradient.createShader(path.getBounds())
             ..style = PaintingStyle.fill;
           canvas.drawPath(path, fillPaint);
 
           final strokePaint = Paint()
-            ..color = Colors.black45
+            ..color = const Color(0xFF090D14)
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1.0;
           canvas.drawPath(path, strokePaint);
         } else {
           final emptyPaint = Paint()
-            ..color = const Color(0xFF161C24)
+            ..color = const Color(0xFF111722).withAlpha(200)
             ..style = PaintingStyle.fill;
           canvas.drawPath(path, emptyPaint);
 
           final strokePaint = Paint()
-            ..color = const Color(0xFF263242)
+            ..color = const Color(0xFF1E293B).withAlpha(120)
             ..style = PaintingStyle.stroke
             ..strokeWidth = 0.8;
           canvas.drawPath(path, strokePaint);
@@ -1053,19 +1097,19 @@ class _ActPyramidPainter extends CustomPainter {
       }
     }
 
-    // Outer Pyramid Frame Accent
-    final framePath = Path()
+    // Outer Pyramid Boundary Stroke Accent
+    final peakColor = _getCompetitiveTierColor(peakTier);
+    final borderPath = Path()
       ..moveTo(width / 2, 0)
       ..lineTo(width, height)
       ..lineTo(0, height)
       ..close();
 
-    final framePaint = Paint()
-      ..color = _getCompetitiveTierColor(peakTier).withAlpha(180)
+    final outerPaint = Paint()
+      ..color = peakColor.withAlpha(220)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-
-    canvas.drawPath(framePath, framePaint);
+      ..strokeWidth = 2.2;
+    canvas.drawPath(borderPath, outerPaint);
   }
 
   @override
