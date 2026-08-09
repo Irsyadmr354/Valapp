@@ -127,67 +127,62 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final passwordEscaped =
         password.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
 
-    final js = '''
+    final jsInject = '''
     (function() {
-      var attempts = 0;
-      var interval = setInterval(function() {
-        attempts++;
-        var userInput = document.querySelector("input[name='username']") || 
-                        document.querySelector("input[type='text']") || 
-                        document.querySelector("#username");
-        var passInput = document.querySelector("input[name='password']") || 
-                        document.querySelector("input[type='password']") || 
-                        document.querySelector("#password");
-        var btn = document.querySelector("button[type='submit']") || 
-                  document.querySelector("button[data-testid='btn-signin']") || 
-                  document.querySelector(".mobile-button") || 
-                  document.querySelector("button.btn-signin") || 
-                  document.querySelector("button");
+      var userInput = document.querySelector("input[name='username']") || 
+                      document.querySelector("input[type='text']") || 
+                      document.querySelector("#username");
+      var passInput = document.querySelector("input[name='password']") || 
+                      document.querySelector("input[type='password']") || 
+                      document.querySelector("#password");
+      var btn = document.querySelector("button[type='submit']") || 
+                document.querySelector("button[data-testid='btn-signin']") || 
+                document.querySelector(".mobile-button") || 
+                document.querySelector("button.btn-signin") || 
+                document.querySelector("button");
 
-        if (userInput && passInput && btn) {
-          clearInterval(interval);
+      if (userInput && passInput && btn) {
+        function setReact18Value(element, val) {
+          if (!element) return;
+          var valueSetter;
+          try {
+            var proto = Object.getPrototypeOf(element);
+            valueSetter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+          } catch(e) {}
 
-          function setReact18Value(element, val) {
-            if (!element) return;
-            var valueSetter;
-            try {
-              var proto = Object.getPrototypeOf(element);
-              valueSetter = Object.getOwnPropertyDescriptor(proto, 'value').set;
-            } catch(e) {}
-
-            if (valueSetter) {
-              valueSetter.call(element, val);
-            } else {
-              element.value = val;
-            }
-            var tracker = element._valueTracker;
-            if (tracker) {
-              tracker.setValue(val);
-            }
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-            element.dispatchEvent(new Event('change', { bubbles: true }));
-            element.dispatchEvent(new Event('blur', { bubbles: true }));
+          if (valueSetter) {
+            valueSetter.call(element, val);
+          } else {
+            element.value = val;
           }
-
-          setReact18Value(userInput, "$usernameEscaped");
-          setReact18Value(passInput, "$passwordEscaped");
-
-          var rem = document.querySelector("input[name='remember'], input[type='checkbox']");
-          if (rem && ${_rememberMe ? 'true' : 'false'}) {
-            if (!rem.checked) {
-              rem.click();
-            }
+          var tracker = element._valueTracker;
+          if (tracker) {
+            tracker.setValue(val);
           }
-
-          setTimeout(function() {
-            btn.disabled = false;
-            btn.removeAttribute('disabled');
-            btn.click();
-          }, 350);
-        } else if (attempts > 30) {
-          clearInterval(interval);
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+          element.dispatchEvent(new Event('blur', { bubbles: true }));
         }
-      }, 150);
+
+        setReact18Value(userInput, "$usernameEscaped");
+        setReact18Value(passInput, "$passwordEscaped");
+
+        var rem = document.querySelector("input[name='remember'], input[type='checkbox']");
+        if (rem && ${_rememberMe ? 'true' : 'false'}) {
+          if (!rem.checked) {
+            rem.click();
+          }
+        }
+
+        setTimeout(function() {
+          btn.disabled = false;
+          btn.removeAttribute('disabled');
+          btn.click();
+        }, 200);
+
+        return "SUCCESS";
+      }
+      return "WAITING";
     })();
     ''';
 
@@ -213,11 +208,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ''';
 
     try {
-      await _webViewController.runJavaScript(js);
+      // Dart-driven evaluation loop (avoids iOS WebKit background setInterval throttling)
+      var injected = false;
+      for (var i = 0; i < 20; i++) {
+        if (!mounted || !_isLoading) return;
+        try {
+          final res = await _webViewController
+              .runJavaScriptReturningResult(jsInject);
+          if (res.toString().contains('SUCCESS')) {
+            injected = true;
+            break;
+          }
+        } catch (_) {}
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      if (!injected && mounted) {
+        setState(() {
+          _isLoading = false;
+          _isSubmittingJS = false;
+          _errorMessage =
+              'Could not connect to Riot Login form. Please tap "LOGIN WITH RIOT WEBVIEW" below.';
+        });
+        return;
+      }
 
       // Check Riot DOM for errors or MFA after 3, 6, and 9 seconds
-      for (final delaySeconds in [3, 6, 9]) {
-        await Future.delayed(Duration(seconds: delaySeconds == 3 ? 3 : 3));
+      for (final _ in [1, 2, 3]) {
+        await Future.delayed(const Duration(seconds: 2));
         if (!mounted || !_isLoading) return;
 
         final currentUrl = await _webViewController.currentUrl();
@@ -253,7 +271,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         } catch (_) {}
       }
 
-      // Fallback check after 10 seconds total
+      // Fallback check after 8 seconds total
       if (mounted && _isLoading) {
         final currentUrl = await _webViewController.currentUrl();
         if (currentUrl != null &&
@@ -342,12 +360,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          // Preloaded Invisible Active WebView Instance for Background Injection
+          // Preloaded Active WebView Instance placed behind dark background (unthrottled on iOS)
           Positioned.fill(
             child: IgnorePointer(
               ignoring: true,
               child: Opacity(
-                opacity: 0.005,
+                opacity: 0.05,
                 child: WebViewWidget(controller: _webViewController),
               ),
             ),
