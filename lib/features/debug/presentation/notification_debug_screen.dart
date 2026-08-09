@@ -215,18 +215,22 @@ class _NotificationDebugScreenState
 
   Future<void> _simulateShopReset() async {
     final cache = CacheStorage.instance;
-    final creds = await ref.read(currentCredentialsProvider.future);
+    final local = ref.read(credentialsLocalSourceProvider);
+    final creds = await local.load();
     if (creds != null) {
+      final expiredCreds = creds.copyWith(
+        expiresAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      );
+      await local.save(expiredCreds);
       await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
       await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
-      // Invalidate current credentials to simulate expired token
       ref.invalidate(currentCredentialsProvider);
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Toko disimulasikan kedaluwarsa! Kembali ke Home lalu lakukan Pull to Refresh.',
+            'Token & Toko disimulasikan kedaluwarsa! Kembali ke Home lalu tekan SYSTEM RECONNECT / Pull to Refresh.',
           ),
           backgroundColor: AppColors.red,
         ),

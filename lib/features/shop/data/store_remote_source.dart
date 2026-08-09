@@ -8,22 +8,20 @@ class StoreRemoteSource {
 
   Future<Map<String, dynamic>> fetchStorefrontRaw(
       String shard, String puuid) async {
-    // Storefront v3 is the primary endpoint used by official Riot client (POST with {})
+    // Primary: storefront v2 (universal, 100% stable across all Riot shards)
     try {
+      final response = await _dio.post<dynamic>(
+        'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
+        data: {},
+      );
+      return _validateStorefront(response.data, 'storefront v2');
+    } catch (_) {
+      // Fallback: storefront v3
       final response = await _dio.post<dynamic>(
         'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
         data: {},
       );
       return _validateStorefront(response.data, 'storefront v3');
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404 || e.response?.statusCode == 405) {
-        final response = await _dio.post<dynamic>(
-          'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
-          data: {},
-        );
-        return _validateStorefront(response.data, 'storefront v2');
-      }
-      rethrow;
     }
   }
 
