@@ -600,17 +600,39 @@ class _MatchHistoryTab extends StatelessWidget {
 
 // ── Tab 2 — Act Rank ──────────────────────────────────────────────────────────
 
-class _ActRankTab extends ConsumerWidget {
+Color _getCompetitiveTierColor(int tier) {
+  if (tier >= 27) return const Color(0xFFFFF7C0); // Radiant
+  if (tier >= 24) return const Color(0xFFBB384E); // Immortal
+  if (tier >= 21) return const Color(0xFF45B07B); // Ascendant
+  if (tier >= 18) return const Color(0xFFB064DD); // Diamond
+  if (tier >= 15) return const Color(0xFF3FB3BE); // Platinum
+  if (tier >= 12) return const Color(0xFFE2B742); // Gold
+  if (tier >= 9) return const Color(0xFFB0B9C6); // Silver
+  if (tier >= 6) return const Color(0xFFA67C52); // Bronze
+  if (tier >= 3) return const Color(0xFF6A7079); // Iron
+  return const Color(0xFF202732); // Unranked
+}
+
+class _ActRankTab extends ConsumerStatefulWidget {
   const _ActRankTab({required this.mmrAsync});
   final AsyncValue<CachedFetchResult<PlayerMmr>?> mmrAsync;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ActRankTab> createState() => _ActRankTabState();
+}
+
+class _ActRankTabState extends ConsumerState<_ActRankTab> {
+  String? _selectedSeasonId;
+  bool _showOnPlayerCard = true;
+
+  @override
+  Widget build(BuildContext context) {
     final seasonAsync = ref.watch(_activeSeasonProvider);
     final tiersAsync = ref.watch(_competitiveTiersMapProvider);
-    final seasonLabel = seasonAsync.asData?.value['label'] ?? '';
+    final activeSeasonData = seasonAsync.asData?.value;
+    final currentSeasonLabel = activeSeasonData?['label'] ?? '';
 
-    return mmrAsync.when(
+    return widget.mmrAsync.when(
       data: (result) {
         if (result == null) {
           return const Center(
@@ -619,80 +641,320 @@ class _ActRankTab extends ConsumerWidget {
           );
         }
         final mmr = result.data;
-        final tierData = tiersAsync.asData?.value[mmr.currentTier];
+        final selectedId = _selectedSeasonId ?? mmr.activeSeasonId;
+        final actData = (selectedId != null ? mmr.seasonalData[selectedId] : null) ??
+            mmr.activeSeasonData ??
+            ActRankSeasonData(
+              seasonId: selectedId ?? '',
+              tier: mmr.currentTier,
+              rankedRating: mmr.currentRankedRating,
+              numberOfWins: 0,
+              winsByTier: const {},
+              borderLevel: 0,
+            );
+
+        final displayTier = actData.tier > 0 ? actData.tier : mmr.currentTier;
+        final tierData = tiersAsync.asData?.value[displayTier];
         final iconUrl = tierData?['largeIcon'] as String? ??
             tierData?['displayIcon'] as String?;
+        final tierName =
+            tierData?['tierName'] as String? ?? TierNameUtil.name(displayTier);
+
+        // Build list of seasons available in mmr.seasonalData
+        final availableSeasonIds = mmr.seasonalData.keys.toList();
+        if (selectedId != null && !availableSeasonIds.contains(selectedId)) {
+          availableSeasonIds.insert(0, selectedId);
+        }
+
         return ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
           children: [
             if (result.fromCache) const CacheDataBanner(),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.bgCard,
-                borderRadius: BorderRadius.circular(16),
-                border:
-                    Border.all(color: AppColors.red.withAlpha(80), width: 1),
-                boxShadow: AppColors.redGlow(alpha: 0.08),
-              ),
-              child: Column(
-                children: [
-                  if (seasonLabel.isNotEmpty)
-                    Text(seasonLabel,
+
+            // ── Top Header Controls: Season Dropdown + Deadline Badge ─────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Act Selector Dropdown
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgCard2,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24, width: 0.8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: availableSeasonIds.contains(selectedId)
+                          ? selectedId
+                          : null,
+                      hint: Text(
+                        currentSeasonLabel.isNotEmpty
+                            ? currentSeasonLabel
+                            : 'CURRENT ACT',
                         style: const TextStyle(
-                            color: AppColors.red,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5)),
-                  if (seasonLabel.isNotEmpty) const SizedBox(height: 20),
-                  if (iconUrl != null && iconUrl.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: iconUrl,
-                      width: 88,
-                      height: 88,
-                      fit: BoxFit.contain,
-                      errorWidget: (_, __, ___) => const Icon(
-                          Icons.shield_outlined,
-                          color: AppColors.red,
-                          size: 64),
-                    )
-                  else
-                    const Icon(Icons.shield_outlined,
-                        color: AppColors.red, size: 64),
-                  const SizedBox(height: 12),
-                  Text(
-                    TierNameUtil.name(mmr.currentTier).toUpperCase(),
-                    style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      dropdownColor: AppColors.bgCard2,
+                      icon: const Icon(Icons.arrow_drop_down_rounded,
+                          color: AppColors.red, size: 22),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                      ),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _selectedSeasonId = val);
+                        }
+                      },
+                      items: availableSeasonIds.map((sId) {
+                        final isCurrent = sId == mmr.activeSeasonId;
+                        final label = isCurrent
+                            ? (currentSeasonLabel.isNotEmpty
+                                ? currentSeasonLabel
+                                : 'CURRENT ACT')
+                            : 'ACT $sId';
+                        return DropdownMenuItem<String>(
+                          value: sId,
+                          child: Text(label),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+
+                // Act Status Badge
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.red.withAlpha(30),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.red.withAlpha(120)),
+                  ),
+                  child: const Text(
+                    'ACT RANK DETAILS',
+                    style: TextStyle(
+                      color: AppColors.red,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // ── Act Rank Pyramid Container ────────────────────────────────────
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer Glow & Metallic Border Frame
+                  Container(
+                    width: 310,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D1117),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _getCompetitiveTierColor(actData.peakWinTier)
+                            .withAlpha(100),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _getCompetitiveTierColor(actData.peakWinTier)
+                              .withAlpha(35),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 49-Triangle Pyramid Painter
+                  CustomPaint(
+                    size: const Size(260, 230),
+                    painter: _ActPyramidPainter(
+                      winsTierList: actData.winTierList,
+                      peakTier: actData.peakWinTier,
+                      borderLevel: actData.borderLevel,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Tier Name & Details ───────────────────────────────────────────
+            Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (iconUrl != null && iconUrl.isNotEmpty)
+                      CachedNetworkImage(
+                        imageUrl: iconUrl,
+                        width: 28,
+                        height: 28,
+                        fit: BoxFit.contain,
+                      ),
+                    const SizedBox(width: 8),
+                    Text(
+                      tierName.toUpperCase(),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5),
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${actData.rankedRating} RR',
+                  style: const TextStyle(
+                    color: AppColors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── Border Level Progress Bar Section ─────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.bgCard2,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'BORDER LEVEL REACHED: ${actData.borderLevel}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      Text(
+                        '${actData.numberOfWins} WINS',
+                        style: const TextStyle(
+                          color: AppColors.red,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Progress track between LVL N and LVL N+1
+                  Row(
+                    children: [
+                      Text(
+                        'LVL ${actData.borderLevel}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: actData.borderLevel >= 5
+                                ? 1.0
+                                : (actData.numberOfWins /
+                                        (actData.numberOfWins +
+                                            actData.winsNeededForNextBorder))
+                                    .clamp(0.0, 1.0),
+                            backgroundColor: Colors.black45,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _getCompetitiveTierColor(actData.peakWinTier),
+                            ),
+                            minHeight: 8,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        actData.borderLevel >= 5
+                            ? 'MAX'
+                            : 'LVL ${actData.borderLevel + 1}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '${mmr.currentRankedRating} RR',
-                    style: const TextStyle(
-                        color: AppColors.red,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: (mmr.currentRankedRating / 100).clamp(0.0, 1.0),
-                      backgroundColor: AppColors.bgCard2,
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(AppColors.red),
-                      minHeight: 8,
+
+                  Center(
+                    child: Text(
+                      actData.borderLevel >= 5
+                          ? 'Maximum Border Level Reached!'
+                          : '${actData.winsNeededForNextBorder} wins to go for next border level',
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${mmr.currentRankedRating} / 100 RR',
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 11),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Player Card Option Checkbox ────────────────────────────────────
+            GestureDetector(
+              onTap: () =>
+                  setState(() => _showOnPlayerCard = !_showOnPlayerCard),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(
+                    _showOnPlayerCard
+                        ? Icons.check_box_rounded
+                        : Icons.check_box_outline_blank_rounded,
+                    color: _showOnPlayerCard
+                        ? AppColors.red
+                        : Colors.white38,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Show previous Act Rank on my Player Card',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -703,6 +965,114 @@ class _ActRankTab extends ConsumerWidget {
       loading: () => const RankSkeleton(),
       error: (e, _) => Center(child: _ErrorCard(message: e.toString())),
     );
+  }
+}
+
+// ── 49-Triangle Act Pyramid Painter ────────────────────────────────────────────
+
+class _ActPyramidPainter extends CustomPainter {
+  final List<int> winsTierList;
+  final int peakTier;
+  final int borderLevel;
+
+  _ActPyramidPainter({
+    required this.winsTierList,
+    required this.peakTier,
+    required this.borderLevel,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = size.width;
+    final height = size.height;
+
+    // 7 rows of triangles: row 0 has 13, row 1 has 11, row 2 has 9, row 3 has 7, row 4 has 5, row 5 has 3, row 6 has 1 = 49 triangles!
+    const totalRows = 7;
+    final rowHeight = height / totalRows;
+
+    var winIndex = 0;
+
+    for (var r = 0; r < totalRows; r++) {
+      // Row 0 is at bottom (7th level), Row 6 is top peak
+      final rowIndex = totalRows - 1 - r;
+      final trianglesInRow = (rowIndex * 2) + 1;
+      final triWidth = width / 13; // Max triangles in base row is 13
+
+      final rowStartX = (width - (trianglesInRow * triWidth / 2)) / 2;
+      final yTop = r * rowHeight;
+      final yBottom = (r + 1) * rowHeight;
+
+      for (var t = 0; t < trianglesInRow; t++) {
+        final isPointUp = t % 2 == 0;
+        final xLeft = rowStartX + (t * triWidth / 2);
+        final xRight = xLeft + triWidth;
+        final xCenter = (xLeft + xRight) / 2;
+
+        final path = Path();
+        if (isPointUp) {
+          path.moveTo(xCenter, yTop);
+          path.lineTo(xRight, yBottom);
+          path.lineTo(xLeft, yBottom);
+        } else {
+          path.moveTo(xLeft, yTop);
+          path.lineTo(xRight, yTop);
+          path.lineTo(xCenter, yBottom);
+        }
+        path.close();
+
+        final tierForTriangle =
+            winIndex < winsTierList.length ? winsTierList[winIndex] : 0;
+        winIndex++;
+
+        final isFilled = tierForTriangle > 0;
+        final color = _getCompetitiveTierColor(tierForTriangle);
+
+        if (isFilled) {
+          final fillPaint = Paint()
+            ..color = color
+            ..style = PaintingStyle.fill;
+          canvas.drawPath(path, fillPaint);
+
+          final strokePaint = Paint()
+            ..color = Colors.black45
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0;
+          canvas.drawPath(path, strokePaint);
+        } else {
+          final emptyPaint = Paint()
+            ..color = const Color(0xFF161C24)
+            ..style = PaintingStyle.fill;
+          canvas.drawPath(path, emptyPaint);
+
+          final strokePaint = Paint()
+            ..color = const Color(0xFF263242)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.8;
+          canvas.drawPath(path, strokePaint);
+        }
+      }
+    }
+
+    // Outer Pyramid Frame Accent
+    final framePath = Path()
+      ..moveTo(width / 2, 0)
+      ..lineTo(width, height)
+      ..lineTo(0, height)
+      ..close();
+
+    final framePaint = Paint()
+      ..color = _getCompetitiveTierColor(peakTier).withAlpha(180)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+
+    canvas.drawPath(framePath, framePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ActPyramidPainter oldDelegate) {
+    return oldDelegate.winsTierList != winsTierList ||
+        oldDelegate.peakTier != peakTier ||
+        oldDelegate.borderLevel != borderLevel;
   }
 }
 
