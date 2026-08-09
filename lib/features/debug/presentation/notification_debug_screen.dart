@@ -213,6 +213,27 @@ class _NotificationDebugScreenState
     });
   }
 
+  Future<void> _simulateShopReset() async {
+    final cache = CacheStorage.instance;
+    final creds = await ref.read(currentCredentialsProvider.future);
+    if (creds != null) {
+      await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
+      await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
+      // Invalidate current credentials to simulate expired token
+      ref.invalidate(currentCredentialsProvider);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Toko disimulasikan kedaluwarsa! Kembali ke Home lalu lakukan Pull to Refresh.',
+          ),
+          backgroundColor: AppColors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final skinsAsync = ref.watch(_debugSkinsProvider);
@@ -257,7 +278,7 @@ class _NotificationDebugScreenState
                 const Text(
                   '1. Tap skin untuk menambah ke mock shop\n'
                   '2. Trigger akan cocokkan mock shop vs wishlist\n'
-                  '3. Atau gunakan TEST INSTANT NOTIF untuk tes langsung',
+                  '3. Gunakan SIMULATE RESET TOKO untuk uji reset 07:00 WIB',
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
                 if (_lastResult != null) ...[
@@ -310,6 +331,17 @@ class _NotificationDebugScreenState
                         label: const Text('TEST INSTANT NOTIF',
                             style: TextStyle(fontSize: 11)),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _simulateShopReset,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.red,
+                        side: const BorderSide(color: AppColors.red),
+                      ),
+                      icon: const Icon(Icons.restore_rounded, size: 14),
+                      label: const Text('SIMULATE 07:00 RESET',
+                          style: TextStyle(fontSize: 11)),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton(
