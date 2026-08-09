@@ -191,6 +191,11 @@ class ValorantInterceptor extends Interceptor {
   /// 2. **Body keyword heuristic** — for other endpoints, check the response
   ///    body for auth-related keywords.
   bool _isLikelyAuthError(DioException err) {
+    final url = err.requestOptions.uri;
+    if (_isRiotGameApiEndpoint(url)) {
+      return true;
+    }
+
     final data = err.response?.data;
     if (data != null) {
       final body =
@@ -208,15 +213,10 @@ class ValorantInterceptor extends Interceptor {
         'token_expired',
         'token expired',
         'session_expired',
+        'expired',
       ];
 
       if (authHints.any(body.contains)) return true;
-    }
-
-    // Strategy 2: Riot PD endpoints returning empty body on 400 are usually stale tokens.
-    final url = err.requestOptions.uri;
-    if (_isRiotGameApiEndpoint(url) && (data == null || (data is Map && data.isEmpty))) {
-      return true;
     }
 
     return false;

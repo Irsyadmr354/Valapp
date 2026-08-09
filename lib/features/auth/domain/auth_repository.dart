@@ -190,6 +190,30 @@ class AuthRepository {
     return updated;
   }
 
+  /// Checks if active credentials are expired or near expiry (within 5 minutes).
+  /// If so, triggers proactive [reauth()]. Returns null if active session was cleared.
+  Future<Credentials?> ensureValidSession() async {
+    final creds = await _local.load();
+    if (creds == null) return null;
+
+    if (creds.isExpired ||
+        creds.expiresAt.difference(DateTime.now()).inMinutes < 5) {
+      debugPrint(
+          '[AuthRepo] Session expired or near expiry, triggering proactive reauth...');
+      try {
+        return await reauth();
+      } catch (e) {
+        debugPrint('[AuthRepo] Proactive reauth failed: $e');
+        if (e is InvalidSessionException || e is TokenExpiredException) {
+          await _local.clearActiveSessionOnly();
+          return null;
+        }
+        rethrow;
+      }
+    }
+    return creds;
+  }
+
   // ── Logout ─────────────────────────────────────────────────────────────────
 
   Future<void> logout() => _local.clear();

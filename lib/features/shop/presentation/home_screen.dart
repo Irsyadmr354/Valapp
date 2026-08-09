@@ -16,6 +16,7 @@ import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_icons.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
+import '../../../core/exceptions/auth_exception.dart';
 import '../domain/models/storefront.dart';
 import '../domain/models/wallet.dart';
 import '../domain/models/skin_offer.dart';
@@ -40,7 +41,7 @@ final _storefrontProvider =
   try {
     return await repo.fetchStorefront(creds.shard, creds.puuid);
   } catch (e) {
-    if (cached != null) return cached;
+    if (cached != null && !cached.isExpired) return cached;
     rethrow;
   }
 });
@@ -231,12 +232,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   child: ValorantErrorDisplay(
                     error: e,
                     onRetry: () async {
+                      final router = GoRouter.of(context);
                       try {
                         final authRepo =
                             await ref.read(authRepositoryProvider.future);
                         await authRepo.reauth();
-                      } catch (_) {}
-                      await _refresh();
+                        await _refresh();
+                      } on InvalidSessionException catch (_) {
+                        final local = ref.read(credentialsLocalSourceProvider);
+                        await local.clearActiveSessionOnly();
+                        ref.invalidate(currentCredentialsProvider);
+                        router.push('/login/webview');
+                      } on TokenExpiredException catch (_) {
+                        final local = ref.read(credentialsLocalSourceProvider);
+                        await local.clearActiveSessionOnly();
+                        ref.invalidate(currentCredentialsProvider);
+                        router.push('/login/webview');
+                      } catch (_) {
+                        await _refresh();
+                      }
                     },
                     onReauth: () => context.push('/login/webview'),
                     title: 'Gagal Memuat Toko Harian',
@@ -526,12 +540,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _refresh() async {
-    // Wait briefly (1.2s) to allow Wi-Fi/cellular connection to stabilize after reconnecting
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    // Wait briefly (600ms) to allow Wi-Fi/cellular connection to stabilize
+    await Future<void>.delayed(const Duration(milliseconds: 600));
 
     final cache = CacheStorage.instance;
     await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
     await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
+
+    try {
+      final authRepo = await ref.read(authRepositoryProvider.future);
+      final validCreds = await authRepo.ensureValidSession();
+      if (validCreds == null) {
+        ref.invalidate(currentCredentialsProvider);
+        return;
+      }
+    } catch (_) {}
+
     ref.invalidate(currentCredentialsProvider);
     ref.invalidate(_storefrontProvider);
     ref.invalidate(_walletProvider);
