@@ -129,21 +129,75 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final jsInject = '''
     (function() {
-      var userInput = document.querySelector("input[name='username']") || 
-                      document.querySelector("input[type='text']") || 
-                      document.querySelector("#username");
-      var passInput = document.querySelector("input[name='password']") || 
-                      document.querySelector("input[type='password']") || 
-                      document.querySelector("#password");
-      var btn = document.querySelector("button[type='submit']") || 
-                document.querySelector("button[data-testid='btn-signin']") || 
-                document.querySelector(".mobile-button") || 
-                document.querySelector("button.btn-signin") || 
-                document.querySelector("button");
+      function findInput(root, keywords) {
+        try {
+          var inputs = root.querySelectorAll('input');
+          for (var i = 0; i < inputs.length; i++) {
+            var inp = inputs[i];
+            var type = (inp.type || '').toLowerCase();
+            var name = (inp.name || '').toLowerCase();
+            var id = (inp.id || '').toLowerCase();
+            var placeholder = (inp.placeholder || '').toLowerCase();
+            var autocomplete = (inp.getAttribute('autocomplete') || '').toLowerCase();
+            var testid = (inp.getAttribute('data-testid') || '').toLowerCase();
+
+            for (var k = 0; k < keywords.length; k++) {
+              var kw = keywords[k];
+              if (name.includes(kw) || id.includes(kw) || placeholder.includes(kw) || autocomplete.includes(kw) || testid.includes(kw)) {
+                return inp;
+              }
+            }
+          }
+
+          var all = root.querySelectorAll('*');
+          for (var j = 0; j < all.length; j++) {
+            if (all[j].shadowRoot) {
+              var found = findInput(all[j].shadowRoot, keywords);
+              if (found) return found;
+            }
+          }
+        } catch(e) {}
+        return null;
+      }
+
+      function findButton(root) {
+        try {
+          var btns = root.querySelectorAll('button, input[type="submit"], a.mobile-button, [role="button"]');
+          for (var i = 0; i < btns.length; i++) {
+            var b = btns[i];
+            var type = (b.getAttribute('type') || '').toLowerCase();
+            var testid = (b.getAttribute('data-testid') || '').toLowerCase();
+            var cls = (b.className || '').toString().toLowerCase();
+            var text = (b.innerText || b.textContent || '').toLowerCase();
+
+            if (type === 'submit' || testid.includes('signin') || testid.includes('submit') || testid.includes('login') || cls.includes('mobile-button') || cls.includes('btn-signin') || text.includes('sign in') || text.includes('masuk') || text.includes('log in')) {
+              return b;
+            }
+          }
+
+          var all = root.querySelectorAll('*');
+          for (var j = 0; j < all.length; j++) {
+            if (all[j].shadowRoot) {
+              var found = findButton(all[j].shadowRoot);
+              if (found) return found;
+            }
+          }
+        } catch(e) {}
+        return null;
+      }
+
+      var userInput = findInput(document, ['username', 'account_name', 'account', 'user', 'login', 'email']) || document.querySelector("input[type='text']");
+      var passInput = findInput(document, ['password', 'pass']) || document.querySelector("input[type='password']");
+      var btn = findButton(document) || document.querySelector("button");
 
       if (userInput && passInput && btn) {
         function setReact18Value(element, val) {
           if (!element) return;
+          try {
+            element.focus();
+            element.dispatchEvent(new Event('focus', { bubbles: true }));
+          } catch(e) {}
+
           var valueSetter;
           try {
             var proto = Object.getPrototypeOf(element);
@@ -177,8 +231,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setTimeout(function() {
           btn.disabled = false;
           btn.removeAttribute('disabled');
-          btn.click();
-        }, 200);
+          try {
+            btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+            btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+            btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          } catch(e) {}
+          if (btn.click) btn.click();
+        }, 250);
 
         return "SUCCESS";
       }
