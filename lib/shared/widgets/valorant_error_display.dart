@@ -107,8 +107,8 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: ValorantHudBox(
         accentColor: AppColors.red,
-        backgroundColor: const Color(0xFF0C0810),
-        padding: const EdgeInsets.all(20),
+        backgroundColor: const Color(0xFF0F0B12),
+        padding: const EdgeInsets.all(22),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,11 +118,18 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: AppColors.red.withAlpha(40),
-                    border: Border.all(color: AppColors.red, width: 0.8),
+                    color: AppColors.red.withAlpha(35),
+                    border: Border.all(color: AppColors.red.withAlpha(180), width: 1),
                     borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.red.withAlpha(40),
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -135,14 +142,14 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Text(
                         info.code,
                         style: const TextStyle(
                           color: AppColors.red,
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
+                          letterSpacing: 1.5,
                         ),
                       ),
                     ],
@@ -152,15 +159,15 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
                 const Text(
                   'VALORANT // PROTOCOL',
                   style: TextStyle(
-                    color: Colors.white24,
+                    color: Colors.white30,
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
+                    letterSpacing: 1.2,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
             // Error Headline
             Text(
@@ -169,7 +176,7 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
+                letterSpacing: 0.8,
               ),
             ),
             const SizedBox(height: 8),
@@ -178,25 +185,25 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
             Text(
               info.explanation,
               style: const TextStyle(
-                color: Color(0xFFB0BAC8),
+                color: Color(0xFFB5C1D0),
                 fontSize: 13,
-                height: 1.4,
+                height: 1.45,
                 fontWeight: FontWeight.w500,
               ),
             ),
 
             if (info.rawMessage != null && info.rawMessage!.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(140),
+                  color: Colors.black.withAlpha(160),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.white10, width: 0.8),
+                  border: Border.all(color: Colors.white12, width: 0.8),
                 ),
                 child: Text(
-                  'DEBUG TELEMETRY: ${info.rawMessage}',
+                  'TELEMETRY LOG: ${info.rawMessage}',
                   style: const TextStyle(
                     color: Colors.white38,
                     fontSize: 10,
@@ -208,68 +215,42 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
               ),
             ],
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-            // Action Buttons Row
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isRetrying ? null : _handleRetry,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 4,
-                      shadowColor: AppColors.red.withAlpha(120),
-                    ),
-                    icon: _isRetrying
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(
-                      _isRetrying ? 'RECONNECTING...' : 'SYSTEM RECONNECT',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
+            // Single Full-Width Primary Reconnect Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: _isRetrying ? null : _handleRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.red,
+                  foregroundColor: Colors.white,
+                  elevation: 6,
+                  shadowColor: AppColors.red.withAlpha(140),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                if (info.isAuthRelated && widget.onReauth != null) ...[
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: widget.onReauth,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.red,
-                      side: const BorderSide(color: AppColors.red, width: 1.2),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'RE-LOGIN',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
+                icon: _isRetrying
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.2,
+                        ),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 20),
+                label: Text(
+                  _isRetrying ? 'CONNECTING TO RIOT...' : 'SYSTEM RECONNECT',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
                   ),
-                ],
-              ],
+                ),
+              ),
             ),
           ],
         ),
@@ -291,9 +272,9 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
         str.contains('forbidden')) {
       return _ErrorDetail(
         code: 'ERR // AUTH_SESSION_EXPIRED',
-        headline: 'Sesi Autentikasi Riot Berakhir',
+        headline: 'Sesi Autentikasi Terputus',
         explanation:
-            'Sesi token Riot Anda telah kedaluwarsa atau terputus. Tekan SYSTEM RECONNECT untuk mencoba menghubungkan ulang, atau RE-LOGIN untuk masuk kembali.',
+            'Sesi token Riot Games Anda membutuhkan pembaruan. Tekan SYSTEM RECONNECT untuk mereset dan menghubungkan kembali sesi Anda.',
         isAuthRelated: true,
         rawMessage: str,
       );
