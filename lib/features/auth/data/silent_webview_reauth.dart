@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import '../../../core/navigation/navigator_key.dart';
 import 'oauth_flow.dart';
 
 /// Performs silent background token refresh using the native WebView engine's
@@ -30,6 +31,7 @@ class SilentWebviewReauth {
     _isRunning = true;
 
     final completer = Completer<String>();
+    OverlayEntry? overlayEntry;
 
     try {
       // Create platform-specific params — on iOS, WebKitWebViewControllerCreationParams
@@ -44,7 +46,7 @@ class SilentWebviewReauth {
       }
 
       // Store reference in instance field to prevent GC
-      _controller = WebViewController.fromPlatformCreationParams(params)
+      final controller = WebViewController.fromPlatformCreationParams(params)
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setUserAgent(
           'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
@@ -79,8 +81,32 @@ class SilentWebviewReauth {
               }
             },
           ),
-        )
-        ..loadRequest(attempt.authorizeUri);
+        );
+
+      _controller = controller;
+
+      // Attach WebViewWidget into rootNavigatorKey overlay so iOS WebKit engine treats it as a live visible layer
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext != null) {
+        overlayEntry = OverlayEntry(
+          builder: (_) => Positioned(
+            left: -9999,
+            top: -9999,
+            width: 10,
+            height: 10,
+            child: TickerMode(
+              enabled: true,
+              child: Opacity(
+                opacity: 0.05,
+                child: WebViewWidget(controller: controller),
+              ),
+            ),
+          ),
+        );
+        Overlay.of(navContext).insert(overlayEntry);
+      }
+
+      controller.loadRequest(attempt.authorizeUri);
 
       debugPrint('[SilentReauth] Started silent WebView reauth...');
 
@@ -92,6 +118,8 @@ class SilentWebviewReauth {
         },
       );
     } finally {
+      overlayEntry?.remove();
+      overlayEntry = null;
       _controller = null; // Release reference after completion
       _isRunning = false;
     }

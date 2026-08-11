@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/di/providers.dart';
+import 'core/navigation/navigator_key.dart';
 import 'shared/utils/app_colors.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/auth/presentation/webview_login_screen.dart';
@@ -33,6 +34,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(authNotifier.dispose);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/shop',
     refreshListenable: authNotifier,
     redirect: (context, state) async {
