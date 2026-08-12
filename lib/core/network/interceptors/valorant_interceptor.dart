@@ -7,6 +7,8 @@ import '../../storage/secure_storage.dart';
 import '../../../features/auth/data/credentials_local_source.dart';
 import '../../../shared/utils/version_service.dart';
 
+import '../valorant_headers.dart';
+
 /// Automatically injects Valorant auth headers on every API request:
 /// - Authorization: Bearer <access_token>
 /// - X-Riot-Entitlements-JWT
@@ -33,9 +35,6 @@ class ValorantInterceptor extends Interceptor {
     required this.onAuthFailed,
   })  : _secureStorage = secureStorage,
         _versionService = versionService;
-
-  static const _clientPlatform =
-      'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9';
 
   /// Shared Dio instance used when retrying a request after reauth.
   /// Created lazily and reused to avoid allocating a new instance per retry.
@@ -68,7 +67,7 @@ class ValorantInterceptor extends Interceptor {
             credentials.entitlementToken;
       }
       options.headers['X-Riot-ClientVersion'] = clientVersion;
-      options.headers['X-Riot-ClientPlatform'] = _clientPlatform;
+      options.headers['X-Riot-ClientPlatform'] = ValorantHeaders.clientPlatform;
       if (options.data != null ||
           (options.method.toUpperCase() != 'GET' &&
               options.method.toUpperCase() != 'HEAD')) {

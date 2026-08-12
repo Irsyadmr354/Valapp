@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import '../../features/shop/domain/models/wallet.dart';
+import '../network/valorant_headers.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
 import '../../features/auth/data/credentials_local_source.dart';
@@ -85,31 +86,26 @@ class BackgroundShopChecker {
     final puuid = credentials.puuid;
     final shard = credentials.shard;
 
-    // Skip if the access token is clearly expired — the background task cannot
-    // perform a WebView-based reauth, so a known-expired token will always
-    // produce a 401. Bailing early avoids a wasteful network round-trip.
-    if (DateTime.now().isAfter(credentials.expiresAt)) {
-      debugPrint('[BackgroundShopChecker] Token expired — skipping check');
+    // Skip if tokens are expired — background task cannot trigger interactive reauth
+    if (credentials.isExpired || credentials.isEntitlementExpired) {
+      debugPrint('[BackgroundShopChecker] Tokens expired — skipping background check');
       return;
     }
 
     // ── Fetch storefront ────────────────────────────────────────────────────
     final Map<String, dynamic> storefront;
 
-    // X-Riot-ClientVersion is required by several Riot PD endpoints.
-    // Use the cached version (set by the main app); fall back to a known
-    // stable value so the background task does not produce 400s.
     final clientVersion = await cache.getString(CacheStorage.keyClientVersion);
     if (clientVersion == null || clientVersion.isEmpty) {
-      throw StateError('No verified Riot client version is cached');
+      debugPrint('[BackgroundShopChecker] No cached client version available — bailing early');
+      return;
     }
 
     final headers = {
-      'Authorization': 'Bearer $accessToken',
-      'X-Riot-Entitlements-JWT': entitlementToken,
-      'X-Riot-ClientVersion': clientVersion,
-      'X-Riot-ClientPlatform':
-          'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9',
+      ValorantHeaders.headerAuth: 'Bearer $accessToken',
+      ValorantHeaders.headerEntitlement: entitlementToken,
+      ValorantHeaders.headerClientVersion: clientVersion,
+      ValorantHeaders.headerClientPlatform: ValorantHeaders.clientPlatform,
       'Content-Type': 'application/json',
     };
     dynamic rawData;
