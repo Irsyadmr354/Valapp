@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/exceptions/auth_exception.dart';
+import '../../../core/storage/secure_storage.dart';
 import '../data/oauth_flow.dart';
 
 /// Opens Riot's real login page in a WebView and intercepts the redirect
@@ -128,6 +129,20 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
 
       // Invalidate credentials & session providers so router and UI pick up the new session
       ref.read(sessionActionsProvider).invalidateSession();
+
+      // Extract & save Riot session cookies into iOS Keychain for 100% resilient auto-reauth
+      try {
+        final cookiesResult =
+            await _controller.runJavaScriptReturningResult('document.cookie');
+        final cookiesStr = cookiesResult.toString().replaceAll('"', '');
+        if (cookiesStr.isNotEmpty && cookiesStr != 'null') {
+          await SecureStorage.instance.write('riot_cookies_raw', cookiesStr);
+          debugPrint(
+              '[WebViewLogin] Saved Riot session cookies to iOS Keychain');
+        }
+      } catch (e) {
+        debugPrint('[WebViewLogin] Non-fatal cookie capture warning: $e');
+      }
 
       if (mounted) {
         if (Navigator.of(context).canPop()) {

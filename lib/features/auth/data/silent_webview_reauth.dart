@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/navigation/navigator_key.dart';
+import '../../../core/storage/secure_storage.dart';
 import 'oauth_flow.dart';
 
 /// Performs silent background token refresh using the native WebView engine's
@@ -85,9 +86,46 @@ class SilentWebviewReauth {
 
       _controller = controller;
 
+      // Restore saved Riot session cookies from iOS Keychain into WebViewCookieManager
+      try {
+        final rawCookies = await SecureStorage.instance.read('riot_cookies_raw');
+        if (rawCookies != null && rawCookies.isNotEmpty) {
+          final cookieManager = WebViewCookieManager();
+          final pairs = rawCookies.split(';');
+          for (final pair in pairs) {
+            final parts = pair.split('=');
+            if (parts.length >= 2) {
+              final name = parts[0].trim();
+              final value = parts.sublist(1).join('=').trim();
+              if (name.isNotEmpty && value.isNotEmpty) {
+                await cookieManager.setCookie(
+                  WebViewCookie(
+                    name: name,
+                    value: value,
+                    domain: 'auth.riotgames.com',
+                    path: '/',
+                  ),
+                );
+                await cookieManager.setCookie(
+                  WebViewCookie(
+                    name: name,
+                    value: value,
+                    domain: '.riotgames.com',
+                    path: '/',
+                  ),
+                );
+              }
+            }
+          }
+          debugPrint('[SilentReauth] Restored Riot session cookies into WKWebView');
+        }
+      } catch (e) {
+        debugPrint('[SilentReauth] Non-fatal cookie restoration warning: $e');
+      }
+
       // Attach WebViewWidget into rootNavigatorKey overlay so iOS WebKit engine treats it as a live visible layer
       final navContext = rootNavigatorKey.currentContext;
-      if (navContext != null) {
+      if (navContext != null && navContext.mounted) {
         overlayEntry = OverlayEntry(
           builder: (_) => Positioned(
             left: -9999,
