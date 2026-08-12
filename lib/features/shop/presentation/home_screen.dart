@@ -86,12 +86,6 @@ final _bundlesMapProvider =
   return assets.getBundlesMap();
 });
 
-final _skinLevelsMapProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  final assets = ref.watch(valorantAssetsProvider);
-  return assets.getSkinLevelsMap();
-});
-
 final _newsFeedProvider = FutureProvider.autoDispose((ref) async {
   final source = ref.watch(newsRemoteSourceProvider);
   return source.fetchNews();
@@ -675,7 +669,7 @@ class _BundleBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bundlesAsync = ref.watch(_bundlesMapProvider);
-    final skinLevelsAsync = ref.watch(_skinLevelsMapProvider);
+    final skinLevelsAsync = ref.watch(_skinMetaMapProvider);
 
     final bundleMap = bundlesAsync.asData?.value ?? {};
     final skinMap = skinLevelsAsync.asData?.value ?? {};
