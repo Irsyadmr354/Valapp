@@ -100,10 +100,18 @@ class NotificationService {
   Future<void> showWishlistAlert({
     required String skinName,
     required int price,
+    String? skinId,
+    String? puuid,
   }) async {
     await init();
+    final notifId = (puuid != null && skinId != null)
+        ? '$puuid:$skinId'.hashCode & 0x7FFFFFFF
+        : (skinId != null
+            ? skinId.hashCode & 0x7FFFFFFF
+            : skinName.hashCode & 0x7FFFFFFF);
+
     await _notifications.show(
-      skinName.hashCode & 0x7FFFFFFF,
+      notifId,
       '🌟 WISHLIST SKIN IN SHOP!',
       '$skinName is available today for ${price > 0 ? '$price VP' : 'an unknown price'}!',
       const NotificationDetails(
@@ -141,7 +149,12 @@ class NotificationService {
       skinId: skinId,
     );
     if (!claimed) return false;
-    await showWishlistAlert(skinName: skinName, price: price);
+    await showWishlistAlert(
+      skinName: skinName,
+      price: price,
+      skinId: skinId,
+      puuid: account,
+    );
     return true;
   }
 

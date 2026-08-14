@@ -169,7 +169,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     _listenForWishlistOffers();
     final storefrontAsync = ref.watch(_storefrontProvider);
-    _checkAndTriggerWishlistAlerts(storefrontAsync.asData?.value);
     final walletAsync = ref.watch(_walletProvider);
     final wishlist = ref.watch(wishlistProvider);
 

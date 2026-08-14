@@ -273,7 +273,7 @@ class _SecurityRow extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'SECURE RIOT RSO LOGIN — Credentials are not stored by this app',
+              'SECURE RIOT RSO LOGIN — Credentials stored securely on-device only',
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 10,

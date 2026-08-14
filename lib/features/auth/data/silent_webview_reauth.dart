@@ -24,7 +24,7 @@ class SilentWebviewReauth {
 
   /// Performs background silent token refresh using native WebView session cookies.
   /// Returns the redirect URI containing the fresh `access_token`.
-  Future<String> refreshTokens(OAuthAttempt attempt) async {
+  Future<String> refreshTokens(OAuthAttempt attempt, {String? puuid}) async {
     // Prevent concurrent reauth attempts
     if (_isRunning) {
       throw Exception('Silent reauth already in progress');
@@ -86,9 +86,14 @@ class SilentWebviewReauth {
 
       _controller = controller;
 
-      // Restore saved Riot session cookies from iOS Keychain into WebViewCookieManager
+      // Restore saved Riot session cookies for the target account into WebViewCookieManager
       try {
-        final rawCookies = await SecureStorage.instance.read('riot_cookies_raw');
+        final cookieKey = (puuid != null && puuid.isNotEmpty)
+            ? SecureStorage.keyRiotCookiesFor(puuid)
+            : SecureStorage.keyRiotCookiesRaw;
+        var rawCookies = await SecureStorage.instance.read(cookieKey);
+        rawCookies ??=
+            await SecureStorage.instance.read(SecureStorage.keyRiotCookiesRaw);
         if (rawCookies != null && rawCookies.isNotEmpty) {
           final cookieManager = WebViewCookieManager();
           final pairs = rawCookies.split(';');

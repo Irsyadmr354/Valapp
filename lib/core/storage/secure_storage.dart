@@ -32,6 +32,10 @@ class SecureStorage {
   /// are kept in sync as a fast read path for the interceptor/background task
   /// and as a migration fallback.
   static const keyActiveSession = 'active_session_snapshot_v2';
+  static const keyRiotCookiesRaw = 'riot_cookies_raw';
+
+  /// Generates a per-account secure storage key for Riot session cookies.
+  static String keyRiotCookiesFor(String puuid) => '${keyRiotCookiesRaw}_$puuid';
 
   /// Conservative estimate — Riot does not expose entitlement token TTL.
   /// Tune here if stale-400 errors persist after proactive refresh.

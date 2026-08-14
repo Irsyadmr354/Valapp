@@ -130,15 +130,40 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
       // Invalidate credentials & session providers so router and UI pick up the new session
       ref.read(sessionActionsProvider).invalidateSession();
 
-      // Extract & save Riot session cookies into iOS Keychain for 100% resilient auto-reauth
+      // Extract & save Riot session cookies into Keychain/SecureStorage per-account for resilient auto-reauth
       try {
         final cookiesResult =
             await _controller.runJavaScriptReturningResult('document.cookie');
         final cookiesStr = cookiesResult.toString().replaceAll('"', '');
         if (cookiesStr.isNotEmpty && cookiesStr != 'null') {
-          await SecureStorage.instance.write('riot_cookies_raw', cookiesStr);
+          // Filter to only retain Riot auth session cookies (ssid, clid, sub, csid, tdid, asid)
+          final filteredCookies = cookiesStr
+              .split(';')
+              .map((c) => c.trim())
+              .where((c) {
+                final lower = c.toLowerCase();
+                return lower.startsWith('ssid=') ||
+                    lower.startsWith('clid=') ||
+                    lower.startsWith('sub=') ||
+                    lower.startsWith('csid=') ||
+                    lower.startsWith('tdid=') ||
+                    lower.startsWith('asid=') ||
+                    lower.startsWith('pbe_');
+              })
+              .join('; ');
+
+          final toSave =
+              filteredCookies.isNotEmpty ? filteredCookies : cookiesStr;
+          await SecureStorage.instance.write(
+            SecureStorage.keyRiotCookiesFor(creds.puuid),
+            toSave,
+          );
+          await SecureStorage.instance.write(
+            SecureStorage.keyRiotCookiesRaw,
+            toSave,
+          );
           debugPrint(
-              '[WebViewLogin] Saved Riot session cookies to iOS Keychain');
+              '[WebViewLogin] Saved Riot session cookies per-account to Keychain');
         }
       } catch (e) {
         debugPrint('[WebViewLogin] Non-fatal cookie capture warning: $e');

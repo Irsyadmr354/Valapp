@@ -126,7 +126,8 @@ class AuthRepository {
 
     // PRIMARY: WebView-based silent reauth — uses shared OS native cookie store (WKWebsiteDataStore / CookieManager)
     try {
-      uri = await SilentWebviewReauth.instance.refreshTokens(attempt);
+      uri = await SilentWebviewReauth.instance
+          .refreshTokens(attempt, puuid: old.puuid);
     } catch (e) {
       debugPrint('[AuthRepo] Silent WebView reauth failed: $e');
 

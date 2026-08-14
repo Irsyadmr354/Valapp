@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -278,10 +279,13 @@ class _BattlepassCard extends ConsumerWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(bannerUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            Container(color: AppColors.bgCard2)),
+                    CachedNetworkImage(
+                      imageUrl: bannerUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => const LoadingShimmer(height: 80),
+                      errorWidget: (_, __, ___) =>
+                          Container(color: AppColors.bgCard2),
+                    ),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -585,10 +589,11 @@ class _AgentContractTile extends ConsumerWidget {
             child: agentPortrait != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(9),
-                    child: Image.network(
-                      agentPortrait,
+                    child: CachedNetworkImage(
+                      imageUrl: agentPortrait,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      placeholder: (_, __) => const LoadingShimmer(height: 44),
+                      errorWidget: (_, __, ___) => const Icon(
                           Icons.person_outline,
                           color: Colors.white24,
                           size: 22),

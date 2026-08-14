@@ -8,18 +8,10 @@ import '../domain/models/account_health.dart';
 
 final accountHealthProvider =
     FutureProvider.autoDispose<AccountHealth?>((ref) async {
-  try {
-    final creds = await ref.watch(currentCredentialsProvider.future);
-    if (creds == null) return null;
-    final source = await ref.watch(restrictionsRemoteSourceProvider.future);
-    return source.fetchAccountHealth(creds.shard, creds.puuid);
-  } catch (_) {
-    return const AccountHealth(
-      status: AccountHealthStatus.unknown,
-      penalties: [],
-      avoidedPlayers: [],
-    );
-  }
+  final creds = await ref.watch(currentCredentialsProvider.future);
+  if (creds == null) return null;
+  final source = await ref.watch(restrictionsRemoteSourceProvider.future);
+  return source.fetchAccountHealth(creds.shard, creds.puuid);
 });
 
 class AccountHealthModal extends ConsumerWidget {

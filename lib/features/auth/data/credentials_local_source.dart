@@ -359,6 +359,7 @@ class CredentialsLocalSource {
 
       // If active account was removed, switch to the next available one
       final currentPuuid = (await load())?.puuid;
+      await _storage.delete(SecureStorage.keyRiotCookiesFor(puuid));
       if (currentPuuid == puuid) {
         if (profiles.isNotEmpty) {
           // Use _saveInternal — NOT save() — to avoid nested lock deadlock.
@@ -407,6 +408,7 @@ class CredentialsLocalSource {
       _storage.delete(SecureStorage.keyExpiresAt),
       _storage.delete(SecureStorage.keyEntitlementExpiresAt),
       _storage.delete(SecureStorage.keyActiveSession),
+      _storage.delete(SecureStorage.keyRiotCookiesRaw),
     ]);
   }
 
