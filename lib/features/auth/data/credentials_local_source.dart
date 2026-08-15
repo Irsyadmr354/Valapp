@@ -132,8 +132,7 @@ class CredentialsLocalSource {
   ) async {
     return AsyncLock.run('credentials_save', () async {
       final current = await load();
-      if (current?.puuid != expected.puuid ||
-          current?.accessToken != expected.accessToken) {
+      if (current?.puuid != expected.puuid) {
         return false;
       }
       await _saveInternal(updated);

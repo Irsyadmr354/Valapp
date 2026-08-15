@@ -195,12 +195,10 @@ class AuthRepository {
       try {
         return await reauth();
       } catch (e) {
-        debugPrint('[AuthRepo] Proactive reauth failed: $e');
-        if (e is InvalidSessionException || e is TokenExpiredException) {
-          await _local.clearActiveSessionOnly();
-          return null;
-        }
-        rethrow;
+        debugPrint('[AuthRepo] Proactive reauth warning: $e');
+        // Do not wipe active session on reauth failure — keep credentials intact
+        // so interceptor/reactive reauth can retry when connectivity is restored.
+        return creds;
       }
     }
     return creds;

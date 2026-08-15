@@ -231,10 +231,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         await authRepo.reauth();
                         await _refresh();
                       } catch (e) {
-                        debugPrint('[HomeScreen] Reauth failed: $e — redirecting to login');
-                        final local = ref.read(credentialsLocalSourceProvider);
-                        await local.clearActiveSessionOnly();
-                        ref.invalidate(currentCredentialsProvider);
+                        debugPrint('[HomeScreen] Reauth attempt failed: $e');
+                        // Do not clear active session on transient retry errors.
+                        // Allow the user to retry or tap Reconnect without wiping credentials.
                         if (context.mounted) {
                           router.push('/login/webview');
                         }

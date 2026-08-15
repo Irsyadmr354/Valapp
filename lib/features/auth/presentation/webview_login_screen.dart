@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/exceptions/auth_exception.dart';
 import '../../../core/storage/secure_storage.dart';
@@ -27,7 +28,16 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
+    late final PlatformWebViewControllerCreationParams params;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+      );
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
+
+    _controller = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0F1923))
       ..setUserAgent(
@@ -73,8 +83,40 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
     _startAttempt();
   }
 
-  void _startAttempt() {
+  Future<void> _startAttempt() async {
     _attempt = OAuthAttempt.create();
+    try {
+      final rawCookies =
+          await SecureStorage.instance.read(SecureStorage.keyRiotCookiesRaw);
+      if (rawCookies != null && rawCookies.isNotEmpty) {
+        final cookieManager = WebViewCookieManager();
+        for (final pair in rawCookies.split(';')) {
+          final parts = pair.split('=');
+          if (parts.length >= 2) {
+            final name = parts[0].trim();
+            final value = parts.sublist(1).join('=').trim();
+            if (name.isNotEmpty && value.isNotEmpty) {
+              await cookieManager.setCookie(
+                WebViewCookie(
+                  name: name,
+                  value: value,
+                  domain: 'auth.riotgames.com',
+                  path: '/',
+                ),
+              );
+              await cookieManager.setCookie(
+                WebViewCookie(
+                  name: name,
+                  value: value,
+                  domain: '.riotgames.com',
+                  path: '/',
+                ),
+              );
+            }
+          }
+        }
+      }
+    } catch (_) {}
     _controller.loadRequest(_attempt.authorizeUri);
   }
 

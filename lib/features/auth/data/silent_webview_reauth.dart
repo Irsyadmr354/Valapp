@@ -128,19 +128,19 @@ class SilentWebviewReauth {
         debugPrint('[SilentReauth] Non-fatal cookie restoration warning: $e');
       }
 
-      // Attach WebViewWidget into rootNavigatorKey overlay so iOS WebKit engine treats it as a live visible layer
+      // Attach WebViewWidget into rootNavigatorKey overlay so iOS WebKit engine treats it as a live layer
       final navContext = rootNavigatorKey.currentContext;
       if (navContext != null && navContext.mounted) {
         overlayEntry = OverlayEntry(
           builder: (_) => Positioned(
-            left: -9999,
-            top: -9999,
-            width: 10,
-            height: 10,
-            child: TickerMode(
-              enabled: true,
+            left: 0,
+            top: 0,
+            width: 1,
+            height: 1,
+            child: IgnorePointer(
+              ignoring: true,
               child: Opacity(
-                opacity: 0.05,
+                opacity: 0.01,
                 child: WebViewWidget(controller: controller),
               ),
             ),
@@ -154,9 +154,9 @@ class SilentWebviewReauth {
       debugPrint('[SilentReauth] Started silent WebView reauth...');
 
       return await completer.future.timeout(
-        const Duration(seconds: 12),
+        const Duration(seconds: 15),
         onTimeout: () {
-          debugPrint('[SilentReauth] Timed out after 12 seconds');
+          debugPrint('[SilentReauth] Timed out after 15 seconds');
           throw Exception('Silent WebView reauth timed out');
         },
       );
