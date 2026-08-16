@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
+import '../../../shared/widgets/modal_drag_handle.dart';
 import '../../../shared/widgets/valorant_icons.dart';
 import '../domain/models/skin_offer.dart';
 
@@ -60,17 +61,7 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
       ),
       child: Column(
         children: [
-          // Drag handle indicator
-          const SizedBox(height: 12),
-          Container(
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const ModalDragHandle(),
 
           // Top Header Action Bar (Back, Wishlist Bookmark, Close)
           Padding(

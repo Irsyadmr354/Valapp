@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../core/network/valorant_headers.dart';
 import '../../core/storage/cache_storage.dart';
 
 /// Fetches and caches the current Riot Client version string.
@@ -64,7 +65,7 @@ class VersionService {
     } catch (_) {
       final cached = await cache.getString(CacheStorage.keyClientVersion);
       if (cached != null && cached.isNotEmpty) return cached;
-      return 'release-09.00-shipping-21-2661597';
+      return ValorantHeaders.defaultClientVersion;
     }
   }
 }

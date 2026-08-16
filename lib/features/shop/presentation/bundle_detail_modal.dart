@@ -6,6 +6,7 @@ import '../../../shared/utils/price_utils.dart' as price_utils;
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/countdown_timer.dart';
+import '../../../shared/widgets/modal_drag_handle.dart';
 import '../../../shared/widgets/valorant_icons.dart';
 import '../domain/models/skin_offer.dart';
 
@@ -67,17 +68,7 @@ class BundleDetailModal extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const ModalDragHandle(width: 36),
 
           // Header with Bundle Name & Price
           Padding(

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/network/api_response_decoder.dart';
 import '../../../core/storage/cache_storage.dart';
+import '../../../shared/constants/valorant_constants.dart';
 import '../domain/models/match_details.dart';
 
 class MatchRemoteSource {
@@ -14,14 +15,13 @@ class MatchRemoteSource {
     int endIndex = 15,
     String? queue,
   }) async {
-    final cleanShard = shard.toLowerCase();
     final params = <String, dynamic>{
       'startIndex': startIndex,
       'endIndex': endIndex,
       if (queue != null && queue.isNotEmpty) 'queue': queue,
     };
     final url =
-        'https://pd.$cleanShard.a.pvp.net/match-history/v1/history/$puuid';
+        '${RiotEndpoints.pd(shard)}/match-history/v1/history/$puuid';
     final response = await _dio.get<dynamic>(url, queryParameters: params);
     final data = ApiResponseDecoder.decodeMap(response.data, source: url);
     return ApiResponseDecoder.requireShape(
@@ -34,9 +34,8 @@ class MatchRemoteSource {
 
   Future<Map<String, dynamic>> fetchMatchDetailsRaw(
       String shard, String matchId) async {
-    final cleanShard = shard.toLowerCase();
     final url =
-        'https://pd.$cleanShard.a.pvp.net/match-details/v1/matches/$matchId';
+        '${RiotEndpoints.pd(shard)}/match-details/v1/matches/$matchId';
     final response = await _dio.get<dynamic>(url);
     final raw = ApiResponseDecoder.decodeMap(response.data, source: url);
     ApiResponseDecoder.requireShape(

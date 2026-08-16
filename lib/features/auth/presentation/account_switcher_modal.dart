@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/display_name_util.dart';
+import '../../../shared/widgets/modal_drag_handle.dart';
 import '../data/credentials_local_source.dart';
 
 /// Modal dialog for managing and switching between multiple saved Valorant accounts.
@@ -123,17 +124,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const ModalDragHandle(width: 36),
 
           // Header
           Padding(

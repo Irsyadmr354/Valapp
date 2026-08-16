@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../core/network/api_response_decoder.dart';
+import '../../../shared/constants/valorant_constants.dart';
 import '../domain/models/wallet.dart';
 
 class StoreRemoteSource {
@@ -8,17 +9,18 @@ class StoreRemoteSource {
 
   Future<Map<String, dynamic>> fetchStorefrontRaw(
       String shard, String puuid) async {
+    final pdBase = RiotEndpoints.pd(shard);
     // Primary: storefront v2 (universal, 100% stable across all Riot shards)
     try {
       final response = await _dio.post<dynamic>(
-        'https://pd.$shard.a.pvp.net/store/v2/storefront/$puuid',
+        '$pdBase/store/v2/storefront/$puuid',
         data: {},
       );
       return _validateStorefront(response.data, 'storefront v2');
     } catch (_) {
       // Fallback: storefront v3
       final response = await _dio.post<dynamic>(
-        'https://pd.$shard.a.pvp.net/store/v3/storefront/$puuid',
+        '$pdBase/store/v3/storefront/$puuid',
         data: {},
       );
       return _validateStorefront(response.data, 'storefront v3');
@@ -26,7 +28,7 @@ class StoreRemoteSource {
   }
 
   Future<Wallet> fetchWallet(String shard, String puuid) async {
-    final url = 'https://pd.$shard.a.pvp.net/store/v1/wallet/$puuid';
+    final url = '${RiotEndpoints.pd(shard)}/store/v1/wallet/$puuid';
     final response = await _dio.get<dynamic>(url);
     final data = ApiResponseDecoder.decodeMap(response.data, source: url);
     ApiResponseDecoder.requireShape(data, source: url, maps: ['Balances']);

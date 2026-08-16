@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../domain/models/player_loadout.dart';
 
@@ -24,7 +25,8 @@ class LoadoutLocalCache {
     if (raw == null) return null;
     try {
       return PlayerLoadout.fromJson(raw);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[LoadoutLocalCache] Error parsing cached PlayerLoadout: $e');
       await _cache
           .remove(CacheStorage.userKeyFor(LoadoutLocalCache.keyLoadout, puuid));
       return null;

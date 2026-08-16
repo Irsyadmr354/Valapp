@@ -374,7 +374,7 @@ final displayNameProvider =
       throw StateError('Display name unavailable');
     }
     if (transaction != null) {
-      await cache.saveDisplayName(creds.puuid, name, transaction);
+      await cache.saveDisplayName(name, puuid: creds.puuid, transaction: transaction);
     }
     await local.updateAccountMetadata(creds.puuid, displayName: name);
     if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
@@ -382,7 +382,7 @@ final displayNameProvider =
     }
     return CachedFetchResult(name);
   } catch (_) {
-    final cached = await cache.loadDisplayName(creds.puuid);
+    final cached = await cache.loadDisplayName(puuid: creds.puuid);
     if (cached != null &&
         cached.isNotEmpty &&
         !DisplayNameUtil.isPlaceholder(cached)) {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../domain/models/player_mmr.dart';
 
@@ -23,7 +24,8 @@ class MmrLocalCache {
     if (raw == null) return null;
     try {
       return PlayerMmr.fromJson(raw);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[MmrLocalCache] Error parsing cached PlayerMmr: $e');
       await _cache
           .remove(CacheStorage.userKeyFor(CacheStorage.keyMmrCache, puuid));
       await _cache.remove(
@@ -59,7 +61,8 @@ class MmrLocalCache {
           .whereType<Map>()
           .map((e) => CompetitiveUpdate.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[MmrLocalCache] Error parsing cached CompetitiveUpdates: $e');
       await _evictCompetitiveUpdates(puuid);
       return null;
     }

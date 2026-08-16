@@ -2,11 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/exceptions/auth_exception.dart';
 import '../../../shared/utils/app_colors.dart';
+import '../../../shared/utils/date_time_utils.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/utils/price_utils.dart' as price_utils;
@@ -1476,11 +1476,7 @@ class _HomeQuickCardsRow extends ConsumerWidget {
     );
   }
 
-  String _fmtDate(int ms) {
-    if (ms == 0) return 'Recently';
-    return DateFormat('MMM d, HH:mm')
-        .format(DateTime.fromMillisecondsSinceEpoch(ms));
-  }
+  String _fmtDate(int ms) => DateTimeUtils.formatMatchTime(ms);
 }
 
 // ── RR Mini Chart (Home Screen trend card) ───────────────────────────────────
@@ -1924,23 +1920,7 @@ class _NewsCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime dt) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-  }
+  String _formatDate(DateTime dt) => DateTimeUtils.formatNewsDate(dt);
 }
 
 // ── News Article WebView Screen ───────────────────────────────────────────────

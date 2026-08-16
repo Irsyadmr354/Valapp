@@ -3,11 +3,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../core/utils/async_lock.dart';
 import '../../../shared/utils/app_colors.dart';
+import '../../../shared/utils/date_time_utils.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
@@ -762,7 +762,7 @@ class _MatchTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dateStr = DateFormat('MMM d, HH:mm').format(entry.gameStartTime);
+    final dateStr = DateTimeUtils.formatMatchTime(entry.gameStartMillis);
     final mapsMap = ref.watch(_mapsMapProvider).asData?.value ?? {};
     final agentsMap = ref.watch(_agentsMapProvider).asData?.value ?? {};
     final mapName = entry.getMapDisplayName(mapsMap);

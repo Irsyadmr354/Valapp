@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../../../core/utils/async_lock.dart';
 import '../domain/models/match_history.dart';
@@ -52,7 +53,8 @@ class MatchHistoryLocalCache {
     if (value is! Map) return null;
     try {
       return MatchHistoryResult.fromJson(Map<String, dynamic>.from(value));
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[MatchHistoryLocalCache] Error parsing cached MatchHistoryResult: $e');
       all.remove(_cacheKey(queue));
       if (all.isEmpty) {
         await _cache.remove(

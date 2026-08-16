@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/valorant_constants.dart';
 
 /// Maps Valorant content tier names and UUIDs to their representative colors.
 /// Colors sourced from valorant-api.com/v1/contenttiers `highlightColor` field.
@@ -16,20 +17,20 @@ class TierColors {
 
   /// Known content tier UUIDs from valorant-api.com.
   static const Map<String, Color> byUuid = {
-    '12683d76-48d7-84a3-4e09-6985794f0445': Color(0xFF5A9FE2), // Select
-    '0cebb8be-46d7-c12a-d306-e9907bfc5a25': Color(0xFF009587), // Deluxe
-    '60bca009-4182-7998-dee7-b8a2558dc369': Color(0xFFD1548D), // Premium
-    '411e4a55-4e59-7757-41f0-86a53f101bb5': Color(0xFFFAD663), // Ultra
-    'e046854e-406c-37f4-6607-19a9ba8426fc': Color(0xFFF5955B), // Exclusive
+    ValorantContentTiers.selectUuid: Color(0xFF5A9FE2), // Select
+    ValorantContentTiers.deluxeUuid: Color(0xFF009587), // Deluxe
+    ValorantContentTiers.premiumUuid: Color(0xFFD1548D), // Premium
+    ValorantContentTiers.ultraUuid: Color(0xFFFAD663), // Ultra
+    ValorantContentTiers.exclusiveUuid: Color(0xFFF5955B), // Exclusive
   };
 
   /// Display names keyed by content tier UUID (valorant-api.com/v1/contenttiers).
   static const Map<String, String> tierDisplayNames = {
-    '12683d76-48d7-84a3-4e09-6985794f0445': 'Select Edition',
-    '0cebb8be-46d7-c12a-d306-e9907bfc5a25': 'Deluxe Edition',
-    '60bca009-4182-7998-dee7-b8a2558dc369': 'Premium Edition',
-    '411e4a55-4e59-7757-41f0-86a53f101bb5': 'Ultra Edition',
-    'e046854e-406c-37f4-6607-19a9ba8426fc': 'Exclusive Edition',
+    ValorantContentTiers.selectUuid: 'Select Edition',
+    ValorantContentTiers.deluxeUuid: 'Deluxe Edition',
+    ValorantContentTiers.premiumUuid: 'Premium Edition',
+    ValorantContentTiers.ultraUuid: 'Ultra Edition',
+    ValorantContentTiers.exclusiveUuid: 'Exclusive Edition',
   };
 
   /// Resolves display label from content tier UUID.

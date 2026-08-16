@@ -524,14 +524,10 @@ class ValorantAssets {
 
         final type = s['type']?.toString() ?? '';
         final name = s['displayName']?.toString() ?? '';
-        if (type.toLowerCase().contains('episode') ||
-            type == 'EAresSeasonType::Episode') {
-          final num = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-          episode = num.isNotEmpty ? 'EPISODE $num' : name.toUpperCase();
-        } else if (type.toLowerCase().contains('act') ||
-            type == 'EAresSeasonType::Act') {
-          final num = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-          act = num.isNotEmpty ? 'ACT $num' : name.toUpperCase();
+        if (_isEpisode(type)) {
+          episode = _formatSeasonLabel(type, name);
+        } else if (_isAct(type)) {
+          act = _formatSeasonLabel(type, name);
         }
       }
 
@@ -549,17 +545,10 @@ class ValorantAssets {
         for (final s in sortedSeasons) {
           final type = s['type']?.toString() ?? '';
           final name = s['displayName']?.toString() ?? '';
-          if (episode.isEmpty &&
-              (type.toLowerCase().contains('episode') ||
-                  type == 'EAresSeasonType::Episode')) {
-            final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-            episode =
-                numStr.isNotEmpty ? 'EPISODE $numStr' : name.toUpperCase();
-          } else if (act.isEmpty &&
-              (type.toLowerCase().contains('act') ||
-                  type == 'EAresSeasonType::Act')) {
-            final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-            act = numStr.isNotEmpty ? 'ACT $numStr' : name.toUpperCase();
+          if (episode.isEmpty && _isEpisode(type)) {
+            episode = _formatSeasonLabel(type, name);
+          } else if (act.isEmpty && _isAct(type)) {
+            act = _formatSeasonLabel(type, name);
           }
           if (episode.isNotEmpty && act.isNotEmpty) break;
         }
@@ -621,11 +610,8 @@ class ValorantAssets {
         final name = map['displayName']?.toString() ?? '';
 
         if (uuid != null) {
-          if (type.toLowerCase().contains('episode') ||
-              type == 'EAresSeasonType::Episode') {
-            final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-            final label =
-                numStr.isNotEmpty ? 'EPISODE $numStr' : name.toUpperCase();
+          if (_isEpisode(type)) {
+            final label = _formatSeasonLabel(type, name);
             episodesByUuid[uuid] = label;
             episodesByUuid[uuid.toLowerCase()] = label;
           }
@@ -645,20 +631,16 @@ class ValorantAssets {
         if (uuid == null) continue;
 
         String fullLabel = name.toUpperCase();
-        if (type.toLowerCase().contains('act') ||
-            type == 'EAresSeasonType::Act') {
+        if (_isAct(type)) {
           final episodeLabel = parentUuid != null
               ? (episodesByUuid[parentUuid] ??
                   episodesByUuid[parentUuid.toLowerCase()])
               : null;
-          final numStr = RegExp(r'\d+').firstMatch(name)?.group(0) ?? '';
-          final actLabel =
-              numStr.isNotEmpty ? 'ACT $numStr' : name.toUpperCase();
+          final actLabel = _formatSeasonLabel(type, name);
           fullLabel = episodeLabel != null
               ? '$episodeLabel // $actLabel'
               : actLabel;
-        } else if (type.toLowerCase().contains('episode') ||
-            type == 'EAresSeasonType::Episode') {
+        } else if (_isEpisode(type)) {
           fullLabel = episodesByUuid[uuid] ?? name.toUpperCase();
         }
 
@@ -964,5 +946,20 @@ class ValorantAssets {
     } catch (_) {
       return await cache.getJson(keyBuddies) ?? {};
     }
+  }
+
+  // ── Season formatting helpers ───────────────────────────────────────────────
+
+  static bool _isEpisode(String type) =>
+      type.toLowerCase().contains('episode') ||
+      type == 'EAresSeasonType::Episode';
+
+  static bool _isAct(String type) =>
+      type.toLowerCase().contains('act') || type == 'EAresSeasonType::Act';
+
+  static String _formatSeasonLabel(String type, String displayName) {
+    final numStr = RegExp(r'\d+').firstMatch(displayName)?.group(0) ?? '';
+    final prefix = _isEpisode(type) ? 'EPISODE' : 'ACT';
+    return numStr.isNotEmpty ? '$prefix $numStr' : displayName.toUpperCase();
   }
 }

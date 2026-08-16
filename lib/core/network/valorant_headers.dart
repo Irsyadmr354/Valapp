@@ -11,4 +11,7 @@ class ValorantHeaders {
   static const headerEntitlement = 'X-Riot-Entitlements-JWT';
   static const headerClientVersion = 'X-Riot-ClientVersion';
   static const headerClientPlatform = 'X-Riot-ClientPlatform';
+
+  /// Standard fallback Riot client version if valorant-api.com is unreachable.
+  static const defaultClientVersion = 'release-11.02-shipping-14-3407743';
 }

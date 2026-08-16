@@ -1,45 +1,29 @@
 import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../constants/valorant_constants.dart';
 import '../utils/app_colors.dart';
 
 /// Official Riot CDN URLs for Valorant In-Game Currencies.
 class ValorantCurrencyUrls {
   ValorantCurrencyUrls._();
 
-  static const vp =
-      'https://media.valorant-api.com/currencies/85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741/displayicon.png';
-  static const kc =
-      'https://media.valorant-api.com/currencies/85ca954a-41f2-ce94-9b45-8ca3dd39a00d/displayicon.png';
-  static const rp =
-      'https://media.valorant-api.com/currencies/e59aa87c-4cbf-517a-5983-6e81511be9b7/displayicon.png';
+  static const vp = ValorantCurrencies.vpCdnUrl;
+  static const kc = ValorantCurrencies.kcCdnUrl;
+  static const rp = ValorantCurrencies.rpCdnUrl;
 }
 
 /// Official Riot CDN URLs for Content Tiers (Skin Editions - Gambar 1).
 class ValorantContentTierUrls {
   ValorantContentTierUrls._();
 
-  static const select =
-      'https://media.valorant-api.com/contenttiers/12683d76-48d7-84a3-4e09-6985794f0445/displayicon.png';
-  static const deluxe =
-      'https://media.valorant-api.com/contenttiers/0cebb8be-46d7-c12a-d306-e9907bfc5a25/displayicon.png';
-  static const premium =
-      'https://media.valorant-api.com/contenttiers/60bca009-4182-7998-dee7-b8a2558dc369/displayicon.png';
-  static const ultra =
-      'https://media.valorant-api.com/contenttiers/411e4a55-4e59-7757-41f0-86a53f101bb5/displayicon.png';
-  static const exclusive =
-      'https://media.valorant-api.com/contenttiers/e046854e-406c-37f4-6607-19a9ba8426fc/displayicon.png';
+  static const select = ValorantContentTiers.selectCdnUrl;
+  static const deluxe = ValorantContentTiers.deluxeCdnUrl;
+  static const premium = ValorantContentTiers.premiumCdnUrl;
+  static const ultra = ValorantContentTiers.ultraCdnUrl;
+  static const exclusive = ValorantContentTiers.exclusiveCdnUrl;
 
-  static String? forUuid(String? uuid) {
-    if (uuid == null || uuid.isEmpty) return null;
-    final lower = uuid.toLowerCase();
-    if (lower.contains('12683d76')) return select;
-    if (lower.contains('0cebb8be')) return deluxe;
-    if (lower.contains('60bca009')) return premium;
-    if (lower.contains('411e4a55')) return ultra;
-    if (lower.contains('e046854e')) return exclusive;
-    return null;
-  }
+  static String? forUuid(String? uuid) => ValorantContentTiers.cdnUrlForUuid(uuid);
 }
 
 // ── Gambar 2: Valorant Points (VP) Icon ─────────────────────────────────────

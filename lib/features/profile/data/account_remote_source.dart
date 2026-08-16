@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/network/api_response_decoder.dart';
+import '../../../shared/constants/valorant_constants.dart';
 
 class AccountRemoteSource {
   const AccountRemoteSource(this._dio);
@@ -7,8 +9,7 @@ class AccountRemoteSource {
 
   Future<Map<String, dynamic>> fetchAccountXpRaw(
       String shard, String puuid) async {
-    final cleanShard = shard.toLowerCase();
-    final url = 'https://pd.$cleanShard.a.pvp.net/account-xp/v1/players/$puuid';
+    final url = '${RiotEndpoints.pd(shard)}/account-xp/v1/players/$puuid';
     final response = await _dio.get<dynamic>(url);
     final data = ApiResponseDecoder.decodeMap(response.data, source: url);
     return ApiResponseDecoder.requireShape(
@@ -33,7 +34,10 @@ class AccountRemoteSource {
     }
 
     if (accessToken != null && accessToken.isNotEmpty) {
-      return _fetchDisplayNameFromUserInfo(accessToken);
+      final fromUserInfo = await _fetchDisplayNameFromUserInfo(accessToken);
+      if (fromUserInfo != null && fromUserInfo.isNotEmpty) {
+        return fromUserInfo;
+      }
     }
     return null;
   }
@@ -60,7 +64,8 @@ class AccountRemoteSource {
       return (tagLine != null && tagLine.isNotEmpty)
           ? '$gameName#$tagLine'
           : gameName;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AccountRemoteSource] Error fetching userinfo display name: $e');
       return null;
     }
   }
@@ -69,18 +74,18 @@ class AccountRemoteSource {
   Future<Map<String, String>> fetchDisplayNames(
       String shard, List<String> puuids) async {
     if (puuids.isEmpty) return {};
-    final cleanShard = shard.toLowerCase();
+    final pdBase = RiotEndpoints.pd(shard);
     try {
       dynamic data;
       try {
         final response = await _dio.put<dynamic>(
-          'https://pd.$cleanShard.a.pvp.net/name-service/v2/players',
+          '$pdBase/name-service/v2/players',
           data: puuids,
         );
         data = response.data;
       } on DioException catch (_) {
         final response = await _dio.post<dynamic>(
-          'https://pd.$cleanShard.a.pvp.net/name-service/v3/players',
+          '$pdBase/name-service/v3/players',
           data: puuids,
         );
         data = response.data;
@@ -116,7 +121,8 @@ class AccountRemoteSource {
         }
       }
       return result;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AccountRemoteSource] Error fetching name-service players: $e');
       return {};
     }
   }

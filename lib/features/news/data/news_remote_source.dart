@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/network/api_response_decoder.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../domain/models/news_article.dart';
@@ -72,7 +73,8 @@ class NewsRemoteSource {
       await cache.setJson(_cacheKey, articles.map(_toJson).toList());
       await cache.setTimestamp(_cacheTimestampKey);
       return articles;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[NewsRemoteSource] Error fetching news: $e');
       final stale = await _loadCached(cache);
       if (stale != null) return stale;
       return [];

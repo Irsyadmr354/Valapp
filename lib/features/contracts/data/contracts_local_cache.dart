@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../domain/models/contracts.dart';
 
@@ -21,7 +22,8 @@ class ContractsLocalCache {
     if (raw == null) return null;
     try {
       return PlayerContracts.fromJson(raw);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ContractsLocalCache] Error parsing cached PlayerContracts: $e');
       await _cache.remove(
           CacheStorage.userKeyFor(CacheStorage.keyContractsCache, puuid));
       await _cache.remove(CacheStorage.userKeyFor(

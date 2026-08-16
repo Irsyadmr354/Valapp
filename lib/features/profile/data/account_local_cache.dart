@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../domain/models/account_xp.dart';
 
@@ -21,7 +22,8 @@ class AccountLocalCache {
     if (raw == null) return null;
     try {
       return AccountXp.fromJson(raw);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AccountLocalCache] Error parsing cached AccountXp: $e');
       await _cache.remove(
           CacheStorage.userKeyFor(CacheStorage.keyAccountXpCache, puuid));
       await _cache.remove(CacheStorage.userKeyFor(
@@ -30,8 +32,8 @@ class AccountLocalCache {
     }
   }
 
-  Future<void> saveDisplayName(
-      String puuid, String name, CacheTransaction transaction) async {
+  Future<void> saveDisplayName(String name,
+      {required String puuid, required CacheTransaction transaction}) async {
     await _cache.runUserTransaction(transaction, () async {
       await _cache.setJson(
         CacheStorage.userKeyFor(CacheStorage.keyDisplayNameCache, puuid),
@@ -42,7 +44,7 @@ class AccountLocalCache {
     });
   }
 
-  Future<String?> loadDisplayName(String puuid) async {
+  Future<String?> loadDisplayName({required String puuid}) async {
     final raw = await _cache.getJson(
         CacheStorage.userKeyFor(CacheStorage.keyDisplayNameCache, puuid));
     return raw?['name'] as String?;

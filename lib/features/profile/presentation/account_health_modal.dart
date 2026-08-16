@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
+import '../../../shared/utils/date_time_utils.dart';
+import '../../../shared/widgets/modal_drag_handle.dart';
 import '../domain/models/account_health.dart';
 
 final accountHealthProvider =
@@ -41,17 +42,7 @@ class AccountHealthModal extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // Drag handle
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const ModalDragHandle(width: 36, bottomMargin: 16),
 
           // Header
           Padding(
@@ -354,9 +345,7 @@ class _PenaltyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final expiryStr = penalty.expiryTime != null
-        ? DateFormat('MMM d, yyyy HH:mm').format(penalty.expiryTime!)
-        : 'Indefinite';
+    final expiryStr = DateTimeUtils.formatFullDateTime(penalty.expiryTime);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

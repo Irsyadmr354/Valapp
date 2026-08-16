@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/network/api_response_decoder.dart';
 import '../../../core/storage/cache_storage.dart';
+import '../../../shared/constants/valorant_constants.dart';
 import '../domain/models/player_mmr.dart';
 
 class MmrRemoteSource {
@@ -8,8 +9,7 @@ class MmrRemoteSource {
   final Dio _dio;
 
   Future<Map<String, dynamic>> fetchMmrRaw(String shard, String puuid) async {
-    final cleanShard = shard.toLowerCase();
-    final url = 'https://pd.$cleanShard.a.pvp.net/mmr/v1/players/$puuid';
+    final url = '${RiotEndpoints.pd(shard)}/mmr/v1/players/$puuid';
     final response = await _dio.get<dynamic>(url);
     final data = ApiResponseDecoder.decodeMap(response.data, source: url);
     return ApiResponseDecoder.requireShape(
@@ -29,9 +29,8 @@ class MmrRemoteSource {
     int startIndex = 0,
     int endIndex = 20,
   }) async {
-    final cleanShard = shard.toLowerCase();
     final url =
-        'https://pd.$cleanShard.a.pvp.net/mmr/v1/players/$puuid/competitiveupdates';
+        '${RiotEndpoints.pd(shard)}/mmr/v1/players/$puuid/competitiveupdates';
     final response = await _dio.get<dynamic>(
       url,
       queryParameters: {

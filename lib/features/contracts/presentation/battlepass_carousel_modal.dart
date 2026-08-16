@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
+import '../../../shared/widgets/modal_drag_handle.dart';
 import '../domain/models/contracts.dart';
 
 /// Modal displaying the full Battle Pass rewards in a swipeable Chapter Carousel.
@@ -73,14 +74,7 @@ class _BattlepassCarouselModalState
       ),
       child: Column(
         children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-                color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-          ),
-          const SizedBox(height: 12),
+          const ModalDragHandle(width: 36),
           // Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
