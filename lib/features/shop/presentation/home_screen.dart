@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/storage/cache_storage.dart';
+import '../../../core/exceptions/auth_exception.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
@@ -102,6 +102,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
+  bool _isRefreshing = false;
+
   @override
   void initState() {
     super.initState();
@@ -156,18 +158,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  void _listenForWishlistOffers() {
+  @override
+  Widget build(BuildContext context) {
     ref.listen<AsyncValue<Storefront?>>(_storefrontProvider, (_, next) {
       _checkAndTriggerWishlistAlerts(next.asData?.value);
     });
     ref.listen<List<String>>(wishlistProvider, (_, __) {
       _checkAndTriggerWishlistAlerts(ref.read(_storefrontProvider).asData?.value);
     });
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    _listenForWishlistOffers();
     final storefrontAsync = ref.watch(_storefrontProvider);
     final walletAsync = ref.watch(_walletProvider);
     final wishlist = ref.watch(wishlistProvider);
@@ -230,13 +229,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             await ref.read(authRepositoryProvider.future);
                         await authRepo.reauth();
                         await _refresh();
+                      } on InvalidSessionException catch (e) {
+                        debugPrint(
+                            '[HomeScreen] Session invalid — must re-login: $e');
+                        if (context.mounted) router.push('/login/webview');
+                      } on TokenExpiredException catch (e) {
+                        debugPrint(
+                            '[HomeScreen] Token expired — must re-login: $e');
+                        if (context.mounted) router.push('/login/webview');
                       } catch (e) {
-                        debugPrint('[HomeScreen] Reauth attempt failed: $e');
-                        // Do not clear active session on transient retry errors.
-                        // Allow the user to retry or tap Reconnect without wiping credentials.
-                        if (context.mounted) {
-                          router.push('/login/webview');
-                        }
+                        // TransientReauthException, concurrency race, timeout, network error, etc.
+                        // Preserve session and retry refresh without forcing login.
+                        debugPrint(
+                            '[HomeScreen] Transient failure, session preserved: $e');
+                        if (context.mounted) await _refresh();
                       }
                     },
                     onReauth: () => context.push('/login/webview'),
@@ -527,37 +533,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _refresh() async {
-    // Wait briefly (600ms) to allow Wi-Fi/cellular connection to stabilize
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    final cache = CacheStorage.instance;
-    await cache.remove(cache.userKey(CacheStorage.keyDailyShop));
-    await cache.remove(cache.userKey(CacheStorage.keyDailyShopFetchedAt));
-
+    if (_isRefreshing) return;
+    _isRefreshing = true;
     try {
-      final authRepo = await ref.read(authRepositoryProvider.future);
-      final validCreds = await authRepo.ensureValidSession();
-      if (validCreds == null) {
-        ref.invalidate(currentCredentialsProvider);
-        return;
+      // Wait briefly (600ms) to allow Wi-Fi/cellular connection to stabilize
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+
+      final creds = await ref.read(currentCredentialsProvider.future);
+      if (creds != null) {
+        final storeCache = ref.read(storeLocalCacheProvider);
+        await storeCache.clearStorefront(puuid: creds.puuid);
       }
-    } catch (_) {}
 
-    ref.invalidate(currentCredentialsProvider);
-    ref.invalidate(_storefrontProvider);
-    ref.invalidate(_walletProvider);
-    ref.invalidate(displayNameProvider);
-    ref.invalidate(accountXpProvider);
+      try {
+        final authRepo = await ref.read(authRepositoryProvider.future);
+        final validCreds = await authRepo.ensureValidSession();
+        if (validCreds == null) {
+          ref.invalidate(currentCredentialsProvider);
+          return;
+        }
+      } catch (_) {}
 
-    try {
-      await ref.read(_storefrontProvider.future);
-    } catch (_) {
-      // Retry once more after 1s if first attempt hit network warmup lag
-      await Future<void>.delayed(const Duration(milliseconds: 1000));
+      ref.invalidate(currentCredentialsProvider);
       ref.invalidate(_storefrontProvider);
+      ref.invalidate(_walletProvider);
+      ref.invalidate(displayNameProvider);
+      ref.invalidate(accountXpProvider);
+
       try {
         await ref.read(_storefrontProvider.future);
-      } catch (_) {}
+      } catch (_) {
+        // Retry once more after 1s if first attempt hit network warmup lag
+        await Future<void>.delayed(const Duration(milliseconds: 1000));
+        ref.invalidate(_storefrontProvider);
+        try {
+          await ref.read(_storefrontProvider.future);
+        } catch (_) {}
+      }
+    } finally {
+      _isRefreshing = false;
     }
   }
 

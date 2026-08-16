@@ -653,9 +653,11 @@ class _WinRateCircle extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          CustomPaint(
-            size: const Size(72, 72),
-            painter: _RingPainter(progress: winRate.clamp(0.0, 1.0)),
+          RepaintBoundary(
+            child: CustomPaint(
+              size: const Size(72, 72),
+              painter: _RingPainter(progress: winRate.clamp(0.0, 1.0)),
+            ),
           ),
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1017,7 +1019,9 @@ class _MapFallback extends StatelessWidget {
         children: [
           // Subtle diagonal stripe texture
           Positioned.fill(
-            child: CustomPaint(painter: _StripePainter()),
+            child: RepaintBoundary(
+              child: CustomPaint(painter: _StripePainter()),
+            ),
           ),
           // Map name + icon centred
           Center(

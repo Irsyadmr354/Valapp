@@ -80,10 +80,12 @@ class StoreLocalCache {
     );
   }
 
-  Future<void> _evictStorefront(String puuid) async {
+  Future<void> clearStorefront({required String puuid}) async {
     await _cache
         .remove(CacheStorage.userKeyFor(CacheStorage.keyDailyShop, puuid));
     await _cache.remove(
         CacheStorage.userKeyFor(CacheStorage.keyDailyShopFetchedAt, puuid));
   }
+
+  Future<void> _evictStorefront(String puuid) => clearStorefront(puuid: puuid);
 }

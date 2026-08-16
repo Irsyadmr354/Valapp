@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
+import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
@@ -331,9 +332,11 @@ class _RrSparklineCard extends StatelessWidget {
           const SizedBox(height: 14),
           SizedBox(
             height: 56,
-            child: CustomPaint(
-              size: const Size(double.infinity, 56),
-              painter: _SparklinePainter(updates: recent),
+            child: RepaintBoundary(
+              child: CustomPaint(
+                size: const Size(double.infinity, 56),
+                painter: _SparklinePainter(updates: recent),
+              ),
             ),
           ),
         ],
@@ -606,19 +609,6 @@ class _MatchHistoryTab extends StatelessWidget {
 
 // ── Tab 2 — Act Rank ──────────────────────────────────────────────────────────
 
-Color _getCompetitiveTierColor(int tier) {
-  if (tier >= 27) return const Color(0xFFFFF7C0); // Radiant
-  if (tier >= 24) return const Color(0xFFBB384E); // Immortal
-  if (tier >= 21) return const Color(0xFF45B07B); // Ascendant
-  if (tier >= 18) return const Color(0xFFB064DD); // Diamond
-  if (tier >= 15) return const Color(0xFF3FB3BE); // Platinum
-  if (tier >= 12) return const Color(0xFFE2B742); // Gold
-  if (tier >= 9) return const Color(0xFFB0B9C6); // Silver
-  if (tier >= 6) return const Color(0xFFA67C52); // Bronze
-  if (tier >= 3) return const Color(0xFF6A7079); // Iron
-  return const Color(0xFF202732); // Unranked
-}
-
 class _ActRankTab extends ConsumerStatefulWidget {
   const _ActRankTab({required this.mmrAsync});
   final AsyncValue<CachedFetchResult<PlayerMmr>?> mmrAsync;
@@ -805,13 +795,13 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                       color: const Color(0xFF090D14),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _getCompetitiveTierColor(actData.peakWinTier)
+                        color: TierColors.forCompetitiveTier(actData.peakWinTier)
                             .withAlpha(120),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: _getCompetitiveTierColor(actData.peakWinTier)
+                          color: TierColors.forCompetitiveTier(actData.peakWinTier)
                               .withAlpha(45),
                           blurRadius: 24,
                           spreadRadius: 2,
@@ -821,12 +811,14 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                   ),
 
                   // Upward 49-Triangle Pyramid Custom Painter
-                  CustomPaint(
-                    size: const Size(260, 220),
-                    painter: _ActPyramidPainter(
-                      winsTierList: actData.winTierList,
-                      peakTier: actData.peakWinTier,
-                      borderLevel: actData.borderLevel,
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      size: const Size(260, 220),
+                      painter: _ActPyramidPainter(
+                        winsTierList: actData.winTierList,
+                        peakTier: actData.peakWinTier,
+                        borderLevel: actData.borderLevel,
+                      ),
                     ),
                   ),
                 ],
@@ -931,7 +923,7 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                                     .clamp(0.0, 1.0),
                             backgroundColor: Colors.black45,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              _getCompetitiveTierColor(actData.peakWinTier),
+                              TierColors.forCompetitiveTier(actData.peakWinTier),
                             ),
                             minHeight: 8,
                           ),
@@ -1075,7 +1067,7 @@ class _ActPyramidPainter extends CustomPainter {
         winIdx++;
 
         final isFilled = tierId > 0;
-        final tierColor = _getCompetitiveTierColor(tierId);
+        final tierColor = TierColors.forCompetitiveTier(tierId);
 
         if (isFilled) {
           final gradient = LinearGradient(
@@ -1113,7 +1105,7 @@ class _ActPyramidPainter extends CustomPainter {
     }
 
     // Outer Pyramid Boundary Stroke Accent
-    final peakColor = _getCompetitiveTierColor(peakTier);
+    final peakColor = TierColors.forCompetitiveTier(peakTier);
     final borderPath = Path()
       ..moveTo(width / 2, 0)
       ..lineTo(width, height)

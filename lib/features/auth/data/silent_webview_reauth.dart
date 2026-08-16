@@ -19,18 +19,25 @@ class SilentWebviewReauth {
   // ignore: unused_field
   WebViewController? _controller;
 
-  /// Whether a reauth is currently in progress (prevents concurrent calls).
-  bool _isRunning = false;
+  /// In-flight reauth future — shared so concurrent callers await one attempt.
+  Future<String>? _inFlight;
 
   /// Performs background silent token refresh using native WebView session cookies.
   /// Returns the redirect URI containing the fresh `access_token`.
   Future<String> refreshTokens(OAuthAttempt attempt, {String? puuid}) async {
-    // Prevent concurrent reauth attempts
-    if (_isRunning) {
-      throw Exception('Silent reauth already in progress');
-    }
-    _isRunning = true;
+    final existing = _inFlight;
+    if (existing != null) return existing;
 
+    final operation = _doRefreshTokens(attempt, puuid: puuid);
+    _inFlight = operation;
+    try {
+      return await operation;
+    } finally {
+      if (identical(_inFlight, operation)) _inFlight = null;
+    }
+  }
+
+  Future<String> _doRefreshTokens(OAuthAttempt attempt, {String? puuid}) async {
     final completer = Completer<String>();
     OverlayEntry? overlayEntry;
 
@@ -164,7 +171,6 @@ class SilentWebviewReauth {
       overlayEntry?.remove();
       overlayEntry = null;
       _controller = null; // Release reference after completion
-      _isRunning = false;
     }
   }
 

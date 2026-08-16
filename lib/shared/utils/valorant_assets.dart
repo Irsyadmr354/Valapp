@@ -684,12 +684,6 @@ class ValorantAssets {
     }
   }
 
-  /// Backward compatible wrapper returning Season UUID -> Label String.
-  Future<Map<String, String>> getSeasonsNameMap() async {
-    final meta = await getSeasonsMetadataMap();
-    return meta.map((k, v) => MapEntry(k, v['label']?.toString() ?? k));
-  }
-
   // ── Themes (Skin Collections) ─────────────────────────────────────────────
 
   /// Returns a map of theme UUID → { 'displayName', 'displayIcon' }

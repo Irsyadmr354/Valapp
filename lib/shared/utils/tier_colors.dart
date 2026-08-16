@@ -69,6 +69,20 @@ class TierColors {
     return forName(tierUuid);
   }
 
+  /// Resolves representative color for competitive rank tiers (0-27).
+  static Color forCompetitiveTier(int tier) {
+    if (tier >= 27) return const Color(0xFFFFF7C0); // Radiant
+    if (tier >= 24) return const Color(0xFFBB384E); // Immortal
+    if (tier >= 21) return const Color(0xFF45B07B); // Ascendant
+    if (tier >= 18) return const Color(0xFFB064DD); // Diamond
+    if (tier >= 15) return const Color(0xFF3FB3BE); // Platinum
+    if (tier >= 12) return const Color(0xFFE2B742); // Gold
+    if (tier >= 9) return const Color(0xFFB0B9C6); // Silver
+    if (tier >= 6) return const Color(0xFFA67C52); // Bronze
+    if (tier >= 3) return const Color(0xFF6A7079); // Iron
+    return const Color(0xFF202732); // Unranked
+  }
+
   /// Resolves color from either UUID or name.
   static Color forName(String? identifier) {
     if (identifier == null) return Colors.grey;
