@@ -47,17 +47,9 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF070A10),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border.all(color: tierColor.withAlpha(100), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: tierColor.withAlpha(50),
-            blurRadius: 28,
-            spreadRadius: 2,
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: Color(0xFF070A10),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         children: [
@@ -246,12 +238,6 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final themeName = themeInfo?['displayName'] as String? ??
         (widget.offer.displayName ?? 'Weapon Skin').split(' ').first;
 
-    // Check if skin actually has a finisher level
-    final hasFinisher = levels.any((l) {
-      final levelItem = (l['levelItem']?.toString() ?? '').toLowerCase();
-      final levelName = (l['displayName']?.toString() ?? '').toLowerCase();
-      return levelItem.contains('finisher') || levelName.contains('finisher');
-    });
 
     // Determine current image and video
     String? currentImage;
@@ -373,39 +359,7 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
 
         const SizedBox(height: 16),
 
-        // 2. Quick Info Chips Row
-        Row(
-          children: [
-            _QuickInfoChip(
-              customIcon: SkinTierIcon(
-                tierUuid: widget.offer.contentTierUuid,
-                size: 14,
-              ),
-              label: tierLabel,
-              color: tierColor,
-            ),
-            if (widget.offer.price > 0) ...[
-              const SizedBox(width: 8),
-              _QuickInfoChip(
-                customIcon: const VpIcon(size: 13, color: AppColors.vpCyan),
-                label: '${widget.offer.price}',
-                color: AppColors.vpCyan,
-              ),
-            ],
-            if (hasFinisher) ...[
-              const SizedBox(width: 8),
-              const _QuickInfoChip(
-                icon: Icons.shield_outlined,
-                label: 'Finisher Included',
-                color: AppColors.red,
-              ),
-            ],
-          ],
-        ),
-
-        const SizedBox(height: 20),
-
-        // 3. Main Weapon Image Showcase Container with Energy Glow
+        // Main Weapon Image Showcase Container with Energy Glow
         Stack(
           children: [
             Container(
@@ -850,55 +804,6 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
   }
 }
 
-class _QuickInfoChip extends StatelessWidget {
-  const _QuickInfoChip({
-    this.icon,
-    this.customIcon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData? icon;
-  final Widget? customIcon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF131B2E),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white10, width: 1),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (customIcon != null)
-              customIcon!
-            else if (icon != null)
-              Icon(icon, color: color, size: 14),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 final _themesMapProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
     (ref) async => ref.watch(valorantAssetsProvider).getThemesMap());

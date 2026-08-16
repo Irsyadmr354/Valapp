@@ -247,7 +247,6 @@ class _SkinVideoDialogState extends State<SkinVideoDialog> {
       backgroundColor: AppColors.bgCard,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.red, width: 1.5),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(

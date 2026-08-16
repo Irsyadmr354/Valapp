@@ -61,9 +61,6 @@ class BundleDetailModal extends ConsumerWidget {
       decoration: const BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.fromBorderSide(
-          BorderSide(color: AppColors.red, width: 1.5),
-        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
