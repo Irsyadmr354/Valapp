@@ -67,37 +67,16 @@ class SkinCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Top-right: Bookmark / Wishlist toggle icon overlaid on image
-                  if (onWishlistToggle != null)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: onWishlistToggle,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(160),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: offer.isInWishlist
-                                  ? const Color(0xFFFF4655)
-                                  : Colors.white24,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Icon(
-                            offer.isInWishlist
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                            color: offer.isInWishlist
-                                ? const Color(0xFFFF4655)
-                                : Colors.white70,
-                            size: 16,
-                          ),
-                        ),
-                      ),
+                  // Top-right: Arrow indicator to inspect details (Chromas & Levels)
+                  const Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white54,
+                      size: 18,
                     ),
+                  ),
                 ],
               ),
             ),

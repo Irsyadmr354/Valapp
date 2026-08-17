@@ -117,9 +117,6 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
       decoration: const BoxDecoration(
         color: Color(0xFF0E1622),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.fromBorderSide(
-          BorderSide(color: Color(0xFFFF4655), width: 1.5),
-        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
