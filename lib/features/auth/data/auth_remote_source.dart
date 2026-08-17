@@ -99,7 +99,8 @@ class AuthRemoteSource {
       }
     }
 
-    throw const InvalidSessionException();
+    throw const TransientReauthException(
+        'No redirect received during cookie reauth');
   }
 
   // ── URI Parsing Helpers ───────────────────────────────────────────────────

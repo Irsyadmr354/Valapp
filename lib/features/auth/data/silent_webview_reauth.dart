@@ -4,6 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/navigation/navigator_key.dart';
 import '../../../core/storage/secure_storage.dart';
+import '../../../core/exceptions/auth_exception.dart';
 import 'oauth_flow.dart';
 
 /// Performs silent background token refresh using the native WebView engine's
@@ -84,7 +85,7 @@ class SilentWebviewReauth {
                 debugPrint(
                     '[SilentReauth] WebView error: ${err.description} (url: $url)');
                 completer.completeError(
-                  Exception('WebView error: ${err.description}'),
+                  TransientReauthException('WebView error: ${err.description}'),
                 );
               }
             },
@@ -164,7 +165,8 @@ class SilentWebviewReauth {
         const Duration(seconds: 15),
         onTimeout: () {
           debugPrint('[SilentReauth] Timed out after 15 seconds');
-          throw Exception('Silent WebView reauth timed out');
+          throw const TransientReauthException(
+              'Silent WebView reauth timed out');
         },
       );
     } finally {

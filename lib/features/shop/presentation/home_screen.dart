@@ -35,12 +35,13 @@ final _storefrontProvider =
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
   final repo = await ref.watch(storeRepositoryProvider.future);
-  final cached = await repo.loadCachedStorefront(creds.puuid);
+  final cached =
+      await repo.loadCachedStorefront(creds.puuid, allowExpired: true);
 
   try {
     return await repo.fetchStorefront(creds.shard, creds.puuid);
   } catch (e) {
-    if (cached != null && !cached.isExpired) return cached;
+    if (cached != null) return cached;
     rethrow;
   }
 });
@@ -459,7 +460,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       storefront.currentDailyOffersRemainingSeconds,
                   deadline: storefront.dailyOffersDeadline,
                   deadlineIdentity: storefront.dailyOffersIdentity,
-                  onExpired: _refresh,
+                  onExpired: () => _refresh(isScheduledRotation: true),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -532,19 +533,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool isScheduledRotation = false}) async {
     if (_isRefreshing) return;
     _isRefreshing = true;
     try {
-      // Wait briefly (600ms) to allow Wi-Fi/cellular connection to stabilize
-      await Future<void>.delayed(const Duration(milliseconds: 600));
-
-      final creds = await ref.read(currentCredentialsProvider.future);
-      if (creds != null) {
-        final storeCache = ref.read(storeLocalCacheProvider);
-        await storeCache.clearStorefront(puuid: creds.puuid);
+      if (isScheduledRotation) {
+        // Give Riot's backend a 2.5s buffer at 00:00:00 UTC (07:00:00 WIB)
+        // to complete generating and rolling the new store catalog
+        await Future<void>.delayed(const Duration(milliseconds: 2500));
+      } else {
+        // Wait briefly (600ms) to allow Wi-Fi/cellular connection to stabilize on resume/pull
+        await Future<void>.delayed(const Duration(milliseconds: 600));
       }
 
+      // DO NOT clear storefront cache beforehand — keep existing data as visual fallback
       try {
         final authRepo = await ref.read(authRepositoryProvider.future);
         final validCreds = await authRepo.ensureValidSession();
@@ -563,8 +565,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       try {
         await ref.read(_storefrontProvider.future);
       } catch (_) {
-        // Retry once more after 1s if first attempt hit network warmup lag
-        await Future<void>.delayed(const Duration(milliseconds: 1000));
+        // Retry with backoff if first attempt hit rotation propagation lag
+        await Future<void>.delayed(const Duration(milliseconds: 2000));
         ref.invalidate(_storefrontProvider);
         try {
           await ref.read(_storefrontProvider.future);

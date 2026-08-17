@@ -37,8 +37,10 @@ class StoreRepository {
   }
 
   /// Returns cached storefront (if available) with enriched metadata.
-  Future<Storefront?> loadCachedStorefront(String puuid) async {
-    final raw = await _cache.loadStorefrontRaw(puuid: puuid);
+  Future<Storefront?> loadCachedStorefront(String puuid,
+      {bool allowExpired = true}) async {
+    final raw = await _cache.loadStorefrontRaw(
+        puuid: puuid, allowExpired: allowExpired);
     if (raw == null) return null;
     final storefront = Storefront.fromJson(raw);
     return _enrichStorefront(storefront);

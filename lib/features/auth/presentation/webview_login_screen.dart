@@ -86,37 +86,13 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
   Future<void> _startAttempt() async {
     _attempt = OAuthAttempt.create();
     try {
-      final rawCookies =
-          await SecureStorage.instance.read(SecureStorage.keyRiotCookiesRaw);
-      if (rawCookies != null && rawCookies.isNotEmpty) {
-        final cookieManager = WebViewCookieManager();
-        for (final pair in rawCookies.split(';')) {
-          final parts = pair.split('=');
-          if (parts.length >= 2) {
-            final name = parts[0].trim();
-            final value = parts.sublist(1).join('=').trim();
-            if (name.isNotEmpty && value.isNotEmpty) {
-              await cookieManager.setCookie(
-                WebViewCookie(
-                  name: name,
-                  value: value,
-                  domain: 'auth.riotgames.com',
-                  path: '/',
-                ),
-              );
-              await cookieManager.setCookie(
-                WebViewCookie(
-                  name: name,
-                  value: value,
-                  domain: '.riotgames.com',
-                  path: '/',
-                ),
-              );
-            }
-          }
-        }
-      }
-    } catch (_) {}
+      final cookieManager = WebViewCookieManager();
+      await cookieManager.clearCookies();
+      await _controller.clearCache();
+      await _controller.clearLocalStorage();
+    } catch (e) {
+      debugPrint('[WebViewLogin] Cookie/cache cleanup warning: $e');
+    }
     _controller.loadRequest(_attempt.authorizeUri);
   }
 

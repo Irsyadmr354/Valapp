@@ -19,32 +19,32 @@ class StoreLocalCache {
   }
 
   Future<Map<String, dynamic>?> loadStorefrontRaw(
-      {required String puuid}) async {
+      {required String puuid, bool allowExpired = false}) async {
     final raw = await _cache
         .getJson(CacheStorage.userKeyFor(CacheStorage.keyDailyShop, puuid));
     if (raw == null) return null;
 
     // Check if the cached storefront has already passed its reset time.
-    // If so, return null so the caller is forced to fetch fresh data from
-    // the network rather than showing an expired shop.
+    // If allowExpired is true, return the cached data as a fallback rather than
+    // evicting it immediately, ensuring the UI can show previous data while refreshing.
     final fetchedAtStr = raw['_fetchedAt'] as String?;
     final remainingSec = ((raw['SkinsPanelLayout']
                 as Map?)?['SingleItemOffersRemainingDurationInSeconds'] as num?)
             ?.toInt() ??
         0;
     if (fetchedAtStr == null || remainingSec <= 0) {
-      await _evictStorefront(puuid);
-      return null;
+      if (!allowExpired) await _evictStorefront(puuid);
+      return allowExpired ? raw : null;
     }
     final fetchedAt = DateTime.tryParse(fetchedAtStr);
     if (fetchedAt == null) {
-      await _evictStorefront(puuid);
-      return null;
+      if (!allowExpired) await _evictStorefront(puuid);
+      return allowExpired ? raw : null;
     }
     final elapsed = DateTime.now().difference(fetchedAt).inSeconds;
     if (elapsed >= remainingSec) {
-      await _evictStorefront(puuid);
-      return null;
+      if (!allowExpired) await _evictStorefront(puuid);
+      return allowExpired ? raw : null;
     }
 
     return raw;
