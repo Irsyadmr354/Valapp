@@ -1,12 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
 import '../../../shared/widgets/valorant_icons.dart';
+import '../../auth/domain/session_reconnect.dart';
 import 'skin_detail_modal.dart';
 
 import '../domain/models/skin_offer.dart';
@@ -759,10 +761,14 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                       error: (e, _) => Center(
                         child: ValorantErrorDisplay(
                           error: e,
-                          onRetry: () {
-                            ref.invalidate(currentCredentialsProvider);
-                            ref.invalidate(_allSkinsListProvider);
-                          },
+                          onRetry: () => reconnectAndInvalidate(
+                            ref,
+                            invalidateData: () =>
+                                ref.invalidate(_allSkinsListProvider),
+                            onPermanentAuthFailure: () =>
+                                context.push('/login/webview'),
+                          ),
+                          onReauth: () => context.push('/login/webview'),
                           title: 'Gagal Memuat Katalog Senjata',
                         ),
                       ),

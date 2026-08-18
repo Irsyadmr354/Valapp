@@ -176,10 +176,6 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
             SecureStorage.keyRiotCookiesFor(creds.puuid),
             toSave,
           );
-          await SecureStorage.instance.write(
-            SecureStorage.keyRiotCookiesRaw,
-            toSave,
-          );
           debugPrint(
               '[WebViewLogin] Saved Riot session cookies per-account to Keychain');
         }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
+import '../utils/error_classifier.dart';
 import 'valorant_icons.dart';
 
 /// Tactical Valorant Protocol Error Display Card.
@@ -286,59 +287,59 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
 
   _ErrorDetail _parseError(Object error) {
     final str = error.toString();
+    final category = classifyError(error);
 
-    if (str.contains('401') ||
-        str.contains('403') ||
-        str.contains('400') ||
-        str.contains('bad response') ||
-        str.contains('AuthException') ||
-        str.contains('TokenExpired') ||
-        str.contains('InvalidSession') ||
-        str.contains('unauthorized') ||
-        str.contains('forbidden')) {
-      return _ErrorDetail(
-        code: 'ERR // AUTH_SESSION_EXPIRED',
-        headline: 'Sesi Autentikasi Terputus',
-        explanation:
-            'Sesi token Riot Games Anda membutuhkan pembaruan. Tekan SYSTEM RECONNECT untuk mereset dan menghubungkan kembali sesi Anda.',
-        isAuthRelated: true,
-        rawMessage: str,
-      );
+    switch (category) {
+      case ErrorCategory.authPermanent:
+        return _ErrorDetail(
+          code: 'ERR // AUTH_SESSION_EXPIRED',
+          headline: 'Sesi Autentikasi Terputus',
+          explanation:
+              'Sesi token Riot Games Anda telah kedaluwarsa atau tidak valid. Silakan login ulang akun Riot Anda.',
+          isAuthRelated: true,
+          rawMessage: str,
+        );
+
+      case ErrorCategory.authTransient:
+        return _ErrorDetail(
+          code: 'ERR // RECONNECT_PENDING',
+          headline: 'Sambungan Riot Sementara Terganggu',
+          explanation:
+              'Sesi akun Anda masih tersimpan dengan aman. Tekan SYSTEM RECONNECT untuk menghubungkan kembali.',
+          isAuthRelated: false,
+          rawMessage: str,
+        );
+
+      case ErrorCategory.rateLimit:
+        return _ErrorDetail(
+          code: 'ERR // RATE_LIMIT_THROTTLED',
+          headline: 'Batas Permintaan Terlampaui (429)',
+          explanation:
+              'Peladen Riot Games sedang menerima terlalu banyak permintaan sekaligus. Harap tunggu beberapa saat lalu coba hubungkan kembali.',
+          isAuthRelated: false,
+          rawMessage: str,
+        );
+
+      case ErrorCategory.network:
+        return _ErrorDetail(
+          code: 'ERR // CONNECTION_TIMEOUT',
+          headline: 'Jaringan Terputus / Disconnected',
+          explanation:
+              'Gagal terhubung ke peladen Valorant Riot. Pastikan perangkat Anda terhubung ke internet dan coba lagi.',
+          isAuthRelated: false,
+          rawMessage: str,
+        );
+
+      case ErrorCategory.unknown:
+        return _ErrorDetail(
+          code: 'ERR // PROTOCOL_RESPONSE_FAIL',
+          headline: 'Gagal Memuat Data Peladen',
+          explanation:
+              'Terjadi kendala saat mengambil data dari API Riot Games. Tekan tombol Reconnect untuk mencoba lagi.',
+          isAuthRelated: false,
+          rawMessage: str,
+        );
     }
-
-    if (str.contains('429') || str.contains('RateLimited')) {
-      return _ErrorDetail(
-        code: 'ERR // RATE_LIMIT_THROTTLED',
-        headline: 'Batas Permintaan Terlampaui (429)',
-        explanation:
-            'Peladen Riot Games sedang menerima terlalu banyak permintaan sekaligus. Harap tunggu beberapa saat lalu coba hubungkan kembali.',
-        isAuthRelated: false,
-        rawMessage: str,
-      );
-    }
-
-    if (str.contains('SocketException') ||
-        str.contains('Timeout') ||
-        str.contains('connection') ||
-        str.contains('Network')) {
-      return _ErrorDetail(
-        code: 'ERR // CONNECTION_TIMEOUT',
-        headline: 'Jaringan Terputus / Disconnected',
-        explanation:
-            'Gagal terhubung ke peladen Valorant Riot. Pastikan perangkat Anda terhubung ke internet dan coba lagi.',
-        isAuthRelated: false,
-        rawMessage: str,
-      );
-    }
-
-    return _ErrorDetail(
-      code: 'ERR // PROTOCOL_RESPONSE_FAIL',
-      headline: 'Gagal Memuat Data Peladen',
-      explanation:
-          'Terjadi kendala saat mengambil data dari API Riot Games. Tekan tombol Reconnect untuk mencoba lagi.',
-      isAuthRelated: false,
-      rawMessage: str,
-    );
   }
 }
 

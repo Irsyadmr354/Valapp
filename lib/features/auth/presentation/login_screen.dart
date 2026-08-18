@@ -1,14 +1,71 @@
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/di/providers.dart';
 import '../../../shared/utils/app_colors.dart';
+import '../data/credentials_local_source.dart';
 
-class LoginScreen extends ConsumerWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  List<SavedAccountProfile> _savedAccounts = [];
+  bool _isLoadingAccounts = true;
+  bool _isSwitching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedAccounts();
+  }
+
+  Future<void> _loadSavedAccounts() async {
+    try {
+      final source = ref.read(credentialsLocalSourceProvider);
+      final accounts = await source.getSavedAccounts();
+      if (mounted) {
+        setState(() {
+          _savedAccounts = accounts;
+          _isLoadingAccounts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingAccounts = false);
+      }
+    }
+  }
+
+  Future<void> _handleSwitchAccount(SavedAccountProfile account) async {
+    if (_isSwitching) return;
+    setState(() => _isSwitching = true);
+    try {
+      await ref.read(sessionActionsProvider).switchAccount(account);
+      // If successful, app.dart's auth listener handles navigation to /shop automatically
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal beralih akun: $e'),
+            backgroundColor: AppColors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSwitching = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
@@ -41,96 +98,297 @@ class LoginScreen extends ConsumerWidget {
           // Main Layout
           SafeArea(
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Spacer(),
-
-                  // Valapp Logo
+                  const SizedBox(height: 12),
                   const _ValAppLogo(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   const Text(
-                    'SIGN IN WITH YOUR RIOT ACCOUNT',
+                    'VALORANT ACCOUNT ACCESS',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white70,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Securely sign in through Riot Games OAuth to view your storefront, rank, and match history.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Primary Sleek Riot Sign-In Button
-                  GestureDetector(
-                    onTap: () => context.push('/login/webview'),
-                    child: Container(
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.redGradient,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: AppColors.redGlow(alpha: 0.45, blur: 24),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.shield_outlined,
-                              color: Colors.white, size: 22),
-                          SizedBox(width: 12),
-                          Text(
-                            'SIGN IN WITH RIOT GAMES',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 16),
 
-                  // Feature Pills Row (Keychain + FaceID + Permanent Session)
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _FeatureBadge(
-                        icon: Icons.key_rounded,
-                        label: 'iCloud Keychain',
-                      ),
-                      SizedBox(width: 8),
-                      _FeatureBadge(
-                        icon: Icons.fingerprint_rounded,
-                        label: 'FaceID Auto-Fill',
-                      ),
-                    ],
+                  // Saved Accounts or Main OAuth Login
+                  Expanded(
+                    child: _isLoadingAccounts
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.red,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : _savedAccounts.isNotEmpty
+                            ? _buildSavedAccountsView()
+                            : _buildDefaultLoginView(),
                   ),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
                   const _SecurityRow(),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   const _DisclaimerText(),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultLoginView() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Securely sign in through Riot Games OAuth to view your storefront, rank, and match history.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 12,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Primary Sleek Riot Sign-In Button
+        GestureDetector(
+          onTap: () => context.push('/login/webview'),
+          child: Container(
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: AppColors.redGradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: AppColors.redGlow(alpha: 0.45, blur: 24),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shield_outlined, color: Colors.white, size: 22),
+                SizedBox(width: 12),
+                Text(
+                  'SIGN IN WITH RIOT GAMES',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Feature Pills Row
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _FeatureBadge(
+              icon: Icons.key_rounded,
+              label: 'iCloud Keychain',
+            ),
+            SizedBox(width: 8),
+            _FeatureBadge(
+              icon: Icons.fingerprint_rounded,
+              label: 'FaceID Auto-Fill',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSavedAccountsView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 3,
+              height: 12,
+              color: AppColors.red,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'SAVED ACCOUNTS (${_savedAccounts.length})',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: ListView.separated(
+            itemCount: _savedAccounts.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final account = _savedAccounts[index];
+              return _SavedAccountTile(
+                account: account,
+                isSwitching: _isSwitching,
+                onTap: () => _handleSwitchAccount(account),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Sign in with new account button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed:
+                _isSwitching ? null : () => context.push('/login/webview'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: AppColors.red, width: 1.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            icon: const Icon(Icons.add_rounded, size: 20, color: AppColors.red),
+            label: const Text(
+              'ADD / LOGIN ANOTHER ACCOUNT',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SavedAccountTile extends StatelessWidget {
+  const _SavedAccountTile({
+    required this.account,
+    required this.isSwitching,
+    required this.onTap,
+  });
+
+  final SavedAccountProfile account;
+  final bool isSwitching;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: isSwitching ? null : onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard2,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          children: [
+            // Avatar / Card Image
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E2328),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white12),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: account.avatarUrl != null && account.avatarUrl!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: account.avatarUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white38,
+                        size: 24,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white38,
+                      size: 24,
+                    ),
+            ),
+            const SizedBox(width: 12),
+
+            // Account details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    account.displayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.red.withAlpha(30),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          account.region.toUpperCase(),
+                          style: const TextStyle(
+                            color: AppColors.red,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'PUUID: ${account.puuid.length > 8 ? account.puuid.substring(0, 8) : account.puuid}...',
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Switch action icon
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white38,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }

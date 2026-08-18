@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
@@ -8,6 +9,7 @@ import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
+import '../../auth/domain/session_reconnect.dart';
 import '../domain/models/player_loadout.dart';
 
 
@@ -101,10 +103,12 @@ class LoadoutScreen extends ConsumerWidget {
             child: ValorantErrorDisplay(
               error: e,
               title: 'Gagal Memuat Loadout Senjata',
-              onRetry: () {
-                ref.invalidate(currentCredentialsProvider);
-                ref.invalidate(_loadoutProvider);
-              },
+              onRetry: () => reconnectAndInvalidate(
+                ref,
+                invalidateData: () => ref.invalidate(_loadoutProvider),
+                onPermanentAuthFailure: () => context.push('/login/webview'),
+              ),
+              onReauth: () => context.push('/login/webview'),
             ),
           ),
         ),

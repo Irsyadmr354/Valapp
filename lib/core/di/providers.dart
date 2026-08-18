@@ -272,6 +272,45 @@ class SessionActions {
       try {
         await WebViewCookieManager().clearCookies();
       } catch (_) {}
+      try {
+        await SecureStorage.instance.delete(SecureStorage.keyRiotCookiesRaw);
+      } catch (_) {}
+
+      // Restore saved Riot session cookies for target account into WKWebView
+      try {
+        final savedRaw = await SecureStorage.instance.read(
+          SecureStorage.keyRiotCookiesFor(account.puuid),
+        );
+        if (savedRaw != null && savedRaw.isNotEmpty) {
+          final cookieMgr = WebViewCookieManager();
+          final pairs = savedRaw.split(';');
+          for (final pair in pairs) {
+            final parts = pair.split('=');
+            if (parts.length >= 2) {
+              final name = parts[0].trim();
+              final value = parts.sublist(1).join('=').trim();
+              if (name.isNotEmpty && value.isNotEmpty) {
+                await cookieMgr.setCookie(
+                  WebViewCookie(
+                    name: name,
+                    value: value,
+                    domain: 'auth.riotgames.com',
+                    path: '/',
+                  ),
+                );
+                await cookieMgr.setCookie(
+                  WebViewCookie(
+                    name: name,
+                    value: value,
+                    domain: '.riotgames.com',
+                    path: '/',
+                  ),
+                );
+              }
+            }
+          }
+        }
+      } catch (_) {}
 
       var creds = account.credentials;
       // If accessToken is still valid, proactively refresh entitlement token to sync with Riot PD

@@ -206,33 +206,55 @@ class CacheStorage {
     }
   }
 
-  // ── Wishlist ───────────────────────────────────────────────────────────────
+  static String wishlistKeyFor(String puuid) => userKeyFor(keyWishlist, puuid);
 
-  Future<List<String>> getWishlist() async {
-    final prefs = await _getPrefs();
-    return prefs.getStringList(keyWishlist) ?? [];
+  String _resolveWishlistKey([String? puuid]) {
+    final effectivePuuid =
+        (puuid != null && puuid.isNotEmpty) ? puuid : _activePuuid;
+    if (effectivePuuid.isNotEmpty) {
+      return wishlistKeyFor(effectivePuuid);
+    }
+    return keyWishlist;
   }
 
-  Future<void> setWishlist(List<String> skinIds) async {
+  Future<List<String>> getWishlist([String? puuid]) async {
     final prefs = await _getPrefs();
-    await prefs.setStringList(keyWishlist, skinIds);
+    final key = _resolveWishlistKey(puuid);
+    var list = prefs.getStringList(key);
+
+    // One-time auto migration from legacy global wishlist
+    if (list == null && key != keyWishlist) {
+      final legacy = prefs.getStringList(keyWishlist);
+      if (legacy != null && legacy.isNotEmpty) {
+        list = List<String>.from(legacy);
+        await prefs.setStringList(key, list);
+      }
+    }
+
+    return list ?? [];
   }
 
-  Future<void> addToWishlist(String skinId) {
+  Future<void> setWishlist(List<String> skinIds, [String? puuid]) async {
+    final prefs = await _getPrefs();
+    final key = _resolveWishlistKey(puuid);
+    await prefs.setStringList(key, skinIds);
+  }
+
+  Future<void> addToWishlist(String skinId, [String? puuid]) {
     return AsyncLock.run('wishlist', () async {
-      final list = await getWishlist();
+      final list = await getWishlist(puuid);
       if (!list.contains(skinId)) {
         list.add(skinId);
-        await setWishlist(list);
+        await setWishlist(list, puuid);
       }
     });
   }
 
-  Future<void> removeFromWishlist(String skinId) {
+  Future<void> removeFromWishlist(String skinId, [String? puuid]) {
     return AsyncLock.run('wishlist', () async {
-      final list = await getWishlist();
+      final list = await getWishlist(puuid);
       list.remove(skinId);
-      await setWishlist(list);
+      await setWishlist(list, puuid);
     });
   }
 

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/exceptions/auth_exception.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/date_time_utils.dart';
 import '../../../shared/utils/tier_colors.dart';
@@ -27,6 +26,7 @@ import '../../auth/presentation/account_switcher_modal.dart';
 import '../../match/domain/models/match_history.dart';
 import '../../profile/domain/models/account_xp.dart';
 import '../../rank/domain/models/player_mmr.dart';
+import '../../auth/domain/session_reconnect.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -41,7 +41,9 @@ final _storefrontProvider =
   try {
     return await repo.fetchStorefront(creds.shard, creds.puuid);
   } catch (e) {
-    if (cached != null) return cached;
+    if (cached != null) {
+      return cached.copyWith(isFromOfflineCache: true);
+    }
     rethrow;
   }
 });
@@ -104,6 +106,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   bool _isRefreshing = false;
+  bool _pendingScheduledRotation = false;
 
   @override
   void initState() {
@@ -120,10 +123,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Always invalidate on resume — the shop may have rotated while the
-      // app was in the background (daily reset at 07:00 WIB / 00:00 UTC).
-      // The provider's internal retry + cache-expiry logic ensures we only
-      // fetch when actually needed.
+      // If the storefront has already expired (e.g. past 07:00 WIB reset),
+      // allow CountdownTimer.onExpired to trigger _refresh(isScheduledRotation: true)
+      // with the full 2.5s propagation buffer instead of preempting it with 600ms.
+      final storefront = ref.read(_storefrontProvider).asData?.value;
+      if (storefront != null && storefront.isExpired) return;
       _refresh();
     }
   }
@@ -223,39 +227,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 child: Center(
                   child: ValorantErrorDisplay(
                     error: e,
-                    onRetry: () async {
-                      final router = GoRouter.of(context);
-                      try {
-                        final local = ref.read(credentialsLocalSourceProvider);
-                        final creds = await local.load();
-                        if (creds != null && !creds.isExpired) {
-                          // Fast path: accessToken is still valid, renew entitlement directly (< 200ms)
-                          final authRepo =
-                              await ref.read(authRepositoryProvider.future);
-                          await authRepo.refreshEntitlementOnly(creds);
-                        } else {
-                          // Token is expired, try full reauth
-                          final authRepo =
-                              await ref.read(authRepositoryProvider.future);
-                          await authRepo.reauth();
-                        }
-                        await _refresh();
-                      } on InvalidSessionException catch (e) {
-                        debugPrint(
-                            '[HomeScreen] Session invalid — must re-login: $e');
-                        if (context.mounted) router.push('/login/webview');
-                      } on TokenExpiredException catch (e) {
-                        debugPrint(
-                            '[HomeScreen] Token expired — must re-login: $e');
-                        if (context.mounted) router.push('/login/webview');
-                      } catch (e) {
-                        // TransientReauthException, concurrency race, timeout, network error, etc.
-                        // Preserve session and retry refresh without forcing login.
-                        debugPrint(
-                            '[HomeScreen] Transient failure, session preserved: $e');
-                        if (context.mounted) await _refresh();
-                      }
-                    },
+                    onRetry: () => reconnectAndInvalidate(
+                      ref,
+                      invalidateData: () => _refresh(),
+                      onPermanentAuthFailure: () =>
+                          context.push('/login/webview'),
+                    ),
                     onReauth: () => context.push('/login/webview'),
                     title: 'Gagal Memuat Toko Harian',
                   ),
@@ -443,6 +420,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget _buildContent(Storefront storefront, Set<String> wishlist) {
     return SliverList(
       delegate: SliverChildListDelegate([
+        if (storefront.isFromOfflineCache)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1C130E),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFFFF9800).withAlpha(120),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off_rounded,
+                      color: Color(0xFFFF9800), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'MODE OFFLINE • Menampilkan cache terakhir (${_formatOfflineTime(storefront.fetchedAt)})',
+                      style: const TextStyle(
+                        color: Color(0xFFFFD599),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
         // Timer bar
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -544,10 +555,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _refresh({bool isScheduledRotation = false}) async {
-    if (_isRefreshing) return;
+    if (_isRefreshing) {
+      if (isScheduledRotation) _pendingScheduledRotation = true;
+      return;
+    }
     _isRefreshing = true;
     try {
-      if (isScheduledRotation) {
+      final useRotationBuffer =
+          isScheduledRotation || _pendingScheduledRotation;
+      _pendingScheduledRotation = false;
+
+      if (useRotationBuffer) {
         // Give Riot's backend a 2.5s buffer at 00:00:00 UTC (07:00:00 WIB)
         // to complete generating and rolling the new store catalog
         await Future<void>.delayed(const Duration(milliseconds: 2500));
@@ -585,6 +603,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     } finally {
       _isRefreshing = false;
     }
+  }
+
+  String _formatOfflineTime(DateTime dt) {
+    final day = dt.day.toString().padLeft(2, '0');
+    final month = dt.month.toString().padLeft(2, '0');
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$day/$month $hour:$minute';
   }
 
   void _toggleWishlist(SkinOffer offer) {

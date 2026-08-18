@@ -94,46 +94,46 @@ class SilentWebviewReauth {
 
       _controller = controller;
 
-      // Restore saved Riot session cookies for the target account into WebViewCookieManager
-      try {
-        final cookieKey = (puuid != null && puuid.isNotEmpty)
-            ? SecureStorage.keyRiotCookiesFor(puuid)
-            : SecureStorage.keyRiotCookiesRaw;
-        var rawCookies = await SecureStorage.instance.read(cookieKey);
-        rawCookies ??=
-            await SecureStorage.instance.read(SecureStorage.keyRiotCookiesRaw);
-        if (rawCookies != null && rawCookies.isNotEmpty) {
-          final cookieManager = WebViewCookieManager();
-          final pairs = rawCookies.split(';');
-          for (final pair in pairs) {
-            final parts = pair.split('=');
-            if (parts.length >= 2) {
-              final name = parts[0].trim();
-              final value = parts.sublist(1).join('=').trim();
-              if (name.isNotEmpty && value.isNotEmpty) {
-                await cookieManager.setCookie(
-                  WebViewCookie(
-                    name: name,
-                    value: value,
-                    domain: 'auth.riotgames.com',
-                    path: '/',
-                  ),
-                );
-                await cookieManager.setCookie(
-                  WebViewCookie(
-                    name: name,
-                    value: value,
-                    domain: '.riotgames.com',
-                    path: '/',
-                  ),
-                );
+      // Restore saved Riot session cookies strictly for the target account into WebViewCookieManager
+      if (puuid != null && puuid.isNotEmpty) {
+        try {
+          final rawCookies = await SecureStorage.instance.read(
+            SecureStorage.keyRiotCookiesFor(puuid),
+          );
+          if (rawCookies != null && rawCookies.isNotEmpty) {
+            final cookieManager = WebViewCookieManager();
+            final pairs = rawCookies.split(';');
+            for (final pair in pairs) {
+              final parts = pair.split('=');
+              if (parts.length >= 2) {
+                final name = parts[0].trim();
+                final value = parts.sublist(1).join('=').trim();
+                if (name.isNotEmpty && value.isNotEmpty) {
+                  await cookieManager.setCookie(
+                    WebViewCookie(
+                      name: name,
+                      value: value,
+                      domain: 'auth.riotgames.com',
+                      path: '/',
+                    ),
+                  );
+                  await cookieManager.setCookie(
+                    WebViewCookie(
+                      name: name,
+                      value: value,
+                      domain: '.riotgames.com',
+                      path: '/',
+                    ),
+                  );
+                }
               }
             }
+            debugPrint(
+                '[SilentReauth] Restored Riot session cookies for account $puuid into WKWebView');
           }
-          debugPrint('[SilentReauth] Restored Riot session cookies into WKWebView');
+        } catch (e) {
+          debugPrint('[SilentReauth] Non-fatal cookie restoration warning: $e');
         }
-      } catch (e) {
-        debugPrint('[SilentReauth] Non-fatal cookie restoration warning: $e');
       }
 
       // Attach WebViewWidget into rootNavigatorKey overlay so iOS WebKit engine treats it as a live layer

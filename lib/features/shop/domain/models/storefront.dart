@@ -229,6 +229,7 @@ class Storefront {
   final List<NightMarketOffer> nightMarket;
   final AccessoryStore? accessoryStore;
   final DateTime fetchedAt;
+  final bool isFromOfflineCache;
 
   const Storefront({
     required this.dailyOffers,
@@ -237,7 +238,29 @@ class Storefront {
     required this.nightMarket,
     this.accessoryStore,
     required this.fetchedAt,
+    this.isFromOfflineCache = false,
   });
+
+  Storefront copyWith({
+    List<SkinOffer>? dailyOffers,
+    int? dailyOffersRemainingSeconds,
+    FeaturedBundle? featuredBundle,
+    List<NightMarketOffer>? nightMarket,
+    AccessoryStore? accessoryStore,
+    DateTime? fetchedAt,
+    bool? isFromOfflineCache,
+  }) {
+    return Storefront(
+      dailyOffers: dailyOffers ?? this.dailyOffers,
+      dailyOffersRemainingSeconds:
+          dailyOffersRemainingSeconds ?? this.dailyOffersRemainingSeconds,
+      featuredBundle: featuredBundle ?? this.featuredBundle,
+      nightMarket: nightMarket ?? this.nightMarket,
+      accessoryStore: accessoryStore ?? this.accessoryStore,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      isFromOfflineCache: isFromOfflineCache ?? this.isFromOfflineCache,
+    );
+  }
 
   bool get hasNightMarket => nightMarket.isNotEmpty;
 

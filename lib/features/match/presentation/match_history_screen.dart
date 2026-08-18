@@ -11,6 +11,7 @@ import '../../../shared/utils/date_time_utils.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
+import '../../auth/domain/session_reconnect.dart';
 import '../domain/models/match_history.dart';
 
 import '../domain/models/match_details.dart';
@@ -357,10 +358,12 @@ class MatchHistoryScreen extends ConsumerWidget {
               ValorantErrorDisplay(
                 error: e,
                 title: 'Gagal Memuat Riwayat Pertandingan',
-                onRetry: () {
-                  ref.invalidate(currentCredentialsProvider);
-                  ref.invalidate(_matchHistoryProvider);
-                },
+                onRetry: () => reconnectAndInvalidate(
+                  ref,
+                  invalidateData: () => ref.invalidate(_matchHistoryProvider),
+                  onPermanentAuthFailure: () => context.push('/login/webview'),
+                ),
+                onReauth: () => context.push('/login/webview'),
               ),
             ],
           ),

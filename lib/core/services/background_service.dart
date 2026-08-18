@@ -7,6 +7,7 @@ import '../../features/shop/domain/models/wallet.dart';
 import '../network/valorant_headers.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
+import '../../features/auth/data/auth_remote_source.dart';
 import '../../features/auth/data/credentials_local_source.dart';
 import 'notification_service.dart';
 
@@ -79,18 +80,46 @@ class BackgroundShopChecker {
     final storage = SecureStorage.instance;
     final cache = CacheStorage.instance;
 
-    final credentials = await CredentialsLocalSource(storage).load();
+    var credentials = await CredentialsLocalSource(storage).load();
     if (credentials == null) return;
+
+    // Skip if accessToken is expired — background task cannot trigger interactive reauth
+    if (credentials.isExpired) {
+      debugPrint(
+          '[BackgroundShopChecker] Access token expired — skipping background check');
+      return;
+    }
+
+    // Proactively refresh entitlement token if expired while accessToken is still valid
+    if (credentials.isEntitlementExpired) {
+      debugPrint(
+          '[BackgroundShopChecker] Entitlement token expired, refreshing non-interactively...');
+      try {
+        final remote = AuthRemoteSource(_dio, _dio);
+        final freshEntitlement =
+            await remote.fetchEntitlementToken(credentials.accessToken);
+        final updated = credentials.copyWith(
+          entitlementToken: freshEntitlement,
+          entitlementExpiresAt: DateTime.now().add(
+            SecureStorage.entitlementTokenLifetime,
+          ),
+        );
+        await CredentialsLocalSource(storage)
+            .saveIfCurrent(credentials, updated);
+        credentials = updated;
+        debugPrint(
+            '[BackgroundShopChecker] Refreshed entitlement token successfully');
+      } catch (e) {
+        debugPrint(
+            '[BackgroundShopChecker] Failed to refresh entitlement in background: $e');
+        return;
+      }
+    }
+
     final accessToken = credentials.accessToken;
     final entitlementToken = credentials.entitlementToken;
     final puuid = credentials.puuid;
     final shard = credentials.shard;
-
-    // Skip if tokens are expired — background task cannot trigger interactive reauth
-    if (credentials.isExpired || credentials.isEntitlementExpired) {
-      debugPrint('[BackgroundShopChecker] Tokens expired — skipping background check');
-      return;
-    }
 
     // ── Fetch storefront ────────────────────────────────────────────────────
     final Map<String, dynamic> storefront;

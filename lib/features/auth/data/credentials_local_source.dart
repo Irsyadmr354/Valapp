@@ -396,8 +396,9 @@ class CredentialsLocalSource {
   /// Call this when a single account's reauth fails permanently (Opsi A:
   /// also remove the failed account's entry from the saved list).
   Future<void> clearActiveSessionOnly() async {
+    final currentPuuid = (await load())?.puuid;
     await _cache?.setActiveSession('', clearPrevious: true);
-    await Future.wait([
+    final deletes = <Future<void>>[
       _storage.delete(SecureStorage.keyAccessToken),
       _storage.delete(SecureStorage.keyIdToken),
       _storage.delete(SecureStorage.keyEntitlementToken),
@@ -408,7 +409,13 @@ class CredentialsLocalSource {
       _storage.delete(SecureStorage.keyEntitlementExpiresAt),
       _storage.delete(SecureStorage.keyActiveSession),
       _storage.delete(SecureStorage.keyRiotCookiesRaw),
-    ]);
+    ];
+    if (currentPuuid != null && currentPuuid.isNotEmpty) {
+      deletes.add(
+        _storage.delete(SecureStorage.keyRiotCookiesFor(currentPuuid)),
+      );
+    }
+    await Future.wait(deletes);
   }
 
   Future<void> clear() async {

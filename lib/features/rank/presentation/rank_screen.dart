@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
 import '../../../shared/utils/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/valorant_error_display.dart';
+import '../../auth/domain/session_reconnect.dart';
 import '../domain/models/player_mmr.dart';
 
 
@@ -193,7 +195,7 @@ class _LeaderboardTab extends ConsumerWidget {
           data: (result) =>
               result == null ? const SizedBox() : _RankCard(mmr: result.data),
           loading: () => const RankSkeleton(),
-          error: (e, _) => _ErrorCard(message: e.toString()),
+          error: (e, _) => _ErrorCard(error: e),
         ),
         const SizedBox(height: 20),
 
@@ -600,7 +602,7 @@ class _MatchHistoryTab extends StatelessWidget {
                   children:
                       result.data.map((u) => _UpdateTile(update: u)).toList()),
           loading: () => const RankHistorySkeleton(),
-          error: (e, _) => _ErrorCard(message: e.toString()),
+          error: (e, _) => _ErrorCard(error: e),
         ),
       ],
     );
@@ -993,7 +995,7 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
         );
       },
       loading: () => const RankSkeleton(),
-      error: (e, _) => Center(child: _ErrorCard(message: e.toString())),
+      error: (e, _) => Center(child: _ErrorCard(error: e)),
     );
   }
 }
@@ -1324,19 +1326,23 @@ class _UpdateTile extends StatelessWidget {
 }
 
 class _ErrorCard extends ConsumerWidget {
-  const _ErrorCard({required this.message});
-  final String message;
+  const _ErrorCard({required this.error});
+  final Object error;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ValorantErrorDisplay(
-      error: message,
+      error: error,
       compact: true,
-      onRetry: () {
-        ref.invalidate(currentCredentialsProvider);
-        ref.invalidate(playerMmrProvider);
-        ref.invalidate(competitiveUpdatesProvider);
-      },
+      onRetry: () => reconnectAndInvalidate(
+        ref,
+        invalidateData: () {
+          ref.invalidate(playerMmrProvider);
+          ref.invalidate(competitiveUpdatesProvider);
+        },
+        onPermanentAuthFailure: () => context.push('/login/webview'),
+      ),
+      onReauth: () => context.push('/login/webview'),
     );
   }
 }

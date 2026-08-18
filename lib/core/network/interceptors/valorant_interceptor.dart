@@ -117,14 +117,32 @@ class ValorantInterceptor extends Interceptor {
       return;
     }
 
-    final needsReauth =
-        credentials.isExpired || credentials.isEntitlementExpired;
+    final accessValid = !credentials.isExpired;
+    final entitlementStale = credentials.isEntitlementExpired;
 
-    if (!needsReauth) {
+    if (accessValid && !entitlementStale) {
       // Tokens are still valid — set cooldown so we don't re-check for 60s.
       _lastReauthCheckAt = DateTime.now();
       return;
     }
+
+    // Fast path: if accessToken is still valid and only entitlement is expired/stale,
+    // refresh only the entitlement token (< 200ms) without triggering WebView reauth (~15s).
+    if (entitlementStale && accessValid && onRefreshEntitlement != null) {
+      debugPrint(
+          '[ValorantInterceptor] Entitlement token near expiry, refreshing entitlement only...');
+      try {
+        await onRefreshEntitlement!();
+        _lastReauthCheckAt = DateTime.now();
+        debugPrint(
+            '[ValorantInterceptor] Proactive entitlement refresh completed');
+        return;
+      } catch (e) {
+        debugPrint(
+            '[ValorantInterceptor] Proactive entitlement refresh failed, falling back to full reauth: $e');
+      }
+    }
+
     debugPrint(
         '[ValorantInterceptor] Token near expiry, triggering proactive reauth...');
     try {
