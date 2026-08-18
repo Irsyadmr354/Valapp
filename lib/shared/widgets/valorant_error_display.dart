@@ -217,7 +217,7 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
 
             const SizedBox(height: 22),
 
-            // Single Full-Width Primary Reconnect Button
+            // Reconnect / Auth Buttons
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -252,6 +252,32 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
                 ),
               ),
             ),
+            if (widget.onReauth != null && info.isAuthRelated) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: _isRetrying ? null : widget.onReauth,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB5C1D0),
+                    side: const BorderSide(color: Colors.white24, width: 1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  icon: const Icon(Icons.login_rounded, size: 18),
+                  label: const Text(
+                    'LOGIN ULANG AKUN RIOT',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

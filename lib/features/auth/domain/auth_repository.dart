@@ -115,6 +115,22 @@ class AuthRepository {
 
   // ── Silent token refresh ───────────────────────────────────────────────────
 
+  /// Fast-path: refreshes only the entitlement token using the existing valid accessToken.
+  /// Does NOT require browser cookies or WebView, completing in < 200ms directly via Riot API.
+  Future<Credentials> refreshEntitlementOnly(Credentials creds) async {
+    final freshEntitlement =
+        await _remote.fetchEntitlementToken(creds.accessToken);
+    final updated = creds.copyWith(
+      entitlementToken: freshEntitlement,
+      entitlementExpiresAt: DateTime.now().add(
+        SecureStorage.entitlementTokenLifetime,
+      ),
+    );
+    await _local.saveIfCurrent(creds, updated);
+    debugPrint('[AuthRepo] Refreshed entitlement token successfully');
+    return updated;
+  }
+
   /// Refreshes tokens silently using Dio HTTP cookie reauth (primary - ultra fast)
   /// or WebView session cookies (fallback).
   Future<Credentials> reauth() async {

@@ -1,5 +1,6 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -144,6 +145,13 @@ final apiDioProvider = FutureProvider<Dio>((ref) async {
       // Trigger re-read of credentials — routes to /login cleanly if no active token
       ref.invalidate(currentCredentialsProvider);
     },
+    onRefreshEntitlement: () async {
+      authRepo ??= await ref.read(authRepositoryProvider.future);
+      final current = await ref.read(credentialsLocalSourceProvider).load();
+      if (current != null) {
+        await authRepo!.refreshEntitlementOnly(current);
+      }
+    },
   );
 
   return createApiDio(interceptor);
@@ -265,8 +273,20 @@ class SessionActions {
         await WebViewCookieManager().clearCookies();
       } catch (_) {}
 
+      var creds = account.credentials;
+      // If accessToken is still valid, proactively refresh entitlement token to sync with Riot PD
+      if (!creds.isExpired) {
+        try {
+          final authRepo = await _ref.read(authRepositoryProvider.future);
+          creds = await authRepo.refreshEntitlementOnly(creds);
+        } catch (e) {
+          debugPrint(
+              '[SessionActions] Proactive entitlement refresh on switch warning: $e');
+        }
+      }
+
       await local.save(
-        account.credentials,
+        creds,
         displayName: account.displayName,
         playerCardId: account.playerCardId,
         avatarUrl: account.avatarUrl,

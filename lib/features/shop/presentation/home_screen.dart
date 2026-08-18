@@ -226,9 +226,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     onRetry: () async {
                       final router = GoRouter.of(context);
                       try {
-                        final authRepo =
-                            await ref.read(authRepositoryProvider.future);
-                        await authRepo.reauth();
+                        final local = ref.read(credentialsLocalSourceProvider);
+                        final creds = await local.load();
+                        if (creds != null && !creds.isExpired) {
+                          // Fast path: accessToken is still valid, renew entitlement directly (< 200ms)
+                          final authRepo =
+                              await ref.read(authRepositoryProvider.future);
+                          await authRepo.refreshEntitlementOnly(creds);
+                        } else {
+                          // Token is expired, try full reauth
+                          final authRepo =
+                              await ref.read(authRepositoryProvider.future);
+                          await authRepo.reauth();
+                        }
                         await _refresh();
                       } on InvalidSessionException catch (e) {
                         debugPrint(

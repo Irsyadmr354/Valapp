@@ -28,11 +28,15 @@ class ValorantInterceptor extends Interceptor {
   /// Callback invoked to silently refresh tokens via cookie reauth.
   final Future<void> Function() onReauth;
 
+  /// Callback invoked to refresh only the entitlement token using valid accessToken.
+  final Future<void> Function()? onRefreshEntitlement;
+
   ValorantInterceptor({
     required SecureStorage secureStorage,
     required VersionService versionService,
     required this.onReauth,
     required this.onAuthFailed,
+    this.onRefreshEntitlement,
   })  : _secureStorage = secureStorage,
         _versionService = versionService;
 
@@ -164,11 +168,18 @@ class ValorantInterceptor extends Interceptor {
       if (handled) return;
     }
 
-    // Riot often returns 400 (not 401) when entitlement token is stale.
+    // Riot often returns 400 (not 401) when entitlement token is stale or desynced.
     // On pd.*.a.pvp.net endpoints (storefront, wallet, MMR, etc.) a 400
-    // almost always means the access/entitlement token is expired — the
-    // response body is frequently empty or generic with no auth hints.
+    // almost always means the entitlement token needs renewal.
     if (status == 400 && _isLikelyAuthError(err)) {
+      // Step 1: Fast entitlement refresh if accessToken is still valid (< 200ms, no cookies needed)
+      final handledEntitlement = await _attemptEntitlementRefreshAndRetry(
+        err,
+        handler,
+      );
+      if (handledEntitlement) return;
+
+      // Step 2: Fallback to full reauth if fast entitlement refresh was unable to resolve
       final handled = await _attemptReauthAndRetry(
         err,
         handler,
@@ -226,6 +237,45 @@ class ValorantInterceptor extends Interceptor {
   static bool _isRiotGameApiEndpoint(Uri url) {
     final host = url.host;
     return host.endsWith('.a.pvp.net') || host.endsWith('.pvp.net');
+  }
+
+  Future<bool> _attemptEntitlementRefreshAndRetry(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    final alreadyRetried =
+        err.requestOptions.extra['entitlementRefreshRetried'] as bool? ?? false;
+    if (alreadyRetried) return false;
+    if (onRefreshEntitlement == null) return false;
+
+    final creds = await _credentials.load();
+    if (creds == null || creds.isExpired) return false;
+
+    debugPrint(
+        '[ValorantInterceptor] Got 400 on PD endpoint — attempting fast entitlement refresh...');
+    try {
+      err.requestOptions.extra['entitlementRefreshRetried'] = true;
+      await onRefreshEntitlement!();
+
+      final freshCredentials = await _credentials.load();
+      if (freshCredentials != null) {
+        err.requestOptions.headers['Authorization'] =
+            'Bearer ${freshCredentials.accessToken}';
+        err.requestOptions.headers['X-Riot-Entitlements-JWT'] =
+            freshCredentials.entitlementToken;
+      }
+
+      final retryDio = _retryDio;
+      final response = await retryDio.fetch(err.requestOptions);
+      debugPrint(
+          '[ValorantInterceptor] 400 fast entitlement refresh retry succeeded');
+      handler.resolve(response);
+      return true;
+    } catch (e) {
+      debugPrint(
+          '[ValorantInterceptor] Fast entitlement refresh retry failed: $e');
+      return false;
+    }
   }
 
   Future<bool> _attemptReauthAndRetry(
