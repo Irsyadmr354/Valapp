@@ -63,16 +63,27 @@ class StoreRepository {
 
     final skinMap = unifiedMap;
 
-    // Check if any active featured bundle is missing from the bundle metadata cache.
+    // Check if any active featured bundle or any of its items are missing from metadata cache.
     final hasUnknownBundle = storefront.featuredBundles.any((b) =>
         b.bundleUuid.isNotEmpty &&
         !bundleMap.containsKey(b.bundleUuid) &&
         !bundleMap.containsKey(b.bundleUuid.toLowerCase()) &&
         !bundleMap.containsKey(b.bundleUuid.replaceAll('-', '').toLowerCase()));
-    if (hasUnknownBundle) {
+
+    final hasUnknownItems = storefront.featuredBundles.any((b) =>
+        b.itemIds.isNotEmpty &&
+        b.itemIds.any((id) =>
+            !unifiedMap.containsKey(id) &&
+            !unifiedMap.containsKey(id.toLowerCase()) &&
+            !unifiedMap.containsKey(id.replaceAll('-', '').toLowerCase())));
+
+    if (hasUnknownBundle || hasUnknownItems) {
       bundleMap = await _assets
           .getBundlesMap(forceRefresh: true)
           .catchError((_) => bundleMap);
+      unifiedMap = await _assets
+          .getAllStoreItemsMap(forceRefresh: true)
+          .catchError((_) => unifiedMap);
     }
 
     // Enrich daily offers

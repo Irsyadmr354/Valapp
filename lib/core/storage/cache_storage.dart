@@ -112,13 +112,13 @@ class CacheStorage {
   static const keyClientVersionFetchedAt = 'client_version_fetched_at';
   static const keyDailyShop = 'daily_shop';
   static const keyDailyShopFetchedAt = 'daily_shop_fetched_at';
-  static const keySkinMetadata = 'skin_metadata_v4';
-  static const keySkinMetadataFetchedAt = 'skin_metadata_v4_fetched_at';
-  static const keyUnifiedStoreItems = 'unified_store_items_v4';
+  static const keySkinMetadata = 'skin_metadata_v5';
+  static const keySkinMetadataFetchedAt = 'skin_metadata_v5_fetched_at';
+  static const keyUnifiedStoreItems = 'unified_store_items_v5';
   static const keyUnifiedStoreItemsFetchedAt =
-      'unified_store_items_v4_fetched_at';
-  static const keyBundles = 'bundles_metadata_v4';
-  static const keyBundlesFetchedAt = 'bundles_metadata_v4_fetched_at';
+      'unified_store_items_v5_fetched_at';
+  static const keyBundles = 'bundles_metadata_v5';
+  static const keyBundlesFetchedAt = 'bundles_metadata_v5_fetched_at';
   static const keyCompetitiveTiers = 'competitive_tiers';
   static const keyCompetitiveTiersFetchedAt = 'competitive_tiers_fetched_at';
   static const keyWishlist = 'wishlist_skin_ids';

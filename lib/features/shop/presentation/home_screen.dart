@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -590,6 +591,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ref.invalidate(_walletProvider);
       ref.invalidate(displayNameProvider);
       ref.invalidate(accountXpProvider);
+
+      // Force background asset cache refresh on explicit user pull-to-refresh
+      final assets = ref.read(valorantAssetsProvider);
+      unawaited(assets.getBundlesMap(forceRefresh: true).catchError((_) => <String, dynamic>{}));
+      unawaited(assets.getAllStoreItemsMap(forceRefresh: true).catchError((_) => <String, dynamic>{}));
 
       try {
         await ref.read(_storefrontProvider.future);

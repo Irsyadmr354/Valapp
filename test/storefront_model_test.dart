@@ -240,5 +240,54 @@ void main() {
       expect(storefront.featuredBundles.first.bundleUuid, 'direct-bundle-asset');
       expect(storefront.featuredBundles.first.itemIds, contains('direct-skin-1'));
     });
+
+    test('parses Aeris bundle with all weapons and accessories', () {
+      final aerisJson = {
+        'SkinsPanelLayout': {
+          'SingleItemOffers': <String>[],
+          'SingleItemStoreOffers': <Map<String, dynamic>>[],
+          'SingleItemOffersRemainingDurationInSeconds': 3600,
+        },
+        'FeaturedBundle': {
+          'Bundle': {
+            'ID': 'aeris-offer-id',
+            'DataAssetID': 'd087f4fd-4942-d782-c76c-5e84dc307a66',
+            'Items': [
+              {
+                'Item': {
+                  'ItemTypeID': 'e7c63390-eda7-46e0-bb7a-6f8d24da2cb6',
+                  'ItemID': 'b494ddd1-4459-6976-6736-00a563a74376',
+                  'Amount': 1,
+                },
+                'BasePrice': 2175,
+                'DiscountedPrice': 2175,
+                'DiscountPercent': 0,
+              },
+              {
+                'Item': {
+                  'ItemTypeID': 'e7c63390-eda7-46e0-bb7a-6f8d24da2cb6',
+                  'ItemID': 'f3333480-459f-cc15-da7a-34869a8fc9df',
+                  'Amount': 1,
+                },
+                'BasePrice': 2175,
+                'DiscountedPrice': 2175,
+                'DiscountPercent': 0,
+              },
+            ],
+            'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 8700},
+            'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 8700},
+            'DurationRemainingInSeconds': 1200000,
+          },
+        },
+      };
+
+      final storefront = Storefront.fromJson(aerisJson);
+      expect(storefront.featuredBundles.length, 1);
+      final bundle = storefront.featuredBundles.first;
+      expect(bundle.bundleUuid, 'd087f4fd-4942-d782-c76c-5e84dc307a66');
+      expect(bundle.itemIds, contains('b494ddd1-4459-6976-6736-00a563a74376'));
+      expect(bundle.itemIds, contains('f3333480-459f-cc15-da7a-34869a8fc9df'));
+      expect(bundle.totalBaseCost, 8700);
+    });
   });
 }
