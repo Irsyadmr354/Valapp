@@ -1,5 +1,6 @@
-package com.personal.valorant_shop_monitor
+package com.valapp.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity()
+

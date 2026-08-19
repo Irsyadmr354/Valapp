@@ -13,7 +13,7 @@ import 'notification_service.dart';
 
 const String taskWishlistBackgroundCheck = 'valapp_background_wishlist_check';
 const String iosWishlistBackgroundTask =
-    'com.personal.valorant-shop-monitor.wishlist-refresh';
+    'com.valapp.mobile.wishlist-refresh';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {

@@ -1,0 +1,8 @@
+# Example key.properties for Valapp release signing
+# Copy this file to 'android/key.properties' and fill in your actual credentials.
+# NOTE: 'android/key.properties' and 'android/upload-keystore.jks' are gitignored.
+
+storePassword=valapp_release_password
+keyPassword=valapp_release_password
+keyAlias=valapp_upload_key
+storeFile=upload-keystore.jks

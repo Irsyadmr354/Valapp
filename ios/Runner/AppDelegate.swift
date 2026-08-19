@@ -19,7 +19,7 @@ import workmanager
       print("[AppDelegate] AudioSession setup error: \(error)")
     }
     WorkmanagerPlugin.registerPeriodicTask(
-      withIdentifier: "com.personal.valorant-shop-monitor.wishlist-refresh",
+      withIdentifier: "com.valapp.mobile.wishlist-refresh",
       frequency: NSNumber(value: 3 * 60 * 60)
     )
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
