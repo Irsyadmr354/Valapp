@@ -48,9 +48,15 @@ class StoreRepository {
 
   /// Enriches daily skin offers, Featured Bundles, and Night Market with metadata from valorant-api.
   Future<Storefront> _enrichStorefront(Storefront storefront) async {
-    final unifiedMap = await _assets
+    var unifiedMap = await _assets
         .getAllStoreItemsMap()
         .catchError((_) => <String, dynamic>{});
+    if (unifiedMap.isEmpty) {
+      unifiedMap = await _assets
+          .getAllStoreItemsMap(forceRefresh: true)
+          .catchError((_) => <String, dynamic>{});
+    }
+
     var bundleMap = await _assets
         .getBundlesMap()
         .catchError((_) => <String, dynamic>{});
@@ -159,13 +165,6 @@ class StoreRepository {
           }
         }
 
-        // Set banner artwork fallback from items
-        promoImage ??= bestCardWideArt ??
-            bestCardLargeArt ??
-            bestWeaponWallpaper ??
-            bestItemIcon;
-        bundleIcon ??= bestItemIcon ?? promoImage;
-
         // If bundle name wasn't found directly by UUID, deduce from detected items
         if (bundleName == null ||
             bundleName.isEmpty ||
@@ -174,19 +173,34 @@ class StoreRepository {
           if (detectedCollectionName != null &&
               detectedCollectionName.isNotEmpty) {
             final lowerDetected = detectedCollectionName.toLowerCase();
+            final normDetected = lowerDetected
+                .replaceAll('//', '')
+                .replaceAll(':', '')
+                .replaceAll(' ', '');
+
             for (final entry in bundleMap.values) {
               if (entry is Map) {
                 final entryName = (entry['displayName'] as String?) ?? '';
                 final lowerEntryName = entryName.toLowerCase();
+                final normEntryName = lowerEntryName
+                    .replaceAll('//', '')
+                    .replaceAll(':', '')
+                    .replaceAll(' ', '');
+
                 if (lowerEntryName == lowerDetected ||
                     lowerEntryName.startsWith(lowerDetected) ||
+                    lowerDetected.startsWith(lowerEntryName) ||
                     lowerEntryName == '$lowerDetected bundle' ||
-                    lowerEntryName == '$lowerDetected collection') {
+                    lowerEntryName == '$lowerDetected collection' ||
+                    normEntryName == normDetected ||
+                    normEntryName.startsWith(normDetected) ||
+                    normDetected.startsWith(normEntryName)) {
                   bundleName = entryName;
                   promoImage ??= (entry['verticalPromoImage'] as String?) ??
                       (entry['displayIcon2'] as String?) ??
                       (entry['displayIcon'] as String?);
-                  bundleIcon ??= (entry['displayIcon'] as String?) ?? promoImage;
+                  bundleIcon ??=
+                      (entry['displayIcon'] as String?) ?? promoImage;
                   break;
                 }
               }
@@ -213,7 +227,8 @@ class StoreRepository {
                     promoImage ??= (entry['verticalPromoImage'] as String?) ??
                         (entry['displayIcon2'] as String?) ??
                         (entry['displayIcon'] as String?);
-                    bundleIcon ??= (entry['displayIcon'] as String?) ?? promoImage;
+                    bundleIcon ??=
+                        (entry['displayIcon'] as String?) ?? promoImage;
                     break;
                   }
                 }
@@ -224,6 +239,13 @@ class StoreRepository {
             }
           }
         }
+
+        // Set banner artwork fallback from items
+        promoImage ??= bestCardWideArt ??
+            bestCardLargeArt ??
+            bestWeaponWallpaper ??
+            bestItemIcon;
+        bundleIcon ??= bestItemIcon ?? promoImage;
       }
 
       bundleName ??= 'Featured Bundle';

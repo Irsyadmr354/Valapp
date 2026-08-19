@@ -107,9 +107,12 @@ class ValorantAssets {
             'chromas': skin['chromas'],
             'levels': skin['levels'],
             'weaponType': weaponType,
+            'itemType': 'Skin',
           };
           map[uuid] = levelInfo;
           map[uuid.toLowerCase()] = levelInfo;
+          final raw = uuid.replaceAll('-', '').toLowerCase();
+          if (raw.isNotEmpty) map[raw] = levelInfo;
         }
       }
 
@@ -126,9 +129,12 @@ class ValorantAssets {
           'chromas': skin['chromas'],
           'levels': skin['levels'],
           'weaponType': weaponType,
+          'itemType': 'Skin',
         };
         map[skinUuid] = skinInfo;
         map[skinUuid.toLowerCase()] = skinInfo;
+        final raw = skinUuid.replaceAll('-', '').toLowerCase();
+        if (raw.isNotEmpty) map[raw] = skinInfo;
       }
 
       // Also index by each chroma UUID
@@ -146,9 +152,12 @@ class ValorantAssets {
             'chromas': skin['chromas'],
             'levels': skin['levels'],
             'weaponType': weaponType,
+            'itemType': 'Skin',
           };
           map[cuuid] = chromaInfo;
           map[cuuid.toLowerCase()] = chromaInfo;
+          final raw = cuuid.replaceAll('-', '').toLowerCase();
+          if (raw.isNotEmpty) map[raw] = chromaInfo;
         }
       }
     }
@@ -302,19 +311,40 @@ class ValorantAssets {
       return _memoryUnifiedMap!;
     }
 
-    final skinMap = await getSkinLevelsMap(forceRefresh: forceRefresh)
-        .catchError((_) => <String, dynamic>{});
-    final buddyMap =
-        await getBuddiesMap().catchError((_) => <String, dynamic>{});
-    final cardMap =
-        await getPlayerCardsMap().catchError((_) => <String, dynamic>{});
-    final sprayMap =
-        await getSpraysMap().catchError((_) => <String, dynamic>{});
-    final titleMap =
-        await getPlayerTitlesMap().catchError((_) => <String, dynamic>{});
+    final cache = CacheStorage.instance;
+    final isStale = await cache.isStale(
+      CacheStorage.keyUnifiedStoreItemsFetchedAt,
+      _cacheDuration,
+    );
+    if (!forceRefresh && !isStale) {
+      final cached = await cache.getJson(CacheStorage.keyUnifiedStoreItems);
+      if (cached != null && cached.isNotEmpty) {
+        _memoryUnifiedMap = cached;
+        return cached;
+      }
+    }
+
+    // Fetch all item sub-maps concurrently
+    final results = await Future.wait([
+      getSkinLevelsMap(forceRefresh: forceRefresh)
+          .catchError((_) => <String, dynamic>{}),
+      getBuddiesMap()
+          .catchError((_) => <String, dynamic>{}),
+      getPlayerCardsMap()
+          .catchError((_) => <String, dynamic>{}),
+      getSpraysMap()
+          .catchError((_) => <String, dynamic>{}),
+      getPlayerTitlesMap()
+          .catchError((_) => <String, dynamic>{}),
+    ]);
+
+    final skinMap = results[0];
+    final buddyMap = results[1];
+    final cardMap = results[2];
+    final sprayMap = results[3];
+    final titleMap = results[4];
 
     final unified = <String, dynamic>{};
-    unified.addAll(skinMap);
 
     void addUnified(String uuid, Map<String, dynamic> entry) {
       unified[uuid] = entry;
@@ -324,6 +354,13 @@ class ValorantAssets {
         unified[raw] = entry;
       }
     }
+
+    // Merge skins (levels, base skins, chromas)
+    skinMap.forEach((uuid, value) {
+      if (value is Map) {
+        addUnified(uuid, Map<String, dynamic>.from(value));
+      }
+    });
 
     // Merge buddy entries
     buddyMap.forEach((uuid, value) {
@@ -363,13 +400,15 @@ class ValorantAssets {
     // Merge spray entries
     sprayMap.forEach((uuid, value) {
       if (value is Map) {
-        final icon = value['fullIcon'] ??
-            value['animationPng'] ??
-            value['displayIcon'];
+        final icon = value['displayIcon'] ??
+            value['fullIcon'] ??
+            value['animationPng'];
         final entry = {
           'displayName': value['displayName'],
           'skinName': value['displayName'],
           'displayIcon': icon,
+          'fullIcon': value['fullIcon'],
+          'animationPng': value['animationPng'],
           'contentTierUuid': null,
           'itemType': 'Spray',
         };
@@ -391,8 +430,21 @@ class ValorantAssets {
       }
     });
 
-    _memoryUnifiedMap = unified;
-    return unified;
+    if (unified.isNotEmpty) {
+      _memoryUnifiedMap = unified;
+      await cache.setJson(CacheStorage.keyUnifiedStoreItems, unified);
+      await cache.setTimestamp(CacheStorage.keyUnifiedStoreItemsFetchedAt);
+      return unified;
+    }
+
+    final fallbackCached =
+        await cache.getJson(CacheStorage.keyUnifiedStoreItems);
+    if (fallbackCached != null && fallbackCached.isNotEmpty) {
+      _memoryUnifiedMap = fallbackCached;
+      return fallbackCached;
+    }
+
+    return _memoryUnifiedMap ?? {};
   }
 
   // ── Maps ───────────────────────────────────────────────────────────────────
@@ -652,17 +704,37 @@ class ValorantAssets {
       final map = <String, dynamic>{};
       for (final s in sprays) {
         final uuid = s['uuid'] as String?;
+        final levels = s['levels'] as List<dynamic>? ?? [];
+        final displayIcon = s['displayIcon'] ?? s['fullIcon'];
         if (uuid != null) {
           final entry = {
             'displayName': s['displayName'],
-            'displayIcon': s['displayIcon'],
+            'displayIcon': displayIcon,
             'fullIcon': s['fullIcon'],
             'animationPng': s['animationPng'],
+            'sprayUuid': uuid,
           };
           map[uuid] = entry;
           map[uuid.toLowerCase()] = entry;
           final raw = uuid.replaceAll('-', '').toLowerCase();
           if (raw.isNotEmpty) map[raw] = entry;
+        }
+
+        for (final level in levels) {
+          final luuid = level['uuid'] as String?;
+          if (luuid != null) {
+            final entry = {
+              'displayName': level['displayName'] ?? s['displayName'],
+              'displayIcon': level['displayIcon'] ?? displayIcon,
+              'fullIcon': s['fullIcon'],
+              'animationPng': s['animationPng'],
+              'sprayUuid': uuid,
+            };
+            map[luuid] = entry;
+            map[luuid.toLowerCase()] = entry;
+            final raw = luuid.replaceAll('-', '').toLowerCase();
+            if (raw.isNotEmpty) map[raw] = entry;
+          }
         }
       }
       _memorySpraysMap = map;

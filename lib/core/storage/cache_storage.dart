@@ -114,6 +114,9 @@ class CacheStorage {
   static const keyDailyShopFetchedAt = 'daily_shop_fetched_at';
   static const keySkinMetadata = 'skin_metadata_v4';
   static const keySkinMetadataFetchedAt = 'skin_metadata_v4_fetched_at';
+  static const keyUnifiedStoreItems = 'unified_store_items_v4';
+  static const keyUnifiedStoreItemsFetchedAt =
+      'unified_store_items_v4_fetched_at';
   static const keyBundles = 'bundles_metadata_v4';
   static const keyBundlesFetchedAt = 'bundles_metadata_v4_fetched_at';
   static const keyCompetitiveTiers = 'competitive_tiers';

@@ -15,9 +15,13 @@ import 'skin_detail_modal.dart';
 
 /// Riverpod provider for all store items asset map (skins, buddies, cards, sprays)
 final _bundleSkinMapProvider =
-    FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final assets = ref.watch(valorantAssetsProvider);
-  return assets.getAllStoreItemsMap();
+  var map = await assets.getAllStoreItemsMap();
+  if (map.isEmpty) {
+    map = await assets.getAllStoreItemsMap(forceRefresh: true);
+  }
+  return map;
 });
 
 /// Modal displaying full contents of the Featured Bundle (all skin items, prices, timers, and inspectable preview).
@@ -269,9 +273,28 @@ class _BundleItemList extends StatelessWidget {
           final skinName = meta?['displayName'] as String? ??
               meta?['skinName'] as String? ??
               'Bundle Item';
-          final displayIcon = meta?['displayIcon'] as String?;
+          final displayIcon = meta?['displayIcon'] as String? ??
+              meta?['largeArt'] as String? ??
+              meta?['wideArt'] as String? ??
+              meta?['fullIcon'] as String?;
           final tierUuid = meta?['contentTierUuid'] as String?;
+          final itemType = meta?['itemType'] as String? ?? 'Skin';
+          final weaponType = meta?['weaponType'] as String?;
           final tierColor = TierColors.forName(tierUuid);
+
+          final typeBadgeLabel = (tierUuid != null && tierUuid.isNotEmpty)
+              ? TierColors.tierLabel(tierUuid).toUpperCase()
+              : (itemType == 'PlayerCard'
+                  ? 'PLAYER CARD'
+                  : itemType == 'Buddy'
+                      ? 'GUN BUDDY'
+                      : itemType == 'Spray'
+                          ? 'SPRAY'
+                          : itemType == 'Title'
+                              ? 'TITLE'
+                              : (weaponType != null && weaponType.isNotEmpty)
+                                  ? '${weaponType.toUpperCase()} SKIN'
+                                  : 'SKIN OFFER');
 
           final itemPrice = bundle.itemPrices[itemId] ?? 0;
           final offer = SkinOffer(
@@ -283,15 +306,25 @@ class _BundleItemList extends StatelessWidget {
             contentTierUuid: tierUuid,
           );
 
+          final isInspectable = itemType == 'Skin' || (meta?['levels'] != null);
+
           return GestureDetector(
-            onTap: () => SkinDetailModal.show(context, offer),
+            onTap: () {
+              if (isInspectable) {
+                SkinDetailModal.show(context, offer);
+              }
+            },
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.bgCard2,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: tierColor.withAlpha(80), width: 1),
+                border: Border.all(
+                    color: tierColor != Colors.transparent
+                        ? tierColor.withAlpha(80)
+                        : Colors.white10,
+                    width: 1),
               ),
               child: Row(
                 children: [
@@ -334,13 +367,18 @@ class _BundleItemList extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: tierColor.withAlpha(30),
+                                color: (tierColor != Colors.transparent
+                                        ? tierColor
+                                        : Colors.white24)
+                                    .withAlpha(30),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                TierColors.tierLabel(tierUuid).toUpperCase(),
+                                typeBadgeLabel,
                                 style: TextStyle(
-                                  color: tierColor,
+                                  color: tierColor != Colors.transparent
+                                      ? tierColor
+                                      : Colors.white70,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w900,
                                 ),
