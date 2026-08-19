@@ -28,3 +28,9 @@
 -dontwarn kotlinx.coroutines.**
 -dontwarn javax.annotation.**
 -dontwarn org.checkerframework.**
+
+# Google Play Core / Deferred Components
+-dontwarn com.google.android.play.core.**
+-dontwarn io.flutter.embedding.engine.deferredcomponents.**
+-dontwarn io.flutter.embedding.android.FlutterPlayStoreSplitApplication
+
