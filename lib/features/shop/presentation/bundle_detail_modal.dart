@@ -13,12 +13,11 @@ import '../domain/models/skin_offer.dart';
 import '../domain/models/storefront.dart';
 import 'skin_detail_modal.dart';
 
-/// Riverpod provider for the skin-levels asset map — lives at file scope so
-/// the Future is created once per provider lifetime, not once per build().
+/// Riverpod provider for all store items asset map (skins, buddies, cards, sprays)
 final _bundleSkinMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
   final assets = ref.watch(valorantAssetsProvider);
-  return assets.getSkinLevelsMap();
+  return assets.getAllStoreItemsMap();
 });
 
 /// Modal displaying full contents of the Featured Bundle (all skin items, prices, timers, and inspectable preview).
@@ -263,7 +262,9 @@ class _BundleItemList extends StatelessWidget {
         // Grid of Skins inside the Bundle
         ...bundle.itemIds.map((itemId) {
           final meta = skinMap[itemId] as Map<String, dynamic>? ??
-              skinMap[itemId.toLowerCase()] as Map<String, dynamic>?;
+              skinMap[itemId.toLowerCase()] as Map<String, dynamic>? ??
+              skinMap[itemId.replaceAll('-', '').toLowerCase()]
+                  as Map<String, dynamic>?;
 
           final skinName = meta?['displayName'] as String? ??
               meta?['skinName'] as String? ??

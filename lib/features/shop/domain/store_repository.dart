@@ -46,18 +46,43 @@ class StoreRepository {
     return _enrichStorefront(storefront);
   }
 
-  /// Enriches daily skin offers, Featured Bundle, and Night Market with metadata from valorant-api.
+  /// Enriches daily skin offers, Featured Bundles, and Night Market with metadata from valorant-api.
   Future<Storefront> _enrichStorefront(Storefront storefront) async {
-    final skinMap = await _assets
+    var skinMap = await _assets
         .getSkinLevelsMap()
         .catchError((_) => <String, dynamic>{});
-    final bundleMap = await _assets
+    var bundleMap = await _assets
         .getBundlesMap()
         .catchError((_) => <String, dynamic>{});
 
+    // Check if any daily skin offer is missing from the cache.
+    // If so, force-refresh skin metadata from valorant-api to handle newly released skins.
+    final hasUnknownDailySkin = storefront.dailyOffers.any((offer) =>
+        !skinMap.containsKey(offer.skinLevelUuid) &&
+        !skinMap.containsKey(offer.skinLevelUuid.toLowerCase()));
+    if (hasUnknownDailySkin) {
+      skinMap = await _assets
+          .getSkinLevelsMap(forceRefresh: true)
+          .catchError((_) => skinMap);
+    }
+
+    // Check if any active featured bundle is missing from the bundle metadata cache.
+    // If so, force-refresh bundle metadata from valorant-api to handle newly released bundles.
+    final hasUnknownBundle = storefront.featuredBundles.any((b) =>
+        b.bundleUuid.isNotEmpty &&
+        !bundleMap.containsKey(b.bundleUuid) &&
+        !bundleMap.containsKey(b.bundleUuid.toLowerCase()) &&
+        !bundleMap.containsKey(b.bundleUuid.replaceAll('-', '').toLowerCase()));
+    if (hasUnknownBundle) {
+      bundleMap = await _assets
+          .getBundlesMap(forceRefresh: true)
+          .catchError((_) => bundleMap);
+    }
+
     // Enrich daily offers
     final enrichedOffers = storefront.dailyOffers.map((offer) {
-      final meta = skinMap[offer.skinLevelUuid] as Map<String, dynamic>?;
+      final meta = skinMap[offer.skinLevelUuid] as Map<String, dynamic>? ??
+          skinMap[offer.skinLevelUuid.toLowerCase()] as Map<String, dynamic>?;
       return offer.copyWith(
         displayName: meta?['skinName'] as String?,
         displayIcon: meta?['displayIcon'] as String?,
@@ -65,44 +90,61 @@ class StoreRepository {
       );
     }).toList();
 
-    // Enrich Featured Bundle
-    FeaturedBundle? enrichedBundle = storefront.featuredBundle;
-    if (enrichedBundle != null) {
-      final bundleMeta =
-          bundleMap[enrichedBundle.bundleUuid] as Map<String, dynamic>? ??
-              bundleMap[enrichedBundle.bundleUuid.toLowerCase()]
-                  as Map<String, dynamic>?;
+    // Check if any bundle needs unified store items map (buddies, cards, sprays, etc.)
+    Map<String, dynamic>? unifiedMap;
+    final needsItemFallback = storefront.featuredBundles.any((b) {
+      final meta = bundleMap[b.bundleUuid] ??
+          bundleMap[b.bundleUuid.toLowerCase()] ??
+          bundleMap[b.bundleUuid.replaceAll('-', '').toLowerCase()];
+      return meta == null || (meta['verticalPromoImage'] == null && meta['displayIcon2'] == null && meta['displayIcon'] == null);
+    });
+    if (needsItemFallback) {
+      unifiedMap = await _assets
+          .getAllStoreItemsMap()
+          .catchError((_) => <String, dynamic>{});
+    }
+
+    // Enrich all Featured Bundles
+    final enrichedBundles = storefront.featuredBundles.map((bundle) {
+      final bundleMeta = (bundleMap[bundle.bundleUuid] as Map<String, dynamic>?) ??
+          (bundleMap[bundle.bundleUuid.toLowerCase()] as Map<String, dynamic>?) ??
+          (bundleMap[bundle.bundleUuid.replaceAll('-', '').toLowerCase()] as Map<String, dynamic>?);
 
       String? bundleName = bundleMeta?['displayName'] as String?;
       String? bundleIcon = bundleMeta?['displayIcon'] as String?;
       String? promoImage = bundleMeta?['verticalPromoImage'] as String? ??
           bundleMeta?['displayIcon2'] as String?;
 
-      // Fallback: if promo/icon is missing from valorant-api bundles, fetch icon from first item skin in bundle
-      if ((promoImage == null || promoImage.isEmpty) &&
-          (bundleIcon == null || bundleIcon.isEmpty) &&
-          enrichedBundle.itemIds.isNotEmpty) {
-        for (final itemId in enrichedBundle.itemIds) {
-          final skinMeta = skinMap[itemId] as Map<String, dynamic>? ??
-              skinMap[itemId.toLowerCase()] as Map<String, dynamic>?;
-          if (skinMeta != null) {
-            bundleName ??= skinMeta['skinName'] as String?;
-            bundleIcon ??= skinMeta['displayIcon'] as String?;
+      // Fallback: if promo/icon or name is missing from valorant-api bundles, fetch from items in bundle
+      if ((promoImage == null || promoImage.isEmpty || bundleName == null || bundleName.isEmpty) &&
+          bundle.itemIds.isNotEmpty) {
+        final itemLookup = unifiedMap ?? skinMap;
+        for (final itemId in bundle.itemIds) {
+          final itemMeta = itemLookup[itemId] as Map<String, dynamic>? ??
+              itemLookup[itemId.toLowerCase()] as Map<String, dynamic>? ??
+              itemLookup[itemId.replaceAll('-', '').toLowerCase()] as Map<String, dynamic>?;
+          if (itemMeta != null) {
+            bundleName ??= (itemMeta['skinName'] as String?) ??
+                (itemMeta['displayName'] as String?);
+            bundleIcon ??= itemMeta['displayIcon'] as String?;
+            promoImage ??= (itemMeta['wallpaper'] as String?) ??
+                (itemMeta['displayIcon'] as String?);
             if (bundleIcon != null && bundleIcon.isNotEmpty) break;
           }
         }
       }
 
-      enrichedBundle = enrichedBundle.copyWith(
+      return bundle.copyWith(
         displayName: bundleName,
         displayIcon: bundleIcon,
         verticalPromoImage: promoImage,
       );
-    }
+    }).toList();
 
     // Enrich Night Market
     final enrichedNightMarket = storefront.nightMarket.map((nm) {
-      final meta = skinMap[nm.skinLevelUuid] as Map<String, dynamic>?;
+      final meta = skinMap[nm.skinLevelUuid] as Map<String, dynamic>? ??
+          skinMap[nm.skinLevelUuid.toLowerCase()] as Map<String, dynamic>?;
       return nm.copyWith(
         skinName: meta?['skinName'] as String?,
         skinIcon: meta?['displayIcon'] as String?,
@@ -113,7 +155,7 @@ class StoreRepository {
     return Storefront(
       dailyOffers: enrichedOffers,
       dailyOffersRemainingSeconds: storefront.dailyOffersRemainingSeconds,
-      featuredBundle: enrichedBundle,
+      featuredBundles: enrichedBundles,
       nightMarket: enrichedNightMarket,
       accessoryStore: storefront.accessoryStore,
       fetchedAt: storefront.fetchedAt,

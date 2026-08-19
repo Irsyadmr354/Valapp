@@ -103,4 +103,76 @@ void main() {
       expect(storefront.accessoryStore?.offerIds, isEmpty);
     });
   });
+
+  group('Storefront.fromJson featured bundles parsing', () {
+    test('parses multiple bundles from FeaturedBundle.Bundles list', () {
+      final storefront = Storefront.fromJson({
+        'SkinsPanelLayout': {
+          'SingleItemOffers': <String>[],
+          'SingleItemStoreOffers': <Map<String, dynamic>>[],
+          'SingleItemOffersRemainingDurationInSeconds': 3600,
+        },
+        'FeaturedBundle': {
+          'Bundles': [
+            {
+              'ID': 'offer-1111',
+              'DataAssetID': 'bundle-uuid-1111',
+              'Items': [
+                {
+                  'Item': {'ItemID': 'skin-1'},
+                  'BasePrice': 2175,
+                }
+              ],
+              'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 9500},
+              'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 5225},
+              'TotalDiscountPercent': 0.45,
+              'DurationRemainingInSeconds': 10000,
+            },
+            {
+              'ID': 'offer-2222',
+              'DataAssetID': 'bundle-uuid-2222',
+              'Items': [
+                {
+                  'Item': {'ItemID': 'skin-2'},
+                  'BasePrice': 1775,
+                }
+              ],
+              'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 7100},
+              'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 7100},
+              'TotalDiscountPercent': 0.0,
+              'DurationRemainingInSeconds': 5000,
+            }
+          ],
+        },
+      });
+
+      expect(storefront.featuredBundles.length, 2);
+      expect(storefront.featuredBundles[0].bundleUuid, 'bundle-uuid-1111');
+      expect(storefront.featuredBundles[0].totalDiscountedCost, 5225);
+      expect(storefront.featuredBundles[1].bundleUuid, 'bundle-uuid-2222');
+      expect(storefront.featuredBundles[1].totalDiscountedCost, 7100);
+      expect(storefront.featuredBundle?.bundleUuid, 'bundle-uuid-1111');
+    });
+
+    test('falls back to ID when DataAssetID is empty string or null', () {
+      final storefront = Storefront.fromJson({
+        'SkinsPanelLayout': {
+          'SingleItemOffers': <String>[],
+          'SingleItemStoreOffers': <Map<String, dynamic>>[],
+          'SingleItemOffersRemainingDurationInSeconds': 3600,
+        },
+        'FeaturedBundle': {
+          'Bundles': [
+            {
+              'ID': 'offer-fallback-id',
+              'DataAssetID': '',
+              'Items': <Map<String, dynamic>>[],
+            }
+          ],
+        },
+      });
+
+      expect(storefront.featuredBundles.single.bundleUuid, 'offer-fallback-id');
+    });
+  });
 }

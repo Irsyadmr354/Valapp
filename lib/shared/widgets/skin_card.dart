@@ -67,14 +67,48 @@ class SkinCard extends StatelessWidget {
                     ),
                   ),
 
-                  // Top-right: Arrow indicator to inspect details (Chromas & Levels)
-                  const Positioned(
+                  // Top-right: Action pill button to inspect details (Chromas & Levels)
+                  Positioned(
                     top: 10,
                     right: 10,
-                    child: Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white54,
-                      size: 18,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withAlpha(160),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withAlpha(38),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(90),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'INSPECT',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Color(0xFFFF4655),
+                            size: 12,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

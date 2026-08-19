@@ -18,14 +18,15 @@ class ValorantAssets {
   // ── Skin Levels ────────────────────────────────────────────────────────────
 
   /// Returns a map of skinLevel UUID → skin metadata.
-  Future<Map<String, dynamic>> getSkinLevelsMap() async {
+  Future<Map<String, dynamic>> getSkinLevelsMap(
+      {bool forceRefresh = false}) async {
     final cache = CacheStorage.instance;
     final isStale = await cache.isStale(
       CacheStorage.keySkinMetadataFetchedAt,
       _cacheDuration,
     );
 
-    if (!isStale) {
+    if (!forceRefresh && !isStale) {
       final cached = await cache.getJson(CacheStorage.keySkinMetadata);
       if (cached != null) return cached;
     }
@@ -59,6 +60,7 @@ class ValorantAssets {
     final map = <String, dynamic>{};
     for (final skin in skins) {
       final levels = skin['levels'] as List<dynamic>? ?? [];
+      final chromas = skin['chromas'] as List<dynamic>? ?? [];
       final skinUuid = skin['uuid'] as String?;
       final weaponType =
           skinUuid != null ? (weaponTypeMap[skinUuid] ?? '') : '';
@@ -74,10 +76,11 @@ class ValorantAssets {
         }
       }
 
+      // Index each skin level
       for (final level in levels) {
         final uuid = level['uuid'] as String?;
         if (uuid != null) {
-          map[uuid] = {
+          final levelInfo = {
             'displayName': level['displayName'],
             'displayIcon': (level['displayIcon'] as String?)?.isNotEmpty == true
                 ? level['displayIcon']
@@ -91,6 +94,47 @@ class ValorantAssets {
             'levels': skin['levels'],
             'weaponType': weaponType,
           };
+          map[uuid] = levelInfo;
+          map[uuid.toLowerCase()] = levelInfo;
+        }
+      }
+
+      // Also index by base skin UUID (useful for bundles & loadouts that reference skin UUID)
+      if (skinUuid != null) {
+        final skinInfo = {
+          'displayName': skin['displayName'],
+          'displayIcon': bestIcon,
+          'skinName': skin['displayName'],
+          'skinUuid': skin['uuid'],
+          'themeUuid': skin['themeUuid'],
+          'contentTierUuid': skin['contentTierUuid'],
+          'wallpaper': skin['wallpaper'],
+          'chromas': skin['chromas'],
+          'levels': skin['levels'],
+          'weaponType': weaponType,
+        };
+        map[skinUuid] = skinInfo;
+        map[skinUuid.toLowerCase()] = skinInfo;
+      }
+
+      // Also index by each chroma UUID
+      for (final chroma in chromas) {
+        final cuuid = chroma['uuid'] as String?;
+        if (cuuid != null && !map.containsKey(cuuid)) {
+          final chromaInfo = {
+            'displayName': chroma['displayName'] ?? skin['displayName'],
+            'displayIcon': chroma['displayIcon'] ?? chroma['fullRender'] ?? bestIcon,
+            'skinName': skin['displayName'],
+            'skinUuid': skin['uuid'],
+            'themeUuid': skin['themeUuid'],
+            'contentTierUuid': skin['contentTierUuid'],
+            'wallpaper': skin['wallpaper'],
+            'chromas': skin['chromas'],
+            'levels': skin['levels'],
+            'weaponType': weaponType,
+          };
+          map[cuuid] = chromaInfo;
+          map[cuuid.toLowerCase()] = chromaInfo;
         }
       }
     }
@@ -163,13 +207,14 @@ class ValorantAssets {
   // ── Bundles ────────────────────────────────────────────────────────────────
 
   /// Returns a map of bundle UUID → bundle metadata (name, icons, promo images).
-  Future<Map<String, dynamic>> getBundlesMap() async {
+  Future<Map<String, dynamic>> getBundlesMap(
+      {bool forceRefresh = false}) async {
     final cache = CacheStorage.instance;
     const keyBundles = 'bundles_metadata';
     const keyBundlesFetchedAt = 'bundles_metadata_fetched_at';
 
     final isStale = await cache.isStale(keyBundlesFetchedAt, _cacheDuration);
-    if (!isStale) {
+    if (!forceRefresh && !isStale) {
       final cached = await cache.getJson(keyBundles);
       if (cached != null) return cached;
     }
@@ -190,6 +235,10 @@ class ValorantAssets {
           };
           map[uuid] = info;
           map[uuid.toLowerCase()] = info;
+          final rawId = uuid.replaceAll('-', '').toLowerCase();
+          if (rawId.isNotEmpty) {
+            map[rawId] = info;
+          }
         }
       }
 
@@ -200,6 +249,97 @@ class ValorantAssets {
       final cached = await cache.getJson(keyBundles);
       return cached ?? {};
     }
+  }
+
+  /// Returns a unified map of any item UUID (weapon skin level, base skin, chroma,
+  /// gun buddy, player card, spray, or title) → display metadata.
+  Future<Map<String, dynamic>> getAllStoreItemsMap(
+      {bool forceRefresh = false}) async {
+    final results = await Future.wait([
+      getSkinLevelsMap(forceRefresh: forceRefresh),
+      getBuddiesMap(),
+      getPlayerCardsMap(),
+      getSpraysMap(),
+      getPlayerTitlesMap(),
+    ]);
+
+    final skinMap = results[0];
+    final buddyMap = results[1];
+    final cardMap = results[2];
+    final sprayMap = results[3];
+    final titleMap = results[4];
+
+    final unified = <String, dynamic>{};
+    unified.addAll(skinMap);
+
+    // Merge buddy entries
+    buddyMap.forEach((uuid, value) {
+      if (!unified.containsKey(uuid) && value is Map) {
+        final entry = {
+          'displayName': value['displayName'],
+          'skinName': value['displayName'],
+          'displayIcon': value['displayIcon'],
+          'contentTierUuid': null,
+          'itemType': 'Buddy',
+        };
+        unified[uuid] = entry;
+        unified[uuid.toLowerCase()] = entry;
+      }
+    });
+
+    // Merge player card entries
+    cardMap.forEach((uuid, value) {
+      if (!unified.containsKey(uuid) && value is Map) {
+        final icon = value['largeArt'] ??
+            value['wideArt'] ??
+            value['smallArt'] ??
+            value['displayIcon'];
+        final entry = {
+          'displayName': value['displayName'],
+          'skinName': value['displayName'],
+          'displayIcon': icon,
+          'contentTierUuid': null,
+          'itemType': 'PlayerCard',
+        };
+        unified[uuid] = entry;
+        unified[uuid.toLowerCase()] = entry;
+      }
+    });
+
+    // Merge spray entries
+    sprayMap.forEach((uuid, value) {
+      if (!unified.containsKey(uuid) && value is Map) {
+        final icon = value['fullIcon'] ??
+            value['animationPng'] ??
+            value['displayIcon'];
+        final entry = {
+          'displayName': value['displayName'],
+          'skinName': value['displayName'],
+          'displayIcon': icon,
+          'contentTierUuid': null,
+          'itemType': 'Spray',
+        };
+        unified[uuid] = entry;
+        unified[uuid.toLowerCase()] = entry;
+      }
+    });
+
+    // Merge title entries
+    titleMap.forEach((uuid, value) {
+      if (!unified.containsKey(uuid) && value is Map) {
+        final entry = {
+          'displayName': value['displayName'] ?? value['titleText'],
+          'skinName': value['displayName'] ?? value['titleText'],
+          'displayIcon': null,
+          'contentTierUuid': null,
+          'itemType': 'Title',
+        };
+        unified[uuid] = entry;
+        unified[uuid.toLowerCase()] = entry;
+      }
+    });
+
+    return unified;
   }
 
   // ── Maps ───────────────────────────────────────────────────────────────────

@@ -94,8 +94,12 @@ class FeaturedBundle {
       }
     }
 
+    final dataAssetId = json['DataAssetID']?.toString().trim() ?? '';
+    final offerId = json['ID']?.toString().trim() ?? '';
+    final bundleUuid = dataAssetId.isNotEmpty ? dataAssetId : offerId;
+
     return FeaturedBundle(
-      bundleUuid: json['DataAssetID'] as String? ?? json['ID'] as String? ?? '',
+      bundleUuid: bundleUuid,
       durationRemainingSeconds:
           (json['DurationRemainingInSeconds'] as num?)?.toInt() ??
               (json['BundleRemainingDurationInSeconds'] as num?)?.toInt() ??
@@ -225,7 +229,7 @@ class AccessoryStore {
 class Storefront {
   final List<SkinOffer> dailyOffers;
   final int dailyOffersRemainingSeconds;
-  final FeaturedBundle? featuredBundle;
+  final List<FeaturedBundle> featuredBundles;
   final List<NightMarketOffer> nightMarket;
   final AccessoryStore? accessoryStore;
   final DateTime fetchedAt;
@@ -234,17 +238,25 @@ class Storefront {
   const Storefront({
     required this.dailyOffers,
     required this.dailyOffersRemainingSeconds,
-    this.featuredBundle,
+    this.featuredBundles = const [],
+    FeaturedBundle? featuredBundle,
     required this.nightMarket,
     this.accessoryStore,
     required this.fetchedAt,
     this.isFromOfflineCache = false,
-  });
+  }) : _legacyBundle = featuredBundle;
+
+  final FeaturedBundle? _legacyBundle;
+
+  /// Primary featured bundle (or first bundle among active featured bundles)
+  FeaturedBundle? get featuredBundle =>
+      _legacyBundle ?? featuredBundles.firstOrNull;
 
   Storefront copyWith({
     List<SkinOffer>? dailyOffers,
     int? dailyOffersRemainingSeconds,
     FeaturedBundle? featuredBundle,
+    List<FeaturedBundle>? featuredBundles,
     List<NightMarketOffer>? nightMarket,
     AccessoryStore? accessoryStore,
     DateTime? fetchedAt,
@@ -254,7 +266,8 @@ class Storefront {
       dailyOffers: dailyOffers ?? this.dailyOffers,
       dailyOffersRemainingSeconds:
           dailyOffersRemainingSeconds ?? this.dailyOffersRemainingSeconds,
-      featuredBundle: featuredBundle ?? this.featuredBundle,
+      featuredBundles: featuredBundles ??
+          (featuredBundle != null ? [featuredBundle] : this.featuredBundles),
       nightMarket: nightMarket ?? this.nightMarket,
       accessoryStore: accessoryStore ?? this.accessoryStore,
       fetchedAt: fetchedAt ?? this.fetchedAt,
@@ -352,20 +365,23 @@ class Storefront {
       ));
     }
 
-    // Featured bundle
-    FeaturedBundle? bundle;
+    // Featured bundles (handles both multiple bundles and single bundle)
+    final featuredBundles = <FeaturedBundle>[];
     final fbJson = json['FeaturedBundle'] as Map<String, dynamic>?;
     if (fbJson != null) {
       final bundlesList = fbJson['Bundles'] as List<dynamic>?;
       if (bundlesList != null && bundlesList.isNotEmpty) {
-        final firstBundle = bundlesList.whereType<Map>().firstOrNull;
-        if (firstBundle != null) {
-          bundle =
-              FeaturedBundle.fromJson(Map<String, dynamic>.from(firstBundle));
+        for (final b in bundlesList.whereType<Map>()) {
+          try {
+            featuredBundles.add(
+                FeaturedBundle.fromJson(Map<String, dynamic>.from(b)));
+          } catch (_) {}
         }
       } else if (fbJson['Bundle'] != null && fbJson['Bundle'] is Map) {
-        bundle =
-            FeaturedBundle.fromJson(fbJson['Bundle'] as Map<String, dynamic>);
+        try {
+          featuredBundles.add(FeaturedBundle.fromJson(
+              fbJson['Bundle'] as Map<String, dynamic>));
+        } catch (_) {}
       }
     }
 
@@ -388,7 +404,7 @@ class Storefront {
     return Storefront(
       dailyOffers: dailyOffers,
       dailyOffersRemainingSeconds: remainingSec,
-      featuredBundle: bundle,
+      featuredBundles: featuredBundles,
       nightMarket: nightMarketOffers,
       accessoryStore: accessoryStore,
       fetchedAt: DateTime.tryParse(json['_fetchedAt'] as String? ?? '') ??

@@ -516,11 +516,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           return _WishlistMatchBanner(matchedSkins: matches);
         }),
 
-        // Featured Bundle
-        if (storefront.featuredBundle != null) ...[
+        // Featured Bundle(s)
+        if (storefront.featuredBundles.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const _SectionHeader(title: 'Featured Bundle'),
-          _BundleBanner(bundle: storefront.featuredBundle!),
+          _FeaturedBundlesSection(bundles: storefront.featuredBundles),
           const SizedBox(height: 20),
         ],
 
@@ -585,6 +584,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       } catch (_) {}
 
       ref.invalidate(currentCredentialsProvider);
+      ref.invalidate(_bundlesMapProvider);
+      ref.invalidate(_skinMetaMapProvider);
       ref.invalidate(_storefrontProvider);
       ref.invalidate(_walletProvider);
       ref.invalidate(displayNameProvider);
@@ -710,10 +711,90 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Bundle Banner ──────────────────────────────────────────────────────────────
+// ── Featured Bundles Section ───────────────────────────────────────────────────
 
-class _BundleBanner extends ConsumerWidget {
-  const _BundleBanner({required this.bundle});
+class _FeaturedBundlesSection extends StatefulWidget {
+  const _FeaturedBundlesSection({required this.bundles});
+  final List<FeaturedBundle> bundles;
+
+  @override
+  State<_FeaturedBundlesSection> createState() =>
+      _FeaturedBundlesSectionState();
+}
+
+class _FeaturedBundlesSectionState extends State<_FeaturedBundlesSection> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.bundles.isEmpty) return const SizedBox();
+
+    if (widget.bundles.length == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(title: 'Featured Bundle'),
+          _FeaturedBundleCard(bundle: widget.bundles.first),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          title:
+              'Featured Bundles (${_currentPage + 1}/${widget.bundles.length})',
+        ),
+        SizedBox(
+          height: 195,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: widget.bundles.length,
+            onPageChanged: (idx) => setState(() => _currentPage = idx),
+            itemBuilder: (context, idx) {
+              return _FeaturedBundleCard(bundle: widget.bundles[idx]);
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Dots indicator for multiple bundles
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.bundles.length, (index) {
+            final isSelected = index == _currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: isSelected ? 20 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFFFF4655) : Colors.white24,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _FeaturedBundleCard extends ConsumerWidget {
+  const _FeaturedBundleCard({required this.bundle});
   final FeaturedBundle bundle;
 
   @override
@@ -725,7 +806,8 @@ class _BundleBanner extends ConsumerWidget {
     final skinMap = skinLevelsAsync.asData?.value ?? {};
 
     final bundleInfo = bundleMap[bundle.bundleUuid.toLowerCase()] ??
-        bundleMap[bundle.bundleUuid];
+        bundleMap[bundle.bundleUuid] ??
+        bundleMap[bundle.bundleUuid.replaceAll('-', '').toLowerCase()];
 
     final displayIcon2 = bundleInfo?['displayIcon2'] as String?;
     final verticalImage = bundleInfo?['verticalPromoImage'] as String?;
@@ -740,8 +822,11 @@ class _BundleBanner extends ConsumerWidget {
     if ((imageUrl == null || imageUrl.isEmpty) && bundle.itemIds.isNotEmpty) {
       for (final itemId in bundle.itemIds) {
         final skinMeta = skinMap[itemId] as Map<String, dynamic>? ??
-            skinMap[itemId.toLowerCase()] as Map<String, dynamic>?;
-        final icon = skinMeta?['displayIcon'] as String?;
+            skinMap[itemId.toLowerCase()] as Map<String, dynamic>? ??
+            skinMap[itemId.replaceAll('-', '').toLowerCase()]
+                as Map<String, dynamic>?;
+        final icon = (skinMeta?['wallpaper'] as String?) ??
+            (skinMeta?['displayIcon'] as String?);
         if (icon != null && icon.isNotEmpty) {
           imageUrl = icon;
           break;
@@ -753,6 +838,23 @@ class _BundleBanner extends ConsumerWidget {
         price_utils.discountPercent(bundle.totalDiscountPercent);
 
     final finalImageUrl = imageUrl;
+
+    final displayName = bundle.displayName ??
+        (bundleInfo?['displayName'] as String?) ??
+        'Featured Bundle';
+
+    // Calculate effective price if total discount cost is 0
+    final effectiveDiscountedCost = bundle.totalDiscountedCost > 0
+        ? bundle.totalDiscountedCost
+        : (bundle.totalBaseCost > 0
+            ? bundle.totalBaseCost
+            : (bundle.itemPrices.isNotEmpty
+                ? bundle.itemPrices.values.fold(0, (a, b) => a + b)
+                : 0));
+
+    final effectiveBaseCost = bundle.totalBaseCost > 0
+        ? bundle.totalBaseCost
+        : effectiveDiscountedCost;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -834,27 +936,28 @@ class _BundleBanner extends ConsumerWidget {
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900)),
                             ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withAlpha(130),
-                              borderRadius: BorderRadius.circular(4),
+                          if (bundle.itemIds.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withAlpha(130),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.layers_outlined,
+                                      color: Colors.white54, size: 11),
+                                  const SizedBox(width: 4),
+                                  Text('${bundle.itemIds.length} ITEMS',
+                                      style: const TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700)),
+                                ],
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.layers_outlined,
-                                    color: Colors.white54, size: 11),
-                                const SizedBox(width: 4),
-                                Text('${bundle.itemIds.length} ITEMS',
-                                    style: const TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700)),
-                              ],
-                            ),
-                          ),
                           const Spacer(),
                           if (bundle.durationRemainingSeconds > 0)
                             Row(
@@ -878,35 +981,38 @@ class _BundleBanner extends ConsumerWidget {
                       const Spacer(),
                       // Bundle name
                       Text(
-                        (bundle.displayName ?? 'Featured Bundle').toUpperCase(),
+                        displayName.toUpperCase(),
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
                       // Price row
                       Row(
                         children: [
-                          const VpIcon(size: 16, color: AppColors.red),
-                          const SizedBox(width: 5),
-                          Text(
-                            '${bundle.totalDiscountedCost}',
-                            style: const TextStyle(
-                              color: AppColors.red,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
+                          if (effectiveDiscountedCost > 0) ...[
+                            const VpIcon(size: 16, color: AppColors.red),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$effectiveDiscountedCost',
+                              style: const TextStyle(
+                                color: AppColors.red,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
-                          ),
-                          if (bundle.totalBaseCost >
-                              bundle.totalDiscountedCost) ...[
+                          ],
+                          if (effectiveBaseCost > effectiveDiscountedCost) ...[
                             const SizedBox(width: 8),
                             const VpIcon(size: 12, color: Colors.white38),
                             const SizedBox(width: 3),
                             Text(
-                              '${bundle.totalBaseCost}',
+                              '$effectiveBaseCost',
                               style: const TextStyle(
                                 color: Colors.white38,
                                 fontSize: 12,
