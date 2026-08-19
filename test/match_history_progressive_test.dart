@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:valorant_app/core/storage/cache_storage.dart';
 import 'package:valorant_app/features/match/data/match_local_cache.dart';
@@ -49,7 +49,7 @@ void main() {
     });
 
     test('progressive in-place enrichment preserves core match info while adding stats', () async {
-      final baseEntry = MatchHistoryEntry(
+      const baseEntry = MatchHistoryEntry(
         matchId: 'match-bravo-202',
         gameStartMillis: 1700000000000,
         queueId: 'unrated',
