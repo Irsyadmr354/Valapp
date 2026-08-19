@@ -70,7 +70,7 @@ final _homePlayerCardProvider =
 
 final _skinMetaMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
-  return ref.watch(valorantAssetsProvider).getSkinLevelsMap();
+  return ref.watch(valorantAssetsProvider).getAllStoreItemsMap();
 });
 
 final _homeMatchesProvider =
