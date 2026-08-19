@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../data/store_local_cache.dart';
 import '../data/store_remote_source.dart';
 import '../domain/models/storefront.dart';
@@ -47,7 +48,6 @@ class StoreRepository {
   }
 
   /// Enriches daily skin offers, Featured Bundles, and Night Market with metadata from valorant-api.
-  /// Enriches daily skin offers, Featured Bundles, and Night Market with metadata from valorant-api.
   Future<Storefront> _enrichStorefront(Storefront storefront) async {
     final unifiedMap = await _assets
         .getAllStoreItemsMap()
@@ -58,6 +58,8 @@ class StoreRepository {
 
     final skinMap = unifiedMap;
 
+    debugPrint('[Enrich] unifiedMap size: ${unifiedMap.length}, bundleMap size: ${bundleMap.length}');
+
     // Check if any active featured bundle is missing from the bundle metadata cache.
     final hasUnknownBundle = storefront.featuredBundles.any((b) =>
         b.bundleUuid.isNotEmpty &&
@@ -65,9 +67,11 @@ class StoreRepository {
         !bundleMap.containsKey(b.bundleUuid.toLowerCase()) &&
         !bundleMap.containsKey(b.bundleUuid.replaceAll('-', '').toLowerCase()));
     if (hasUnknownBundle) {
+      debugPrint('[Enrich] Unknown bundle detected, force-refreshing bundleMap...');
       bundleMap = await _assets
           .getBundlesMap(forceRefresh: true)
           .catchError((_) => bundleMap);
+      debugPrint('[Enrich] After refresh, bundleMap size: ${bundleMap.length}');
     }
 
     // Enrich daily offers
@@ -86,12 +90,19 @@ class StoreRepository {
 
     // Enrich all Featured Bundles
     final enrichedBundles = storefront.featuredBundles.map((bundle) {
+      debugPrint('[Enrich] Processing bundle uuid=${bundle.bundleUuid}, '
+          'itemIds=${bundle.itemIds.length}, '
+          'existingName=${bundle.displayName}');
+
       final bundleMeta =
           (bundleMap[bundle.bundleUuid] as Map<String, dynamic>?) ??
               (bundleMap[bundle.bundleUuid.toLowerCase()]
                   as Map<String, dynamic>?) ??
               (bundleMap[bundle.bundleUuid.replaceAll('-', '').toLowerCase()]
                   as Map<String, dynamic>?);
+
+      debugPrint('[Enrich] bundleMeta found: ${bundleMeta != null}, '
+          'metaName: ${bundleMeta?['displayName']}');
 
       String? bundleName = bundleMeta?['displayName'] as String?;
       String? bundleIcon = bundleMeta?['displayIcon'] as String?;
@@ -112,6 +123,9 @@ class StoreRepository {
               (unifiedMap[itemId.toLowerCase()] as Map<String, dynamic>?) ??
               (unifiedMap[itemId.replaceAll('-', '').toLowerCase()]
                   as Map<String, dynamic>?);
+
+          debugPrint('[Enrich]   item=$itemId → found=${itemMeta != null}'
+              '${itemMeta != null ? ', type=${itemMeta['itemType']}, name=${itemMeta['displayName']}' : ''}');
 
           if (itemMeta != null) {
             final displayName = (itemMeta['displayName'] as String?) ??
@@ -136,7 +150,6 @@ class StoreRepository {
             }
 
             // Check if any card, spray, or buddy contains collection name
-            // e.g. "Give Back // V25 Card", "Run It Back // V25", "VCT x SEN"
             final lowerName = displayName.toLowerCase();
             if (lowerName.contains('give back') ||
                 lowerName.contains('run it back') ||
@@ -162,6 +175,13 @@ class StoreRepository {
             }
           }
         }
+
+        debugPrint('[Enrich] Deep scan results: '
+            'bestCardWideArt=${bestCardWideArt != null}, '
+            'bestWeaponWallpaper=${bestWeaponWallpaper != null}, '
+            'bestItemIcon=${bestItemIcon != null}, '
+            'specialName=$detectedSpecialCollectionName, '
+            'skinNames=${detectedSkinNames.length}');
 
         // Set promoImage if not found directly in bundles table
         promoImage ??= bestCardWideArt ?? bestWeaponWallpaper ?? bestItemIcon;
@@ -191,6 +211,10 @@ class StoreRepository {
       }
 
       bundleName ??= 'Featured Bundle';
+
+      debugPrint('[Enrich] Final: name=$bundleName, '
+          'promoImage=${promoImage != null ? 'YES' : 'null'}, '
+          'bundleIcon=${bundleIcon != null ? 'YES' : 'null'}');
 
       return bundle.copyWith(
         displayName: bundleName,
