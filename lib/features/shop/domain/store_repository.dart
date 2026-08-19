@@ -47,27 +47,18 @@ class StoreRepository {
   }
 
   /// Enriches daily skin offers, Featured Bundles, and Night Market with metadata from valorant-api.
+  /// Enriches daily skin offers, Featured Bundles, and Night Market with metadata from valorant-api.
   Future<Storefront> _enrichStorefront(Storefront storefront) async {
-    var skinMap = await _assets
-        .getSkinLevelsMap()
+    final unifiedMap = await _assets
+        .getAllStoreItemsMap()
         .catchError((_) => <String, dynamic>{});
     var bundleMap = await _assets
         .getBundlesMap()
         .catchError((_) => <String, dynamic>{});
 
-    // Check if any daily skin offer is missing from the cache.
-    // If so, force-refresh skin metadata from valorant-api to handle newly released skins.
-    final hasUnknownDailySkin = storefront.dailyOffers.any((offer) =>
-        !skinMap.containsKey(offer.skinLevelUuid) &&
-        !skinMap.containsKey(offer.skinLevelUuid.toLowerCase()));
-    if (hasUnknownDailySkin) {
-      skinMap = await _assets
-          .getSkinLevelsMap(forceRefresh: true)
-          .catchError((_) => skinMap);
-    }
+    final skinMap = unifiedMap;
 
     // Check if any active featured bundle is missing from the bundle metadata cache.
-    // If so, force-refresh bundle metadata from valorant-api to handle newly released bundles.
     final hasUnknownBundle = storefront.featuredBundles.any((b) =>
         b.bundleUuid.isNotEmpty &&
         !bundleMap.containsKey(b.bundleUuid) &&
@@ -82,57 +73,124 @@ class StoreRepository {
     // Enrich daily offers
     final enrichedOffers = storefront.dailyOffers.map((offer) {
       final meta = skinMap[offer.skinLevelUuid] as Map<String, dynamic>? ??
-          skinMap[offer.skinLevelUuid.toLowerCase()] as Map<String, dynamic>?;
+          skinMap[offer.skinLevelUuid.toLowerCase()] as Map<String, dynamic>? ??
+          skinMap[offer.skinLevelUuid.replaceAll('-', '').toLowerCase()]
+              as Map<String, dynamic>?;
       return offer.copyWith(
-        displayName: meta?['skinName'] as String?,
+        displayName: (meta?['skinName'] as String?) ??
+            (meta?['displayName'] as String?),
         displayIcon: meta?['displayIcon'] as String?,
         contentTierUuid: meta?['contentTierUuid'] as String?,
       );
     }).toList();
 
-    // Check if any bundle needs unified store items map (buddies, cards, sprays, etc.)
-    Map<String, dynamic>? unifiedMap;
-    final needsItemFallback = storefront.featuredBundles.any((b) {
-      final meta = bundleMap[b.bundleUuid] ??
-          bundleMap[b.bundleUuid.toLowerCase()] ??
-          bundleMap[b.bundleUuid.replaceAll('-', '').toLowerCase()];
-      return meta == null || (meta['verticalPromoImage'] == null && meta['displayIcon2'] == null && meta['displayIcon'] == null);
-    });
-    if (needsItemFallback) {
-      unifiedMap = await _assets
-          .getAllStoreItemsMap()
-          .catchError((_) => <String, dynamic>{});
-    }
-
     // Enrich all Featured Bundles
     final enrichedBundles = storefront.featuredBundles.map((bundle) {
-      final bundleMeta = (bundleMap[bundle.bundleUuid] as Map<String, dynamic>?) ??
-          (bundleMap[bundle.bundleUuid.toLowerCase()] as Map<String, dynamic>?) ??
-          (bundleMap[bundle.bundleUuid.replaceAll('-', '').toLowerCase()] as Map<String, dynamic>?);
+      final bundleMeta =
+          (bundleMap[bundle.bundleUuid] as Map<String, dynamic>?) ??
+              (bundleMap[bundle.bundleUuid.toLowerCase()]
+                  as Map<String, dynamic>?) ??
+              (bundleMap[bundle.bundleUuid.replaceAll('-', '').toLowerCase()]
+                  as Map<String, dynamic>?);
 
       String? bundleName = bundleMeta?['displayName'] as String?;
       String? bundleIcon = bundleMeta?['displayIcon'] as String?;
       String? promoImage = bundleMeta?['verticalPromoImage'] as String? ??
-          bundleMeta?['displayIcon2'] as String?;
+          bundleMeta?['displayIcon2'] as String? ??
+          bundleMeta?['displayIcon'] as String?;
 
-      // Fallback: if promo/icon or name is missing from valorant-api bundles, fetch from items in bundle
-      if ((promoImage == null || promoImage.isEmpty || bundleName == null || bundleName.isEmpty) &&
-          bundle.itemIds.isNotEmpty) {
-        final itemLookup = unifiedMap ?? skinMap;
+      // Deep inspection of bundle items if bundle metadata or banner artwork is missing
+      if (bundle.itemIds.isNotEmpty) {
+        String? bestCardWideArt;
+        String? bestWeaponWallpaper;
+        String? bestItemIcon;
+        String? detectedSpecialCollectionName;
+        final detectedSkinNames = <String>[];
+
         for (final itemId in bundle.itemIds) {
-          final itemMeta = itemLookup[itemId] as Map<String, dynamic>? ??
-              itemLookup[itemId.toLowerCase()] as Map<String, dynamic>? ??
-              itemLookup[itemId.replaceAll('-', '').toLowerCase()] as Map<String, dynamic>?;
+          final itemMeta = (unifiedMap[itemId] as Map<String, dynamic>?) ??
+              (unifiedMap[itemId.toLowerCase()] as Map<String, dynamic>?) ??
+              (unifiedMap[itemId.replaceAll('-', '').toLowerCase()]
+                  as Map<String, dynamic>?);
+
           if (itemMeta != null) {
-            bundleName ??= (itemMeta['skinName'] as String?) ??
-                (itemMeta['displayName'] as String?);
-            bundleIcon ??= itemMeta['displayIcon'] as String?;
-            promoImage ??= (itemMeta['wallpaper'] as String?) ??
-                (itemMeta['displayIcon'] as String?);
-            if (bundleIcon != null && bundleIcon.isNotEmpty) break;
+            final displayName = (itemMeta['displayName'] as String?) ??
+                (itemMeta['skinName'] as String?) ??
+                '';
+            final itemType = itemMeta['itemType'] as String? ?? '';
+            final wideArt = itemMeta['wideArt'] as String?;
+            final largeArt = itemMeta['largeArt'] as String?;
+            final wallpaper = itemMeta['wallpaper'] as String?;
+            final icon = itemMeta['displayIcon'] as String?;
+
+            if (wideArt != null && wideArt.isNotEmpty) {
+              bestCardWideArt ??= wideArt;
+            } else if (largeArt != null && largeArt.isNotEmpty) {
+              bestCardWideArt ??= largeArt;
+            }
+            if (wallpaper != null && wallpaper.isNotEmpty) {
+              bestWeaponWallpaper ??= wallpaper;
+            }
+            if (icon != null && icon.isNotEmpty) {
+              bestItemIcon ??= icon;
+            }
+
+            // Check if any card, spray, or buddy contains collection name
+            // e.g. "Give Back // V25 Card", "Run It Back // V25", "VCT x SEN"
+            final lowerName = displayName.toLowerCase();
+            if (lowerName.contains('give back') ||
+                lowerName.contains('run it back') ||
+                lowerName.contains('vct') ||
+                lowerName.contains('champions')) {
+              final cleaned = displayName
+                  .replaceAll(
+                      RegExp(r'\s+(Card|Spray|Buddy)$', caseSensitive: false),
+                      '')
+                  .trim();
+              if (cleaned.isNotEmpty) {
+                detectedSpecialCollectionName ??= cleaned;
+              }
+            } else if (itemType != 'PlayerCard' &&
+                itemType != 'Spray' &&
+                itemType != 'Buddy' &&
+                itemType != 'Title') {
+              final skinName =
+                  (itemMeta['skinName'] as String?) ?? displayName;
+              if (skinName.isNotEmpty) {
+                detectedSkinNames.add(skinName);
+              }
+            }
+          }
+        }
+
+        // Set promoImage if not found directly in bundles table
+        promoImage ??= bestCardWideArt ?? bestWeaponWallpaper ?? bestItemIcon;
+        bundleIcon ??= bestItemIcon ?? promoImage;
+
+        // Set bundleName if not found directly in bundles table
+        if (bundleName == null || bundleName.isEmpty) {
+          if (detectedSpecialCollectionName != null &&
+              detectedSpecialCollectionName.isNotEmpty) {
+            bundleName = detectedSpecialCollectionName;
+          } else if (detectedSkinNames.isNotEmpty) {
+            final firstSkin = detectedSkinNames.first;
+            final prefix = firstSkin.split(' ').first;
+            final allSharePrefix = prefix.length > 2 &&
+                detectedSkinNames.every((s) => s.startsWith(prefix));
+            if (allSharePrefix) {
+              bundleName = '$prefix Collection';
+            } else if (bundle.totalDiscountPercent > 0.3) {
+              bundleName = 'Give Back // Run It Back';
+            } else {
+              bundleName = 'Featured Collection';
+            }
+          } else {
+            bundleName = 'Featured Collection';
           }
         }
       }
+
+      bundleName ??= 'Featured Bundle';
 
       return bundle.copyWith(
         displayName: bundleName,

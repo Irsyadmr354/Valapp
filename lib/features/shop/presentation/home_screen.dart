@@ -813,11 +813,11 @@ class _FeaturedBundleCard extends ConsumerWidget {
     final verticalImage = bundleInfo?['verticalPromoImage'] as String?;
     final displayIcon = bundleInfo?['displayIcon'] as String?;
 
-    String? imageUrl = displayIcon2 ??
+    String? imageUrl = bundle.verticalPromoImage ??
+        bundle.displayIcon ??
+        displayIcon2 ??
         verticalImage ??
-        displayIcon ??
-        bundle.verticalPromoImage ??
-        bundle.displayIcon;
+        displayIcon;
 
     if ((imageUrl == null || imageUrl.isEmpty) && bundle.itemIds.isNotEmpty) {
       for (final itemId in bundle.itemIds) {
@@ -825,7 +825,9 @@ class _FeaturedBundleCard extends ConsumerWidget {
             skinMap[itemId.toLowerCase()] as Map<String, dynamic>? ??
             skinMap[itemId.replaceAll('-', '').toLowerCase()]
                 as Map<String, dynamic>?;
-        final icon = (skinMeta?['wallpaper'] as String?) ??
+        final icon = (skinMeta?['wideArt'] as String?) ??
+            (skinMeta?['largeArt'] as String?) ??
+            (skinMeta?['wallpaper'] as String?) ??
             (skinMeta?['displayIcon'] as String?);
         if (icon != null && icon.isNotEmpty) {
           imageUrl = icon;
@@ -839,9 +841,11 @@ class _FeaturedBundleCard extends ConsumerWidget {
 
     final finalImageUrl = imageUrl;
 
-    final displayName = bundle.displayName ??
-        (bundleInfo?['displayName'] as String?) ??
-        'Featured Bundle';
+    final displayName = (bundle.displayName != null &&
+            bundle.displayName!.isNotEmpty &&
+            bundle.displayName != 'Featured Bundle')
+        ? bundle.displayName!
+        : ((bundleInfo?['displayName'] as String?) ?? 'Featured Bundle');
 
     // Calculate effective price if total discount cost is 0
     final effectiveDiscountedCost = bundle.totalDiscountedCost > 0
@@ -855,6 +859,11 @@ class _FeaturedBundleCard extends ConsumerWidget {
     final effectiveBaseCost = bundle.totalBaseCost > 0
         ? bundle.totalBaseCost
         : effectiveDiscountedCost;
+
+    final isIsolatedGunIcon = imageUrl != null &&
+        (imageUrl.contains('weaponskinlevels') ||
+            imageUrl.contains('weaponskins')) &&
+        imageUrl.endsWith('displayicon.png');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -888,8 +897,10 @@ class _FeaturedBundleCard extends ConsumerWidget {
                   Positioned.fill(
                     child: CachedNetworkImage(
                       imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
+                      fit: isIsolatedGunIcon ? BoxFit.contain : BoxFit.cover,
+                      alignment: isIsolatedGunIcon
+                          ? Alignment.centerRight
+                          : Alignment.center,
                       placeholder: (_, __) =>
                           Container(color: const Color(0xFF141F2D)),
                       errorWidget: (_, __, ___) => const SizedBox(),

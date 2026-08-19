@@ -210,13 +210,14 @@ class ValorantAssets {
   Future<Map<String, dynamic>> getBundlesMap(
       {bool forceRefresh = false}) async {
     final cache = CacheStorage.instance;
-    const keyBundles = 'bundles_metadata';
-    const keyBundlesFetchedAt = 'bundles_metadata_fetched_at';
 
-    final isStale = await cache.isStale(keyBundlesFetchedAt, _cacheDuration);
+    final isStale = await cache.isStale(
+      CacheStorage.keyBundlesFetchedAt,
+      _cacheDuration,
+    );
     if (!forceRefresh && !isStale) {
-      final cached = await cache.getJson(keyBundles);
-      if (cached != null) return cached;
+      final cached = await cache.getJson(CacheStorage.keyBundles);
+      if (cached != null && cached.isNotEmpty) return cached;
     }
 
     try {
@@ -226,12 +227,17 @@ class ValorantAssets {
       final map = <String, dynamic>{};
       for (final b in bundles) {
         final uuid = b['uuid'] as String?;
-        if (uuid != null) {
+        if (uuid != null && uuid.isNotEmpty) {
           final info = {
             'displayName': b['displayName'],
+            'displayNameSubText': b['displayNameSubText'],
+            'description': b['description'],
+            'extraDescription': b['extraDescription'],
             'displayIcon': b['displayIcon'],
             'displayIcon2': b['displayIcon2'],
             'verticalPromoImage': b['verticalPromoImage'],
+            'logoIcon': b['logoIcon'],
+            'assetPath': b['assetPath'],
           };
           map[uuid] = info;
           map[uuid.toLowerCase()] = info;
@@ -239,14 +245,19 @@ class ValorantAssets {
           if (rawId.isNotEmpty) {
             map[rawId] = info;
           }
+          final assetPath = b['assetPath'] as String?;
+          if (assetPath != null && assetPath.isNotEmpty) {
+            map[assetPath] = info;
+            map[assetPath.toLowerCase()] = info;
+          }
         }
       }
 
-      await cache.setJson(keyBundles, map);
-      await cache.setTimestamp(keyBundlesFetchedAt);
+      await cache.setJson(CacheStorage.keyBundles, map);
+      await cache.setTimestamp(CacheStorage.keyBundlesFetchedAt);
       return map;
     } catch (_) {
-      final cached = await cache.getJson(keyBundles);
+      final cached = await cache.getJson(CacheStorage.keyBundles);
       return cached ?? {};
     }
   }
@@ -255,26 +266,32 @@ class ValorantAssets {
   /// gun buddy, player card, spray, or title) → display metadata.
   Future<Map<String, dynamic>> getAllStoreItemsMap(
       {bool forceRefresh = false}) async {
-    final results = await Future.wait([
-      getSkinLevelsMap(forceRefresh: forceRefresh),
-      getBuddiesMap(),
-      getPlayerCardsMap(),
-      getSpraysMap(),
-      getPlayerTitlesMap(),
-    ]);
-
-    final skinMap = results[0];
-    final buddyMap = results[1];
-    final cardMap = results[2];
-    final sprayMap = results[3];
-    final titleMap = results[4];
+    final skinMap = await getSkinLevelsMap(forceRefresh: forceRefresh)
+        .catchError((_) => <String, dynamic>{});
+    final buddyMap =
+        await getBuddiesMap().catchError((_) => <String, dynamic>{});
+    final cardMap =
+        await getPlayerCardsMap().catchError((_) => <String, dynamic>{});
+    final sprayMap =
+        await getSpraysMap().catchError((_) => <String, dynamic>{});
+    final titleMap =
+        await getPlayerTitlesMap().catchError((_) => <String, dynamic>{});
 
     final unified = <String, dynamic>{};
     unified.addAll(skinMap);
 
+    void addUnified(String uuid, Map<String, dynamic> entry) {
+      unified[uuid] = entry;
+      unified[uuid.toLowerCase()] = entry;
+      final raw = uuid.replaceAll('-', '').toLowerCase();
+      if (raw.isNotEmpty) {
+        unified[raw] = entry;
+      }
+    }
+
     // Merge buddy entries
     buddyMap.forEach((uuid, value) {
-      if (!unified.containsKey(uuid) && value is Map) {
+      if (value is Map) {
         final entry = {
           'displayName': value['displayName'],
           'skinName': value['displayName'],
@@ -282,14 +299,13 @@ class ValorantAssets {
           'contentTierUuid': null,
           'itemType': 'Buddy',
         };
-        unified[uuid] = entry;
-        unified[uuid.toLowerCase()] = entry;
+        addUnified(uuid, entry);
       }
     });
 
     // Merge player card entries
     cardMap.forEach((uuid, value) {
-      if (!unified.containsKey(uuid) && value is Map) {
+      if (value is Map) {
         final icon = value['largeArt'] ??
             value['wideArt'] ??
             value['smallArt'] ??
@@ -298,17 +314,19 @@ class ValorantAssets {
           'displayName': value['displayName'],
           'skinName': value['displayName'],
           'displayIcon': icon,
+          'wideArt': value['wideArt'],
+          'largeArt': value['largeArt'],
+          'smallArt': value['smallArt'],
           'contentTierUuid': null,
           'itemType': 'PlayerCard',
         };
-        unified[uuid] = entry;
-        unified[uuid.toLowerCase()] = entry;
+        addUnified(uuid, entry);
       }
     });
 
     // Merge spray entries
     sprayMap.forEach((uuid, value) {
-      if (!unified.containsKey(uuid) && value is Map) {
+      if (value is Map) {
         final icon = value['fullIcon'] ??
             value['animationPng'] ??
             value['displayIcon'];
@@ -319,14 +337,13 @@ class ValorantAssets {
           'contentTierUuid': null,
           'itemType': 'Spray',
         };
-        unified[uuid] = entry;
-        unified[uuid.toLowerCase()] = entry;
+        addUnified(uuid, entry);
       }
     });
 
     // Merge title entries
     titleMap.forEach((uuid, value) {
-      if (!unified.containsKey(uuid) && value is Map) {
+      if (value is Map) {
         final entry = {
           'displayName': value['displayName'] ?? value['titleText'],
           'skinName': value['displayName'] ?? value['titleText'],
@@ -334,8 +351,7 @@ class ValorantAssets {
           'contentTierUuid': null,
           'itemType': 'Title',
         };
-        unified[uuid] = entry;
-        unified[uuid.toLowerCase()] = entry;
+        addUnified(uuid, entry);
       }
     });
 
