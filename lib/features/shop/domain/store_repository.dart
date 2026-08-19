@@ -101,9 +101,10 @@ class StoreRepository {
       // Deep inspection of bundle items if bundle metadata or banner artwork is missing
       if (bundle.itemIds.isNotEmpty) {
         String? bestCardWideArt;
+        String? bestCardLargeArt;
         String? bestWeaponWallpaper;
         String? bestItemIcon;
-        String? detectedSpecialCollectionName;
+        String? detectedCollectionName;
         final detectedSkinNames = <String>[];
 
         for (final itemId in bundle.itemIds) {
@@ -124,8 +125,9 @@ class StoreRepository {
 
             if (wideArt != null && wideArt.isNotEmpty) {
               bestCardWideArt ??= wideArt;
-            } else if (largeArt != null && largeArt.isNotEmpty) {
-              bestCardWideArt ??= largeArt;
+            }
+            if (largeArt != null && largeArt.isNotEmpty) {
+              bestCardLargeArt ??= largeArt;
             }
             if (wallpaper != null && wallpaper.isNotEmpty) {
               bestWeaponWallpaper ??= wallpaper;
@@ -134,24 +136,20 @@ class StoreRepository {
               bestItemIcon ??= icon;
             }
 
-            // Check if any card, spray, or buddy contains collection name
-            final lowerName = displayName.toLowerCase();
-            if (lowerName.contains('give back') ||
-                lowerName.contains('run it back') ||
-                lowerName.contains('vct') ||
-                lowerName.contains('champions')) {
+            // Extract clean collection name from PlayerCard, Spray, Buddy, or Title
+            if (itemType == 'PlayerCard' ||
+                itemType == 'Spray' ||
+                itemType == 'Buddy') {
               final cleaned = displayName
                   .replaceAll(
-                      RegExp(r'\s+(Card|Spray|Buddy)$', caseSensitive: false),
+                      RegExp(r'\s+(Card|Player Card|Spray|Buddy|Gun Buddy)$',
+                          caseSensitive: false),
                       '')
                   .trim();
-              if (cleaned.isNotEmpty) {
-                detectedSpecialCollectionName ??= cleaned;
+              if (cleaned.isNotEmpty && detectedCollectionName == null) {
+                detectedCollectionName = cleaned;
               }
-            } else if (itemType != 'PlayerCard' &&
-                itemType != 'Spray' &&
-                itemType != 'Buddy' &&
-                itemType != 'Title') {
+            } else if (itemType != 'Title') {
               final skinName =
                   (itemMeta['skinName'] as String?) ?? displayName;
               if (skinName.isNotEmpty) {
@@ -161,52 +159,68 @@ class StoreRepository {
           }
         }
 
-        // Set promoImage if not found directly in bundles table
-        promoImage ??= bestCardWideArt ?? bestWeaponWallpaper ?? bestItemIcon;
+        // Set banner artwork fallback from items
+        promoImage ??= bestCardWideArt ??
+            bestCardLargeArt ??
+            bestWeaponWallpaper ??
+            bestItemIcon;
         bundleIcon ??= bestItemIcon ?? promoImage;
 
-        // Set bundleName if not found directly in bundles table
-        if (bundleName == null || bundleName.isEmpty) {
-          if (detectedSpecialCollectionName != null &&
-              detectedSpecialCollectionName.isNotEmpty) {
-            bundleName = detectedSpecialCollectionName;
+        // If bundle name wasn't found directly by UUID, deduce from detected items
+        if (bundleName == null ||
+            bundleName.isEmpty ||
+            bundleName == 'Featured Bundle') {
+          // If we detected a collection name from card/spray/buddy, search bundleMap for it
+          if (detectedCollectionName != null &&
+              detectedCollectionName.isNotEmpty) {
+            final lowerDetected = detectedCollectionName.toLowerCase();
+            for (final entry in bundleMap.values) {
+              if (entry is Map) {
+                final entryName = (entry['displayName'] as String?) ?? '';
+                final lowerEntryName = entryName.toLowerCase();
+                if (lowerEntryName == lowerDetected ||
+                    lowerEntryName.startsWith(lowerDetected) ||
+                    lowerEntryName == '$lowerDetected bundle' ||
+                    lowerEntryName == '$lowerDetected collection') {
+                  bundleName = entryName;
+                  promoImage ??= (entry['verticalPromoImage'] as String?) ??
+                      (entry['displayIcon2'] as String?) ??
+                      (entry['displayIcon'] as String?);
+                  bundleIcon ??= (entry['displayIcon'] as String?) ?? promoImage;
+                  break;
+                }
+              }
+            }
+            bundleName ??= detectedCollectionName.endsWith('Bundle') ||
+                    detectedCollectionName.endsWith('Collection')
+                ? detectedCollectionName
+                : '$detectedCollectionName Bundle';
           } else if (detectedSkinNames.isNotEmpty) {
+            // Deduce from weapon skin names (e.g. all start with same word)
             final firstSkin = detectedSkinNames.first;
-            final prefix = firstSkin.split(' ').first;
+            final words = firstSkin.split(' ');
+            final prefix = words.first;
             final allSharePrefix = prefix.length > 2 &&
                 detectedSkinNames.every((s) => s.startsWith(prefix));
             if (allSharePrefix) {
-              bundleName = '$prefix Collection';
-            } else if (bundle.totalDiscountPercent > 0.3) {
-              bundleName = 'Give Back // Run It Back';
+              final collectionGuess = '$prefix Bundle';
+              final lowerPrefix = prefix.toLowerCase();
+              for (final entry in bundleMap.values) {
+                if (entry is Map) {
+                  final entryName = (entry['displayName'] as String?) ?? '';
+                  if (entryName.toLowerCase().startsWith(lowerPrefix)) {
+                    bundleName = entryName;
+                    promoImage ??= (entry['verticalPromoImage'] as String?) ??
+                        (entry['displayIcon2'] as String?) ??
+                        (entry['displayIcon'] as String?);
+                    bundleIcon ??= (entry['displayIcon'] as String?) ?? promoImage;
+                    break;
+                  }
+                }
+              }
+              bundleName ??= collectionGuess;
             } else {
-              bundleName = 'Featured Collection';
-            }
-          } else {
-            bundleName = 'Featured Collection';
-          }
-        }
-      }
-
-      // If still missing promo image or name, search bundleMap for matching Give Back bundle
-      if ((promoImage == null || promoImage.isEmpty) ||
-          (bundleName == null ||
-              bundleName.isEmpty ||
-              bundleName == 'Featured Bundle' ||
-              bundleName == 'Featured Collection')) {
-        for (final entry in bundleMap.values) {
-          if (entry is Map) {
-            final name = (entry['displayName'] as String?) ?? '';
-            final lower = name.toLowerCase();
-            if (lower.contains('give back // v26') ||
-                lower.contains('give back // v25') ||
-                (bundle.totalDiscountPercent > 0.35 && lower.contains('give back'))) {
-              bundleName = name;
-              promoImage = (entry['verticalPromoImage'] as String?) ??
-                  (entry['displayIcon2'] as String?) ??
-                  (entry['displayIcon'] as String?);
-              bundleIcon = (entry['displayIcon'] as String?) ?? promoImage;
-              break;
+              bundleName = 'Featured Bundle';
             }
           }
         }

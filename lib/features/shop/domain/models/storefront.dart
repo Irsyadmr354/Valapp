@@ -65,7 +65,9 @@ class FeaturedBundle {
   }
 
   factory FeaturedBundle.fromJson(Map<String, dynamic> json) {
-    final rawItems = (json['Items'] as List<dynamic>?) ?? [];
+    final rawItems = (json['Items'] as List<dynamic>?) ??
+        (json['ItemOffers'] as List<dynamic>?) ??
+        [];
     final itemIds = <String>[];
     final bundleItems = <BundleItem>[];
     final itemPrices = <String, int>{};
@@ -73,12 +75,26 @@ class FeaturedBundle {
     for (final e in rawItems) {
       if (e is Map) {
         final itemObj = e['Item'] as Map?;
-        final id =
-            itemObj?['ItemID']?.toString() ?? e['ItemID']?.toString() ?? '';
+        final offerObj = e['Offer'] as Map?;
+        final rewards = offerObj?['Rewards'] as List<dynamic>?;
+        final rewardId = (rewards != null &&
+                rewards.isNotEmpty &&
+                rewards.first is Map)
+            ? rewards.first['ItemID']?.toString()
+            : null;
+        final id = itemObj?['ItemID']?.toString() ??
+            e['ItemID']?.toString() ??
+            rewardId ??
+            offerObj?['OfferID']?.toString() ??
+            '';
+
+        final costMap = (offerObj?['Cost'] as Map?) ?? (e['Cost'] as Map?);
         final baseCost = (e['BasePrice'] as num?)?.toInt() ??
-            (e['Cost']?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
+            (costMap?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
             0;
-        final discCost = (e['DiscountedPrice'] as num?)?.toInt() ?? baseCost;
+        final discCost = (e['DiscountedPrice'] as num?)?.toInt() ??
+            (e['DiscountCosts']?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
+            baseCost;
         final discPct = (e['DiscountPercent'] as num?)?.toInt() ?? 0;
 
         if (id.isNotEmpty) {
@@ -365,7 +381,7 @@ class Storefront {
       ));
     }
 
-    // Featured bundles (handles both multiple bundles and single bundle)
+    // Featured bundles (handles multiple bundles, single bundle, or direct bundle map)
     final featuredBundles = <FeaturedBundle>[];
     final fbJson = json['FeaturedBundle'] as Map<String, dynamic>?;
     if (fbJson != null) {
@@ -381,6 +397,13 @@ class Storefront {
         try {
           featuredBundles.add(FeaturedBundle.fromJson(
               fbJson['Bundle'] as Map<String, dynamic>));
+        } catch (_) {}
+      } else if (fbJson['Items'] != null ||
+          fbJson['ItemOffers'] != null ||
+          fbJson['DataAssetID'] != null ||
+          fbJson['ID'] != null) {
+        try {
+          featuredBundles.add(FeaturedBundle.fromJson(fbJson));
         } catch (_) {}
       }
     }

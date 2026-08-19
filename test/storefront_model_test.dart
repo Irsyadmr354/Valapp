@@ -174,5 +174,71 @@ void main() {
 
       expect(storefront.featuredBundles.single.bundleUuid, 'offer-fallback-id');
     });
+
+    test('parses bundle items from ItemOffers schema', () {
+      final storefront = Storefront.fromJson({
+        'SkinsPanelLayout': {
+          'SingleItemOffers': <String>[],
+          'SingleItemStoreOffers': <Map<String, dynamic>>[],
+          'SingleItemOffersRemainingDurationInSeconds': 3600,
+        },
+        'FeaturedBundle': {
+          'Bundle': {
+            'ID': 'bundle-offer-id',
+            'DataAssetID': 'bundle-asset-id',
+            'ItemOffers': [
+              {
+                'BundleItemOfferID': 'item-offer-1',
+                'Offer': {
+                  'OfferID': 'offer-item-1',
+                  'Cost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 1775},
+                  'Rewards': [
+                    {'ItemID': 'skin-reward-1'}
+                  ]
+                },
+                'DiscountPercent': 0,
+                'DiscountedPrice': 1775,
+              }
+            ],
+            'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 1775},
+            'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 1775},
+            'DurationRemainingInSeconds': 80000,
+          },
+        },
+      });
+
+      expect(storefront.featuredBundles.length, 1);
+      final bundle = storefront.featuredBundles.first;
+      expect(bundle.bundleUuid, 'bundle-asset-id');
+      expect(bundle.itemIds, contains('skin-reward-1'));
+      expect(bundle.itemPrices['skin-reward-1'], 1775);
+    });
+
+    test('parses bundle when FeaturedBundle is top-level bundle object', () {
+      final storefront = Storefront.fromJson({
+        'SkinsPanelLayout': {
+          'SingleItemOffers': <String>[],
+          'SingleItemStoreOffers': <Map<String, dynamic>>[],
+          'SingleItemOffersRemainingDurationInSeconds': 3600,
+        },
+        'FeaturedBundle': {
+          'ID': 'direct-bundle-id',
+          'DataAssetID': 'direct-bundle-asset',
+          'Items': [
+            {
+              'ItemID': 'direct-skin-1',
+              'BasePrice': 2175,
+            }
+          ],
+          'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 2175},
+          'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 2175},
+          'DurationRemainingInSeconds': 50000,
+        },
+      });
+
+      expect(storefront.featuredBundles.length, 1);
+      expect(storefront.featuredBundles.first.bundleUuid, 'direct-bundle-asset');
+      expect(storefront.featuredBundles.first.itemIds, contains('direct-skin-1'));
+    });
   });
 }

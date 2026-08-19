@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import AVFoundation
 import workmanager
 
 @main
@@ -10,6 +11,12 @@ import workmanager
   ) -> Bool {
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+    }
+    do {
+      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+      try AVAudioSession.sharedInstance().setActive(true)
+    } catch {
+      print("[AppDelegate] AudioSession setup error: \(error)")
     }
     WorkmanagerPlugin.registerPeriodicTask(
       withIdentifier: "com.personal.valorant-shop-monitor.wishlist-refresh",
