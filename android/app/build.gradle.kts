@@ -15,6 +15,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.valapp.mobile"
     compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
