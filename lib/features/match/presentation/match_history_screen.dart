@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/storage/cached_fetch_result.dart';
-import '../../../core/utils/async_lock.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/date_time_utils.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
@@ -15,6 +14,10 @@ import '../../auth/domain/session_reconnect.dart';
 import '../domain/models/match_history.dart';
 
 import '../domain/models/match_details.dart';
+import '../../auth/domain/models/credentials.dart';
+import '../../../core/storage/cache_storage.dart';
+import '../data/match_local_cache.dart';
+import '../data/match_remote_source.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -37,177 +40,223 @@ final _agentsMapProvider =
   return assets.getAgentsMap();
 });
 
-final _matchHistoryProvider =
-    FutureProvider.autoDispose<CachedFetchResult<MatchHistoryResult>?>(
-        (ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return null;
-  final queue = ref.watch(_queueFilterProvider);
-  final source = await ref.watch(matchRemoteSourceProvider.future);
-  final cache = ref.watch(matchHistoryLocalCacheProvider);
-  final transaction =
-      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+class MatchHistoryNotifier
+    extends AutoDisposeAsyncNotifier<CachedFetchResult<MatchHistoryResult>?> {
+  @override
+  Future<CachedFetchResult<MatchHistoryResult>?> build() async {
+    final creds = await ref.watch(currentCredentialsProvider.future);
+    if (creds == null) return null;
+    final queue = ref.watch(_queueFilterProvider);
+    final source = await ref.watch(matchRemoteSourceProvider.future);
+    final historyCache = ref.watch(matchHistoryLocalCacheProvider);
+    final detailCache = ref.watch(matchDetailLocalCacheProvider);
+    final transaction =
+        ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
 
-  // ── Step 1: fetch/load history quickly (no detail calls here) ────────────
-  MatchHistoryResult result;
-  bool fromCache = false;
+    MatchHistoryResult result;
+    bool fromCache = false;
 
-  try {
-    final raw = await source.fetchHistoryRaw(
-      creds.shard,
-      creds.puuid,
-      queue: queue,
+    // 1. Fetch live history (with fallback to local history cache)
+    try {
+      final raw = await source.fetchHistoryRaw(
+        creds.shard,
+        creds.puuid,
+        queue: queue,
+      );
+      result = MatchHistoryResult.fromJson(raw);
+      if (transaction != null) {
+        await historyCache.saveHistory(result,
+            queue: queue, puuid: creds.puuid, transaction: transaction);
+      }
+    } catch (_) {
+      final cached = await historyCache.loadHistory(queue: queue, puuid: creds.puuid);
+      if (cached != null) {
+        result = cached;
+        fromCache = true;
+      } else {
+        rethrow;
+      }
+    }
+
+    // 2. Fast cache-only enrich (0ms lag, no detail network requests here)
+    final quickEnriched =
+        await _enrichFromCache(result.matches, creds.puuid, detailCache);
+
+    final initialResult = CachedFetchResult(
+      MatchHistoryResult(
+        puuid: result.puuid,
+        total: result.total,
+        start: result.start,
+        end: result.end,
+        matches: quickEnriched,
+      ),
+      fromCache: fromCache,
     );
-    result = MatchHistoryResult.fromJson(raw);
-    if (transaction != null) {
-      await cache.saveHistory(result,
-          queue: queue, puuid: creds.puuid, transaction: transaction);
-    }
-  } catch (_) {
-    final cached = await cache.loadHistory(queue: queue, puuid: creds.puuid);
-    if (cached != null) {
-      result = cached;
-      fromCache = true;
-    } else {
-      rethrow;
-    }
+
+    // 3. Kick off progressive in-place enrichment in the background without UI re-fetches
+    _startBackgroundEnrichment(
+      matches: quickEnriched,
+      creds: creds,
+      source: source,
+      detailCache: detailCache,
+      transaction: transaction,
+    );
+
+    return initialResult;
   }
 
-  // ── Step 2: enrich only from CACHE (no network here — zero lag) ──────────
-  // Entries that already have a cached detail get enriched immediately.
-  // Missing details are fetched by _enrichmentProvider in the background.
-  final detailCache = ref.watch(matchDetailLocalCacheProvider);
-  final quickEnriched = <MatchHistoryEntry>[];
-  for (final entry in result.matches) {
-    final detailRaw =
-        await detailCache.loadMatchDetailRaw(entry.matchId, puuid: creds.puuid);
-    if (detailRaw == null) {
-      quickEnriched.add(entry);
-      continue;
-    }
-    try {
-      final details = MatchDetails.fromJson(detailRaw);
-      final player = details.players
-          .cast<PlayerStats?>()
-          .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
-      if (player == null) {
-        quickEnriched.add(entry);
+  Future<List<MatchHistoryEntry>> _enrichFromCache(
+    List<MatchHistoryEntry> entries,
+    String puuid,
+    MatchDetailLocalCache detailCache,
+  ) async {
+    final enriched = <MatchHistoryEntry>[];
+    for (final entry in entries) {
+      final detailRaw =
+          await detailCache.loadMatchDetailRaw(entry.matchId, puuid: puuid);
+      if (detailRaw == null) {
+        enriched.add(entry);
         continue;
       }
+      try {
+        final details = MatchDetails.fromJson(detailRaw);
+        final player = details.players
+            .cast<PlayerStats?>()
+            .firstWhere((p) => p?.puuid == puuid, orElse: () => null);
+        if (player == null) {
+          enriched.add(entry);
+          continue;
+        }
 
-      MatchResult matchResult = details.resultForPlayer(creds.puuid);
+        final matchResult = details.resultForPlayer(puuid);
+        final scoreStr = details.scoreStringForPlayer(puuid);
+        final sorted = List<PlayerStats>.from(details.players)
+          ..sort((a, b) => b.score.compareTo(a.score));
+        final isMvp = sorted.isNotEmpty && sorted.first.puuid == puuid;
 
-      // Score string via the shared helper (same as enrichedMatchHistoryProvider).
-      final scoreStr = details.scoreStringForPlayer(creds.puuid);
+        enriched.add(entry.copyWithStats(
+          kills: player.kills,
+          deaths: player.deaths,
+          assists: player.assists,
+          isMvp: isMvp,
+          matchScore: scoreStr,
+          result: matchResult,
+          agentId: player.agentId,
+          mapId: details.mapId,
+        ));
+      } catch (_) {
+        enriched.add(entry);
+      }
+    }
+    return enriched;
+  }
 
-      final sorted = List<PlayerStats>.from(details.players)
-        ..sort((a, b) => b.score.compareTo(a.score));
-      final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
+  void _startBackgroundEnrichment({
+    required List<MatchHistoryEntry> matches,
+    required Credentials creds,
+    required MatchRemoteSource source,
+    required MatchDetailLocalCache detailCache,
+    required CacheTransaction? transaction,
+  }) async {
+    final failedIds = ref.read(_failedEnrichmentIdsProvider);
+    // Enrich top 12 unenriched matches to provide fast responsiveness
+    final missing = matches
+        .where((e) =>
+            (e.result == MatchResult.unknown || e.kills == null) &&
+            !failedIds.contains(e.matchId))
+        .take(12)
+        .toList();
 
-      quickEnriched.add(entry.copyWithStats(
-        kills: player.kills,
-        deaths: player.deaths,
-        assists: player.assists,
-        isMvp: isMvp,
-        matchScore: scoreStr,
-        result: matchResult,
-        agentId: player.agentId,
-        mapId: details.mapId,
-      ));
-    } catch (_) {
-      quickEnriched.add(entry);
+    if (missing.isEmpty) return;
+
+    final newlyFailed = <String>{};
+    final currentMatchesMap = {for (final m in matches) m.matchId: m};
+
+    const batchSize = 3;
+    for (var i = 0; i < missing.length; i += batchSize) {
+      if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) return;
+      final batch = missing.skip(i).take(batchSize).toList();
+      bool batchUpdated = false;
+
+      await Future.wait(batch.map((entry) async {
+        try {
+          final existing = await detailCache.loadMatchDetailRaw(entry.matchId,
+              puuid: creds.puuid);
+          Map<String, dynamic> raw;
+          if (existing != null) {
+            raw = existing;
+          } else {
+            raw = await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
+            if (transaction != null) {
+              await detailCache.saveMatchDetail(entry.matchId, raw,
+                  puuid: creds.puuid, transaction: transaction);
+            }
+          }
+
+          final details = MatchDetails.fromJson(raw);
+          final player = details.players
+              .cast<PlayerStats?>()
+              .firstWhere((p) => p?.puuid == creds.puuid, orElse: () => null);
+
+          if (player != null) {
+            final matchResult = details.resultForPlayer(creds.puuid);
+            final scoreStr = details.scoreStringForPlayer(creds.puuid);
+            final sorted = List<PlayerStats>.from(details.players)
+              ..sort((a, b) => b.score.compareTo(a.score));
+            final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
+
+            final updatedEntry = entry.copyWithStats(
+              kills: player.kills,
+              deaths: player.deaths,
+              assists: player.assists,
+              isMvp: isMvp,
+              matchScore: scoreStr,
+              result: matchResult,
+              agentId: player.agentId,
+              mapId: details.mapId,
+            );
+            currentMatchesMap[entry.matchId] = updatedEntry;
+            batchUpdated = true;
+          }
+        } catch (_) {
+          newlyFailed.add(entry.matchId);
+        }
+      }));
+
+      // Update state incrementally per batch so user sees results appear smoothly without reload
+      if (batchUpdated &&
+          ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+        final currentVal = state.asData?.value;
+        if (currentVal != null) {
+          final updatedList = currentVal.data.matches
+              .map((m) => currentMatchesMap[m.matchId] ?? m)
+              .toList();
+          state = AsyncData(CachedFetchResult(
+            MatchHistoryResult(
+              puuid: currentVal.data.puuid,
+              total: currentVal.data.total,
+              start: currentVal.data.start,
+              end: currentVal.data.end,
+              matches: updatedList,
+            ),
+            fromCache: currentVal.fromCache,
+          ));
+        }
+      }
+    }
+
+    if (newlyFailed.isNotEmpty &&
+        ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
+      ref
+          .read(_failedEnrichmentIdsProvider.notifier)
+          .update((ids) => {...ids, ...newlyFailed});
     }
   }
+}
 
-  return CachedFetchResult(
-    MatchHistoryResult(
-      puuid: result.puuid,
-      total: result.total,
-      start: result.start,
-      end: result.end,
-      matches: quickEnriched,
-    ),
-    fromCache: fromCache,
-  );
-});
-
-/// Background enrichment provider — fetches missing match details from
-/// network without blocking the UI. Invalidates [_matchHistoryProvider]
-/// when done so the list rebuilds with full KDA/result data.
-final _backgroundEnrichmentProvider =
-    FutureProvider.autoDispose<void>((ref) async {
-  final creds = await ref.watch(currentCredentialsProvider.future);
-  if (creds == null) return;
-  // Watch queue filter so this provider re-runs when the filter changes
-  ref.watch(_queueFilterProvider);
-  final historyResult = await ref.watch(_matchHistoryProvider.future);
-  if (historyResult == null) return;
-
-  final source = await ref.watch(matchRemoteSourceProvider.future);
-  final detailCache = ref.watch(matchDetailLocalCacheProvider);
-  final transaction =
-      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
-
-  // READ (not watch!) failedIds so updating state doesn't cancel this provider mid-execution
-  final failedIds = ref.read(_failedEnrichmentIdsProvider);
-
-  // Only fetch details that are NOT already cached and NOT permanently failed
-  final missing = historyResult.data.matches
-      .where((e) =>
-          (e.result == MatchResult.unknown || e.kills == null) &&
-          !failedIds.contains(e.matchId))
-      .toList();
-  if (missing.isEmpty) return;
-
-  bool anyNewData = false;
-  final newlyFailed = <String>{};
-
-  const batchSize = 3;
-  for (var i = 0; i < missing.length; i += batchSize) {
-    final batch = missing.skip(i).take(batchSize).toList();
-    await Future.wait(batch.map((entry) => AsyncLock.run(
-          'match_detail_${entry.matchId}',
-          () async {
-            final existing = await detailCache.loadMatchDetailRaw(entry.matchId,
-                puuid: creds.puuid);
-            if (existing != null ||
-                !ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
-              return;
-            }
-            try {
-              final raw =
-                  await source.fetchMatchDetailsRaw(creds.shard, entry.matchId);
-              if (!ref
-                  .read(cacheStorageProvider)
-                  .isActiveSession(creds.puuid)) {
-                return;
-              }
-              if (transaction != null) {
-                await detailCache.saveMatchDetail(entry.matchId, raw,
-                    puuid: creds.puuid, transaction: transaction);
-              }
-              anyNewData = true;
-            } catch (_) {
-              newlyFailed.add(entry.matchId);
-            }
-          },
-        )));
-  }
-
-  // Update failed IDs once at the end of the run
-  if (newlyFailed.isNotEmpty &&
-      ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
-    ref
-        .read(_failedEnrichmentIdsProvider.notifier)
-        .update((ids) => {...ids, ...newlyFailed});
-  }
-
-  // Trigger re-render only if we actually fetched new data.
-  if (anyNewData &&
-      ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
-    ref.invalidate(_matchHistoryProvider);
-  }
-});
+final _matchHistoryProvider = AutoDisposeAsyncNotifierProvider<
+    MatchHistoryNotifier,
+    CachedFetchResult<MatchHistoryResult>?>(MatchHistoryNotifier.new);
 
 // ── Queue filter config ───────────────────────────────────────────────────────
 
@@ -232,9 +281,6 @@ class MatchHistoryScreen extends ConsumerWidget {
     final selectedQueue = ref.watch(_queueFilterProvider);
     final selectedResult = ref.watch(_resultFilterProvider);
     final hasResultFilter = selectedResult != null;
-
-    // Kick off background enrichment — non-blocking, updates list when done
-    ref.watch(_backgroundEnrichmentProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
