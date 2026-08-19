@@ -62,8 +62,16 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
 
-      - name: Build Android APK release
-        script: flutter build apk --release
+      - name: Static Code Analysis
+        script: flutter analyze
+
+      - name: Build Android Release Artifacts
+        script: |
+          mkdir -p symbols
+          flutter build apk --release --obfuscate --split-debug-info=symbols
+          flutter build apk --release --split-per-abi --obfuscate --split-debug-info=symbols
+          flutter build appbundle --release --obfuscate --split-debug-info=symbols
 
     artifacts:
-      - build/app/outputs/flutter-apk/app-release.apk
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
