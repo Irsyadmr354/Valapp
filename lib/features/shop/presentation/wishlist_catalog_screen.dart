@@ -32,21 +32,39 @@ final _allSkinsListProvider =
       final lowerName = skinName.toLowerCase().trim();
       final weaponType =
           (skinData['weaponType'] as String? ?? '').toLowerCase();
-      // Exclude purely generic/unbranded entries:
-      //   - anything starting with "standard" (placeholder weapon skins)
-      //   - entries with no icon
-      // We intentionally keep names that ARE or END WITH "melee" — those are
-      // legitimate melee weapon skin names (e.g. ".SYS Melee", "Outpost Melee").
-      // The old `lowerName != 'melee'` guard was incorrectly dropping every
-      // melee skin whose Riot-API level name is exactly "Melee".
+
       if (skinName.isNotEmpty &&
           !lowerName.startsWith('standard') &&
           displayIcon != null &&
           displayIcon.isNotEmpty) {
         final skinUuid = skinData['skinUuid']?.toString() ?? levelUuid;
+        final existing = uniqueSkins[skinUuid];
+        final allUuids = existing != null
+            ? Set<String>.from(existing['allUuids'] as List<String>)
+            : <String>{skinUuid};
+
+        allUuids.add(levelUuid);
+        final levels = skinData['levels'] as List<dynamic>? ?? [];
+        for (final lvl in levels) {
+          if (lvl is Map && lvl['uuid'] != null) {
+            allUuids.add(lvl['uuid'].toString());
+          }
+        }
+        final chromas = skinData['chromas'] as List<dynamic>? ?? [];
+        for (final chr in chromas) {
+          if (chr is Map && chr['uuid'] != null) {
+            allUuids.add(chr['uuid'].toString());
+          }
+        }
+
+        final primaryLevelUuid = levels.isNotEmpty && levels.first is Map
+            ? (levels.first['uuid']?.toString() ?? levelUuid)
+            : (existing?['skinLevelUuid']?.toString() ?? levelUuid);
+
         uniqueSkins[skinUuid] = {
           'skinUuid': skinUuid,
-          'skinLevelUuid': levelUuid,
+          'skinLevelUuid': primaryLevelUuid,
+          'allUuids': allUuids.toList(),
           'displayName': skinName,
           'displayIcon': displayIcon,
           'contentTierUuid': skinData['contentTierUuid']?.toString(),
@@ -272,6 +290,15 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
     final skinsAsync = ref.watch(_allSkinsListProvider);
     final wishlist = ref.watch(wishlistProvider);
 
+    final uniqueWishlistCount = skinsAsync.maybeWhen(
+      data: (skins) => skins.where((skin) {
+        final allUuids = (skin['allUuids'] as List<dynamic>? ??
+            [skin['skinLevelUuid'], skin['skinUuid']]);
+        return allUuids.any((id) => wishlist.contains(id));
+      }).length,
+      orElse: () => wishlist.length,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -336,7 +363,7 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('${wishlist.length}',
+                              Text('$uniqueWishlistCount',
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,
@@ -582,16 +609,15 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                         final filteredSkins = skins.where((skin) {
                           final name =
                               (skin['displayName'] as String).toLowerCase();
-                          final levelUuid = skin['skinLevelUuid'] as String;
-                          final skinUuid = skin['skinUuid'] as String;
                           final tierUuid = skin['contentTierUuid'] as String?;
                           final tierLabel =
                               _getTierLabel(tierUuid).toLowerCase();
+                          final allUuids = (skin['allUuids'] as List<dynamic>? ??
+                              [skin['skinLevelUuid'], skin['skinUuid']]);
 
                           // Sidebar category / weapon filter
                           if (_selectedCategory == 'WISHLIST') {
-                            if (!wishlist.contains(levelUuid) &&
-                                !wishlist.contains(skinUuid)) {
+                            if (!allUuids.any((id) => wishlist.contains(id))) {
                               return false;
                             }
                           } else if (_selectedCategory != 'ALL') {
@@ -711,14 +737,15 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                   final item = filteredSkins[idx];
                                   final levelUuid =
                                       item['skinLevelUuid'] as String;
-                                  final skinUuid = item['skinUuid'] as String;
                                   final name = item['displayName'] as String;
                                   final iconUrl = item['displayIcon'] as String;
                                   final tierUuid =
                                       item['contentTierUuid'] as String?;
-                                  final isWishlisted =
-                                      wishlist.contains(levelUuid) ||
-                                          wishlist.contains(skinUuid);
+                                  final allUuids = (item['allUuids']
+                                          as List<dynamic>? ??
+                                      [levelUuid, item['skinUuid']]);
+                                  final isWishlisted = allUuids
+                                      .any((id) => wishlist.contains(id));
                                   final tierColor = _getTierColor(tierUuid);
 
                                   return _SkinCatalogGridCard(
@@ -728,14 +755,20 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     tierUuid: tierUuid,
                                     isWishlisted: isWishlisted,
                                     onToggleWishlist: () {
-                                      ref
-                                          .read(wishlistProvider.notifier)
-                                          .toggle(levelUuid);
-                                      if (skinUuid.isNotEmpty &&
-                                          skinUuid != levelUuid) {
+                                      final matchedUuids = allUuids
+                                          .where((id) =>
+                                              wishlist.contains(id))
+                                          .toList();
+                                      if (matchedUuids.isNotEmpty) {
+                                        for (final id in matchedUuids) {
+                                          ref
+                                              .read(wishlistProvider.notifier)
+                                              .toggle(id.toString());
+                                        }
+                                      } else {
                                         ref
                                             .read(wishlistProvider.notifier)
-                                            .toggle(skinUuid);
+                                            .toggle(levelUuid);
                                       }
                                     },
                                     onTap: () {

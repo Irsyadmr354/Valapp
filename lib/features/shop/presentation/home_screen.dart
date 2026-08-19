@@ -1047,25 +1047,40 @@ class _FeaturedBundleCard extends ConsumerWidget {
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF4655).withAlpha(40),
-                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.black.withAlpha(160),
+                              borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                  color: const Color(0xFFFF4655), width: 1),
+                                color: Colors.white.withAlpha(38),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(90),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text('VIEW ITEMS',
-                                    style: TextStyle(
-                                        color: Color(0xFFFF4655),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.5)),
+                                Text(
+                                  'VIEW ITEMS',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
                                 SizedBox(width: 4),
-                                Icon(Icons.arrow_forward,
-                                    color: Color(0xFFFF4655), size: 13),
+                                Icon(
+                                  Icons.arrow_forward_rounded,
+                                  color: Color(0xFFFF4655),
+                                  size: 13,
+                                ),
                               ],
                             ),
                           ),
