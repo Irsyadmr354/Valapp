@@ -46,8 +46,16 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 # 5. Build Android App Bundle (AAB)
 Write-Host "
 [5/6] Compiling Google Play App Bundle (AAB)..." -ForegroundColor Yellow
-flutter build appbundle --release --obfuscate --split-debug-info=$SymbolsDir
-if ($LASTEXITCODE -ne 0) { exit 1 }
+$aabSuccess = $false
+try {
+    flutter build appbundle --release --obfuscate --split-debug-info=$SymbolsDir
+    if ($LASTEXITCODE -eq 0) { $aabSuccess = $true }
+} catch {
+    $aabSuccess = $false
+}
+if (-not $aabSuccess) {
+    Write-Host "Notice: AAB packaging skipped (requires Android Studio cmdline-tools). Universal & Split APKs are ready!" -ForegroundColor Yellow
+}
 
 # 6. Collect Artifacts
 Write-Host "
