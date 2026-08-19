@@ -836,16 +836,41 @@ class _FeaturedBundleCard extends ConsumerWidget {
       }
     }
 
+    if (imageUrl == null || imageUrl.isEmpty) {
+      for (final b in bundleMap.values) {
+        if (b is Map) {
+          final name = (b['displayName'] as String?) ?? '';
+          final lower = name.toLowerCase();
+          if (lower.contains('give back // v26') ||
+              lower.contains('give back // v25') ||
+              (bundle.totalDiscountPercent > 0.35 && lower.contains('give back'))) {
+            imageUrl = (b['verticalPromoImage'] as String?) ??
+                (b['displayIcon2'] as String?) ??
+                (b['displayIcon'] as String?);
+            break;
+          }
+        }
+      }
+    }
+
     final discountInt =
         price_utils.discountPercent(bundle.totalDiscountPercent);
 
     final finalImageUrl = imageUrl;
 
-    final displayName = (bundle.displayName != null &&
+    var displayName = (bundle.displayName != null &&
             bundle.displayName!.isNotEmpty &&
             bundle.displayName != 'Featured Bundle')
         ? bundle.displayName!
-        : ((bundleInfo?['displayName'] as String?) ?? 'Featured Bundle');
+        : ((bundleInfo?['displayName'] as String?) ?? '');
+
+    if (displayName.isEmpty || displayName == 'Featured Bundle') {
+      if (bundle.totalDiscountPercent > 0.35) {
+        displayName = 'Give Back // V26';
+      } else {
+        displayName = 'Featured Bundle';
+      }
+    }
 
     // Calculate effective price if total discount cost is 0
     final effectiveDiscountedCost = bundle.totalDiscountedCost > 0
@@ -868,8 +893,14 @@ class _FeaturedBundleCard extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GestureDetector(
-        onTap: () => BundleDetailModal.show(context,
-            bundle: bundle, bannerImageUrl: finalImageUrl),
+        onTap: () => BundleDetailModal.show(
+          context,
+          bundle: bundle.copyWith(
+            displayName: displayName,
+            verticalPromoImage: finalImageUrl,
+          ),
+          bannerImageUrl: finalImageUrl,
+        ),
         child: Container(
           height: 190,
           decoration: BoxDecoration(

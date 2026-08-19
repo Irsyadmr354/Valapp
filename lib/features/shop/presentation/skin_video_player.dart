@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
-/// Fullscreen immersive WebView video player for inspecting Valorant weapon skins,
+/// Fullscreen immersive video player for inspecting Valorant weapon skins,
 /// upgrade VFX, chroma variants, and finishers in high detail.
 class SkinVideoScreen extends StatefulWidget {
   const SkinVideoScreen({
@@ -110,7 +110,7 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       width: 100%; height: 100%;
-      background: #000;
+      background: #000000;
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -119,77 +119,31 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
     video {
       width: 100%;
       height: 100%;
+      max-width: 100vw;
+      max-height: 100vh;
       object-fit: contain;
-      background: #000;
-    }
-    #loader {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      z-index: 10;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-    #loader.hidden { opacity: 0; visibility: hidden; }
-    .spinner {
-      width: 42px; height: 42px;
-      border: 3px solid rgba(255,255,255,0.15);
-      border-top-color: #FF4655;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loader-text {
-      color: rgba(255,255,255,0.7);
-      font: 600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      letter-spacing: 0.5px;
+      background: #000000;
+      outline: none;
     }
   </style>
 </head>
 <body>
-  <div id="loader">
-    <div class="spinner"></div>
-    <div class="loader-text">Loading Weapon Preview...</div>
-  </div>
   <video
     id="player"
     src="$videoUrl"
     controls
     autoplay
     muted
+    loop
     playsinline
     webkit-playsinline
     controlsList="nodownload"
   ></video>
   <script>
     var player = document.getElementById('player');
-    var loader = document.getElementById('loader');
-
-    function hideLoader() {
-      if (loader) loader.classList.add('hidden');
-    }
-
-    player.addEventListener('playing', hideLoader);
-    player.addEventListener('canplay', function() {
-      hideLoader();
+    player.play().catch(function() {
+      player.muted = true;
       player.play().catch(function(){});
-    });
-    player.addEventListener('timeupdate', function() {
-      if (player.currentTime > 0) hideLoader();
-    });
-
-    // iOS autoplay: start muted, then unmute after first play
-    player.play().then(function() {
-      hideLoader();
-      // Unmute after a tiny delay so iOS allows it
-      setTimeout(function() { player.muted = false; }, 300);
-    }).catch(function() {
-      // If even muted autoplay fails, the native controls play button is there
-      hideLoader();
     });
   </script>
 </body>
@@ -201,7 +155,7 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
 
   void _startHudTimer() {
     _hudTimer?.cancel();
-    _hudTimer = Timer(const Duration(seconds: 5), () {
+    _hudTimer = Timer(const Duration(seconds: 4), () {
       if (mounted) setState(() => _showHud = false);
     });
   }
@@ -243,13 +197,11 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ── Fullscreen WebView ─────────────────────────────────────────
+          // Fullscreen Video WebView
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -258,101 +210,117 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
             ),
           ),
 
-          // ── Loading Indicator ──────────────────────────────────────────
+          // Clean Single Loading Spinner
           if (_isLoading)
-            const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    color: Color(0xFFFF4655),
-                    strokeWidth: 3,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Opening Preview...',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // ── Back / Close Button — ALWAYS visible ───────────────────────
-          Positioned(
-            top: mq.padding.top + 8,
-            left: 16,
-            child: GestureDetector(
-              onTap: _close,
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(180),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withAlpha(50),
-                    width: 1,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
-          ),
-
-          // ── Top HUD (title) — auto-hides ──────────────────────────────
-          Positioned(
-            top: mq.padding.top + 8,
-            left: 68,
-            right: 16,
-            child: IgnorePointer(
-              ignoring: !_showHud,
-              child: AnimatedOpacity(
-                opacity: _showHud ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _cleanTitle(widget.title).toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.8,
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                        color: Color(0xFFFF4655),
+                        strokeWidth: 2.5,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      SizedBox(height: 14),
+                      Text(
+                        'Loading Weapon Video...',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Safe Area HUD (Back button and title)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    // Always Visible Back Button
+                    GestureDetector(
+                      onTap: _close,
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withAlpha(190),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withAlpha(50),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: widget.tierColor,
-                            shape: BoxShape.circle,
+                    const SizedBox(width: 12),
+
+                    // Auto-hiding title
+                    Expanded(
+                      child: AnimatedOpacity(
+                        opacity: _showHud ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 250),
+                        child: IgnorePointer(
+                          ignoring: !_showHud,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _cleanTitle(widget.title).toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: widget.tierColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Weapon Preview',
+                                    style: TextStyle(
+                                      color: Colors.white.withAlpha(150),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Weapon Preview',
-                          style: TextStyle(
-                            color: Colors.white.withAlpha(140),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),

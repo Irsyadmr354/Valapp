@@ -15,11 +15,26 @@ class ValorantAssets {
     receiveTimeout: const Duration(seconds: 20),
   ));
 
+  // In-memory caches for fast, zero-lag synchronous access during app session
+  Map<String, dynamic>? _memorySkinLevelsMap;
+  Map<String, dynamic>? _memoryBundlesMap;
+  Map<String, dynamic>? _memoryBuddiesMap;
+  Map<String, dynamic>? _memoryCardsMap;
+  Map<String, dynamic>? _memorySpraysMap;
+  Map<String, dynamic>? _memoryTitlesMap;
+  Map<String, dynamic>? _memoryUnifiedMap;
+
   // ── Skin Levels ────────────────────────────────────────────────────────────
 
   /// Returns a map of skinLevel UUID → skin metadata.
   Future<Map<String, dynamic>> getSkinLevelsMap(
       {bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _memorySkinLevelsMap != null &&
+        _memorySkinLevelsMap!.isNotEmpty) {
+      return _memorySkinLevelsMap!;
+    }
+
     final cache = CacheStorage.instance;
     final isStale = await cache.isStale(
       CacheStorage.keySkinMetadataFetchedAt,
@@ -28,34 +43,33 @@ class ValorantAssets {
 
     if (!forceRefresh && !isStale) {
       final cached = await cache.getJson(CacheStorage.keySkinMetadata);
-      if (cached != null) return cached;
+      if (cached != null && cached.isNotEmpty) {
+        _memorySkinLevelsMap = cached;
+        return cached;
+      }
     }
 
-    final response =
-        await _dio.get<Map<String, dynamic>>('$_base/weapons/skins');
-    final skins = (response.data?['data'] as List<dynamic>?) ?? [];
-
-    // Also fetch /weapons to get weaponType (e.g. "Melee", "Vandal") per skin.
-    // This is stored as weaponType on every level entry so the catalog can
-    // filter by weapon category without relying solely on skin name matching.
-    final weaponTypeMap = <String, String>{}; // skinUuid → weaponType
     try {
-      final weaponsResp =
-          await _dio.get<Map<String, dynamic>>('$_base/weapons');
-      final weapons = (weaponsResp.data?['data'] as List<dynamic>?) ?? [];
-      for (final weapon in weapons) {
-        final weaponType = weapon['displayName'] as String? ?? '';
-        final weaponSkins = weapon['skins'] as List<dynamic>? ?? [];
-        for (final ws in weaponSkins) {
-          final suuid = ws['uuid'] as String?;
-          if (suuid != null && weaponType.isNotEmpty) {
-            weaponTypeMap[suuid] = weaponType;
+      final response =
+          await _dio.get<Map<String, dynamic>>('$_base/weapons/skins');
+      final skins = (response.data?['data'] as List<dynamic>?) ?? [];
+
+      final weaponTypeMap = <String, String>{};
+      try {
+        final weaponsResp =
+            await _dio.get<Map<String, dynamic>>('$_base/weapons');
+        final weapons = (weaponsResp.data?['data'] as List<dynamic>?) ?? [];
+        for (final weapon in weapons) {
+          final weaponType = weapon['displayName'] as String? ?? '';
+          final weaponSkins = weapon['skins'] as List<dynamic>? ?? [];
+          for (final ws in weaponSkins) {
+            final suuid = ws['uuid'] as String?;
+            if (suuid != null && weaponType.isNotEmpty) {
+              weaponTypeMap[suuid] = weaponType;
+            }
           }
         }
-      }
-    } catch (_) {
-      // Non-fatal — weaponType will be empty string, name-based fallback still works.
-    }
+      } catch (_) {}
 
     final map = <String, dynamic>{};
     for (final skin in skins) {
@@ -139,28 +153,31 @@ class ValorantAssets {
       }
     }
 
-    await cache.setJson(CacheStorage.keySkinMetadata, map);
-    await cache.setTimestamp(CacheStorage.keySkinMetadataFetchedAt);
-    return map;
+      _memorySkinLevelsMap = map;
+      await cache.setJson(CacheStorage.keySkinMetadata, map);
+      await cache.setTimestamp(CacheStorage.keySkinMetadataFetchedAt);
+      return map;
+    } catch (_) {
+      final cached = await cache.getJson(CacheStorage.keySkinMetadata);
+      if (cached != null && cached.isNotEmpty) {
+        _memorySkinLevelsMap = cached;
+        return cached;
+      }
+      return _memorySkinLevelsMap ?? {};
+    }
   }
 
   /// Returns metadata for a single skin level UUID.
   Future<Map<String, dynamic>?> getSkinLevel(String uuid) async {
     final map = await getSkinLevelsMap();
-    final item = map[uuid] as Map<String, dynamic>?;
-    if (item != null) {
-      // chromas may legitimately be null for default/event skins — that is not
-      // a signal to re-fetch. Only re-fetch if the UUID itself is absent from
-      // the map, which means the cache was built before this skin existed.
-      return item;
-    }
+    final item = map[uuid] as Map<String, dynamic>? ??
+        map[uuid.toLowerCase()] as Map<String, dynamic>?;
+    if (item != null) return item;
 
-    // UUID not found at all — cache is stale. Clear and re-fetch once.
-    final cache = CacheStorage.instance;
-    await cache.remove(CacheStorage.keySkinMetadata);
-    await cache.remove(CacheStorage.keySkinMetadataFetchedAt);
-    final freshMap = await getSkinLevelsMap();
-    return freshMap[uuid] as Map<String, dynamic>?;
+    // UUID not found at all — force refresh once
+    final freshMap = await getSkinLevelsMap(forceRefresh: true);
+    return freshMap[uuid] as Map<String, dynamic>? ??
+        freshMap[uuid.toLowerCase()] as Map<String, dynamic>?;
   }
 
   // ── Competitive Tiers ──────────────────────────────────────────────────────
@@ -209,15 +226,23 @@ class ValorantAssets {
   /// Returns a map of bundle UUID → bundle metadata (name, icons, promo images).
   Future<Map<String, dynamic>> getBundlesMap(
       {bool forceRefresh = false}) async {
-    final cache = CacheStorage.instance;
+    if (!forceRefresh &&
+        _memoryBundlesMap != null &&
+        _memoryBundlesMap!.isNotEmpty) {
+      return _memoryBundlesMap!;
+    }
 
+    final cache = CacheStorage.instance;
     final isStale = await cache.isStale(
       CacheStorage.keyBundlesFetchedAt,
       _cacheDuration,
     );
     if (!forceRefresh && !isStale) {
       final cached = await cache.getJson(CacheStorage.keyBundles);
-      if (cached != null && cached.isNotEmpty) return cached;
+      if (cached != null && cached.isNotEmpty) {
+        _memoryBundlesMap = cached;
+        return cached;
+      }
     }
 
     try {
@@ -253,12 +278,17 @@ class ValorantAssets {
         }
       }
 
+      _memoryBundlesMap = map;
       await cache.setJson(CacheStorage.keyBundles, map);
       await cache.setTimestamp(CacheStorage.keyBundlesFetchedAt);
       return map;
     } catch (_) {
       final cached = await cache.getJson(CacheStorage.keyBundles);
-      return cached ?? {};
+      if (cached != null && cached.isNotEmpty) {
+        _memoryBundlesMap = cached;
+        return cached;
+      }
+      return _memoryBundlesMap ?? {};
     }
   }
 
@@ -266,6 +296,12 @@ class ValorantAssets {
   /// gun buddy, player card, spray, or title) → display metadata.
   Future<Map<String, dynamic>> getAllStoreItemsMap(
       {bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _memoryUnifiedMap != null &&
+        _memoryUnifiedMap!.isNotEmpty) {
+      return _memoryUnifiedMap!;
+    }
+
     final skinMap = await getSkinLevelsMap(forceRefresh: forceRefresh)
         .catchError((_) => <String, dynamic>{});
     final buddyMap =
@@ -355,6 +391,7 @@ class ValorantAssets {
       }
     });
 
+    _memoryUnifiedMap = unified;
     return unified;
   }
 
@@ -541,6 +578,9 @@ class ValorantAssets {
   // ── Player Cards ───────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getPlayerCardsMap() async {
+    if (_memoryCardsMap != null && _memoryCardsMap!.isNotEmpty) {
+      return _memoryCardsMap!;
+    }
     final cache = CacheStorage.instance;
     const keyCards = 'player_cards_metadata';
     const keyCardsFetchedAt = 'player_cards_metadata_fetched_at';
@@ -548,7 +588,10 @@ class ValorantAssets {
     final isStale = await cache.isStale(keyCardsFetchedAt, _cacheDuration);
     if (!isStale) {
       final cached = await cache.getJson(keyCards);
-      if (cached != null) return cached;
+      if (cached != null && cached.isNotEmpty) {
+        _memoryCardsMap = cached;
+        return cached;
+      }
     }
     try {
       final response =
@@ -567,19 +610,30 @@ class ValorantAssets {
           };
           map[uuid] = info;
           map[uuid.toLowerCase()] = info;
+          final raw = uuid.replaceAll('-', '').toLowerCase();
+          if (raw.isNotEmpty) map[raw] = info;
         }
       }
+      _memoryCardsMap = map;
       await cache.setJson(keyCards, map);
       await cache.setTimestamp(keyCardsFetchedAt);
       return map;
     } catch (_) {
-      return await cache.getJson(keyCards) ?? {};
+      final cached = await cache.getJson(keyCards);
+      if (cached != null && cached.isNotEmpty) {
+        _memoryCardsMap = cached;
+        return cached;
+      }
+      return _memoryCardsMap ?? {};
     }
   }
 
   // ── Sprays ─────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getSpraysMap() async {
+    if (_memorySpraysMap != null && _memorySpraysMap!.isNotEmpty) {
+      return _memorySpraysMap!;
+    }
     final cache = CacheStorage.instance;
     const keySprays = 'sprays_metadata';
     const keySpraysFetchedAt = 'sprays_metadata_fetched_at';
@@ -587,7 +641,10 @@ class ValorantAssets {
     final isStale = await cache.isStale(keySpraysFetchedAt, _cacheDuration);
     if (!isStale) {
       final cached = await cache.getJson(keySprays);
-      if (cached != null) return cached;
+      if (cached != null && cached.isNotEmpty) {
+        _memorySpraysMap = cached;
+        return cached;
+      }
     }
     try {
       final response = await _dio.get<Map<String, dynamic>>('$_base/sprays');
@@ -596,25 +653,38 @@ class ValorantAssets {
       for (final s in sprays) {
         final uuid = s['uuid'] as String?;
         if (uuid != null) {
-          map[uuid] = {
+          final entry = {
             'displayName': s['displayName'],
             'displayIcon': s['displayIcon'],
             'fullIcon': s['fullIcon'],
             'animationPng': s['animationPng'],
           };
+          map[uuid] = entry;
+          map[uuid.toLowerCase()] = entry;
+          final raw = uuid.replaceAll('-', '').toLowerCase();
+          if (raw.isNotEmpty) map[raw] = entry;
         }
       }
+      _memorySpraysMap = map;
       await cache.setJson(keySprays, map);
       await cache.setTimestamp(keySpraysFetchedAt);
       return map;
     } catch (_) {
-      return await cache.getJson(keySprays) ?? {};
+      final cached = await cache.getJson(keySprays);
+      if (cached != null && cached.isNotEmpty) {
+        _memorySpraysMap = cached;
+        return cached;
+      }
+      return _memorySpraysMap ?? {};
     }
   }
 
   // ── Player Titles ──────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> getPlayerTitlesMap() async {
+    if (_memoryTitlesMap != null && _memoryTitlesMap!.isNotEmpty) {
+      return _memoryTitlesMap!;
+    }
     final cache = CacheStorage.instance;
     const keyTitles = 'player_titles_metadata';
     const keyTitlesFetchedAt = 'player_titles_metadata_fetched_at';
@@ -622,7 +692,10 @@ class ValorantAssets {
     final isStale = await cache.isStale(keyTitlesFetchedAt, _cacheDuration);
     if (!isStale) {
       final cached = await cache.getJson(keyTitles);
-      if (cached != null) return cached;
+      if (cached != null && cached.isNotEmpty) {
+        _memoryTitlesMap = cached;
+        return cached;
+      }
     }
     try {
       final response =
@@ -632,19 +705,31 @@ class ValorantAssets {
       for (final t in titles) {
         final uuid = t['uuid'] as String?;
         if (uuid != null) {
-          map[uuid] = {
-            'displayName': t['displayName'],
+          final entry = {
+            'displayName': t['displayName'] ?? t['titleText'],
             'titleText': t['titleText'],
           };
+          map[uuid] = entry;
+          map[uuid.toLowerCase()] = entry;
+          final raw = uuid.replaceAll('-', '').toLowerCase();
+          if (raw.isNotEmpty) map[raw] = entry;
         }
       }
+      _memoryTitlesMap = map;
       await cache.setJson(keyTitles, map);
       await cache.setTimestamp(keyTitlesFetchedAt);
       return map;
     } catch (_) {
-      return await cache.getJson(keyTitles) ?? {};
+      final cached = await cache.getJson(keyTitles);
+      if (cached != null && cached.isNotEmpty) {
+        _memoryTitlesMap = cached;
+        return cached;
+      }
+      return _memoryTitlesMap ?? {};
     }
   }
+
+
 
   // ── Seasons ────────────────────────────────────────────────────────────────
 
@@ -1059,6 +1144,9 @@ class ValorantAssets {
   }
 
   Future<Map<String, dynamic>> getBuddiesMap() async {
+    if (_memoryBuddiesMap != null && _memoryBuddiesMap!.isNotEmpty) {
+      return _memoryBuddiesMap!;
+    }
     final cache = CacheStorage.instance;
     const keyBuddies = 'buddies_metadata';
     const keyBuddiesFetchedAt = 'buddies_metadata_fetched_at';
@@ -1066,7 +1154,10 @@ class ValorantAssets {
     final isStale = await cache.isStale(keyBuddiesFetchedAt, _cacheDuration);
     if (!isStale) {
       final cached = await cache.getJson(keyBuddies);
-      if (cached != null) return cached;
+      if (cached != null && cached.isNotEmpty) {
+        _memoryBuddiesMap = cached;
+        return cached;
+      }
     }
     try {
       final response = await _dio.get<Map<String, dynamic>>('$_base/buddies');
@@ -1078,29 +1169,43 @@ class ValorantAssets {
         for (final level in levels) {
           final uuid = level['uuid'] as String?;
           if (uuid != null) {
-            map[uuid] = {
+            final entry = {
               'displayName': b['displayName'],
               'displayIcon': level['displayIcon'],
               'buddyUuid': b['uuid'],
             };
+            map[uuid] = entry;
+            map[uuid.toLowerCase()] = entry;
+            final raw = uuid.replaceAll('-', '').toLowerCase();
+            if (raw.isNotEmpty) map[raw] = entry;
           }
         }
         // Also index by parent buddy UUID for convenience
         final buddyUuid = b['uuid'] as String?;
         if (buddyUuid != null && levels.isNotEmpty) {
           final firstLevel = levels.first as Map<String, dynamic>;
-          map[buddyUuid] = {
+          final entry = {
             'displayName': b['displayName'],
             'displayIcon': firstLevel['displayIcon'],
             'buddyUuid': buddyUuid,
           };
+          map[buddyUuid] = entry;
+          map[buddyUuid.toLowerCase()] = entry;
+          final raw = buddyUuid.replaceAll('-', '').toLowerCase();
+          if (raw.isNotEmpty) map[raw] = entry;
         }
       }
+      _memoryBuddiesMap = map;
       await cache.setJson(keyBuddies, map);
       await cache.setTimestamp(keyBuddiesFetchedAt);
       return map;
     } catch (_) {
-      return await cache.getJson(keyBuddies) ?? {};
+      final cached = await cache.getJson(keyBuddies);
+      if (cached != null && cached.isNotEmpty) {
+        _memoryBuddiesMap = cached;
+        return cached;
+      }
+      return _memoryBuddiesMap ?? {};
     }
   }
 

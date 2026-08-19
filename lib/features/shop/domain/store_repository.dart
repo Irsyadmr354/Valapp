@@ -188,6 +188,30 @@ class StoreRepository {
         }
       }
 
+      // If still missing promo image or name, search bundleMap for matching Give Back bundle
+      if ((promoImage == null || promoImage.isEmpty) ||
+          (bundleName == null ||
+              bundleName.isEmpty ||
+              bundleName == 'Featured Bundle' ||
+              bundleName == 'Featured Collection')) {
+        for (final entry in bundleMap.values) {
+          if (entry is Map) {
+            final name = (entry['displayName'] as String?) ?? '';
+            final lower = name.toLowerCase();
+            if (lower.contains('give back // v26') ||
+                lower.contains('give back // v25') ||
+                (bundle.totalDiscountPercent > 0.35 && lower.contains('give back'))) {
+              bundleName = name;
+              promoImage = (entry['verticalPromoImage'] as String?) ??
+                  (entry['displayIcon2'] as String?) ??
+                  (entry['displayIcon'] as String?);
+              bundleIcon = (entry['displayIcon'] as String?) ?? promoImage;
+              break;
+            }
+          }
+        }
+      }
+
       bundleName ??= 'Featured Bundle';
 
       return bundle.copyWith(
