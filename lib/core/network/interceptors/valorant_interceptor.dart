@@ -219,15 +219,21 @@ class ValorantInterceptor extends Interceptor {
   /// 2. **Body keyword heuristic** — for other endpoints, check the response
   ///    body for auth-related keywords.
   bool _isLikelyAuthError(DioException err) {
-    final url = err.requestOptions.uri;
-    if (_isRiotGameApiEndpoint(url)) {
-      return true;
-    }
-
     final data = err.response?.data;
     if (data != null) {
       final body =
           data is String ? data.toLowerCase() : jsonEncode(data).toLowerCase();
+
+      // Explicit non-auth error indicators returned by Riot API
+      const nonAuthHints = [
+        'validation_issue',
+        'invalid_argument',
+        'bad_request_body',
+        'not_found',
+        'resource_not_found',
+        'invalid query',
+      ];
+      if (nonAuthHints.any(body.contains)) return false;
 
       const authHints = [
         'entitlement',
@@ -245,6 +251,11 @@ class ValorantInterceptor extends Interceptor {
       ];
 
       if (authHints.any(body.contains)) return true;
+    }
+
+    final url = err.requestOptions.uri;
+    if (_isRiotGameApiEndpoint(url)) {
+      return true;
     }
 
     return false;

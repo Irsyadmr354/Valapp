@@ -851,7 +851,7 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    _isMuted ? 'UNMUTE' : 'MUTED',
+                                    _isMuted ? 'UNMUTE' : 'MUTE',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 11,

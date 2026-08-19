@@ -10,20 +10,20 @@ class StoreRemoteSource {
   Future<Map<String, dynamic>> fetchStorefrontRaw(
       String shard, String puuid) async {
     final pdBase = RiotEndpoints.pd(shard);
-    // Primary: storefront v2 (universal, 100% stable across all Riot shards)
+    // Primary: storefront v3 (current endpoint confirmed from client telemetry)
     try {
-      final response = await _dio.post<dynamic>(
-        '$pdBase/store/v2/storefront/$puuid',
-        data: {},
-      );
-      return _validateStorefront(response.data, 'storefront v2');
-    } catch (_) {
-      // Fallback: storefront v3
       final response = await _dio.post<dynamic>(
         '$pdBase/store/v3/storefront/$puuid',
         data: {},
       );
       return _validateStorefront(response.data, 'storefront v3');
+    } catch (_) {
+      // Fallback: storefront v2
+      final response = await _dio.post<dynamic>(
+        '$pdBase/store/v2/storefront/$puuid',
+        data: {},
+      );
+      return _validateStorefront(response.data, 'storefront v2');
     }
   }
 

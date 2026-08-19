@@ -124,11 +124,9 @@ class BackgroundShopChecker {
     // ── Fetch storefront ────────────────────────────────────────────────────
     final Map<String, dynamic> storefront;
 
-    final clientVersion = await cache.getString(CacheStorage.keyClientVersion);
-    if (clientVersion == null || clientVersion.isEmpty) {
-      debugPrint('[BackgroundShopChecker] No cached client version available — bailing early');
-      return;
-    }
+    final clientVersion =
+        (await cache.getString(CacheStorage.keyClientVersion)) ??
+            ValorantHeaders.defaultClientVersion;
 
     final headers = {
       ValorantHeaders.headerAuth: 'Bearer $accessToken',
@@ -188,7 +186,8 @@ class BackgroundShopChecker {
     if (offerIds.isEmpty) return;
 
     // ── Detect shop reset ───────────────────────────────────────────────────
-    final lastShopRaw = await cache.getJson(_lastShopKey);
+    final lastShopKey = CacheStorage.userKeyFor(_lastShopKey, puuid);
+    final lastShopRaw = await cache.getJson(lastShopKey);
     final lastOffers =
         (lastShopRaw?['ids'] as List<dynamic>?)?.cast<String>() ?? [];
     final isNewShop = !_setsEqual(offerIds.toSet(), lastOffers.toSet());
@@ -198,7 +197,7 @@ class BackgroundShopChecker {
     // ── Resolve skin names from valorant-api.com ────────────────────────────
     final skinNameMap = await _buildSkinNameMap(cache);
 
-    final wishlist = await cache.getWishlist();
+    final wishlist = await cache.getWishlist(puuid);
 
     // ── Fire notifications ─────────────────────────────────────────────────
 
@@ -229,7 +228,7 @@ class BackgroundShopChecker {
         wishlistMatchCount: matchedOffers.length,
       );
       // Save current offer IDs so we don't re-notify for same shop
-      await cache.setJson(_lastShopKey, {'ids': offerIds});
+      await cache.setJson(lastShopKey, {'ids': offerIds});
     }
   }
 
