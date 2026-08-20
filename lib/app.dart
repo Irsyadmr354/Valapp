@@ -144,14 +144,24 @@ class ValorantShopApp extends ConsumerWidget {
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.red,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          elevation: 4,
+          shadowColor: AppColors.red.withAlpha(120),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.red,
-          side: const BorderSide(color: AppColors.red),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: AppColors.red, width: 1.2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.0,
+          ),
         ),
       ),
       dividerTheme: const DividerThemeData(
@@ -170,21 +180,21 @@ class _ScaffoldWithNav extends StatelessWidget {
 
   // (route, outlinedIcon, filledIcon, label)
   static const _tabs = [
-    ('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Home'),
-    ('/rank', Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'Rank'),
+    ('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'SHOP'),
+    ('/rank', Icons.emoji_events_outlined, Icons.emoji_events_rounded, 'RANK'),
     (
       '/matches',
       Icons.sports_esports_outlined,
       Icons.sports_esports_rounded,
-      'Matches'
+      'CAREER'
     ),
     (
       '/progress',
       Icons.assignment_outlined,
       Icons.assignment_rounded,
-      'Progress'
+      'PROGRESS'
     ),
-    ('/profile', Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+    ('/profile', Icons.person_outline_rounded, Icons.person_rounded, 'PROFILE'),
   ];
 
   @override
@@ -221,21 +231,20 @@ class _BottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.bgPanel,
         border: Border(
-          top: BorderSide(color: AppColors.red, width: 1.5),
+          top: BorderSide(color: Color(0xFF1F2937), width: 1.0),
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0x44FF4655),
-            blurRadius: 14,
-            spreadRadius: -2,
-            offset: Offset(0, -2),
+            color: Color(0x33000000),
+            blurRadius: 16,
+            offset: Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 60,
+          height: 62,
           child: Row(
             children: List.generate(tabs.length, (i) {
               final tab = tabs[i];
@@ -248,45 +257,72 @@ class _BottomNav extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => onTap(i),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: isSelected
-                              ? const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 4)
-                              : EdgeInsets.zero,
-                          decoration: isSelected
-                              ? BoxDecoration(
-                                  color: AppColors.red.withAlpha(35),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: AppColors.red.withAlpha(130),
-                                    width: 1,
+                        // Tactical active top indicator line with glow
+                        if (isSelected)
+                          Positioned(
+                            top: 0,
+                            left: 12,
+                            right: 12,
+                            child: Container(
+                              height: 2.5,
+                              decoration: BoxDecoration(
+                                color: AppColors.red,
+                                borderRadius: const BorderRadius.vertical(
+                                  bottom: Radius.circular(2),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.red.withAlpha(200),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                    offset: const Offset(0, 1),
                                   ),
-                                )
-                              : null,
-                          child: Icon(
-                            isSelected ? tab.$3 : tab.$2,
-                            size: 22,
-                            color: isSelected
-                                ? AppColors.red
-                                : const Color(0xFF5C6B7A),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          tab.$4,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight:
-                                isSelected ? FontWeight.w800 : FontWeight.w500,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF5C6B7A),
-                            letterSpacing: isSelected ? 0.4 : 0,
-                          ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 2),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 3,
+                              ),
+                              decoration: isSelected
+                                  ? BoxDecoration(
+                                      color: AppColors.red.withAlpha(24),
+                                      borderRadius: BorderRadius.circular(8),
+                                    )
+                                  : null,
+                              child: Icon(
+                                isSelected ? tab.$3 : tab.$2,
+                                size: 21,
+                                color: isSelected
+                                    ? AppColors.red
+                                    : const Color(0xFF6B7280),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              tab.$4,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: isSelected
+                                    ? FontWeight.w900
+                                    : FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFF6B7280),
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

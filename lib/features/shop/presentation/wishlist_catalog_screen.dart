@@ -849,17 +849,32 @@ class _SkinCatalogGridCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Color.alphaBlend(
-            tierColor.withAlpha(35),
-            const Color(0xFF0C1118),
+            tierColor.withAlpha(30),
+            const Color(0xFF0A0F17),
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isWishlisted ? AppColors.red : Colors.white.withAlpha(18),
-            width: isWishlisted ? 2 : 1,
+            color: isWishlisted ? AppColors.red : Colors.white.withAlpha(20),
+            width: isWishlisted ? 1.8 : 1.0,
           ),
+          boxShadow: isWishlisted
+              ? [
+                  BoxShadow(
+                    color: AppColors.red.withAlpha(50),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(80),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(13),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -886,28 +901,29 @@ class _SkinCatalogGridCard extends StatelessWidget {
 
                     // Top-right: Bookmark / Wishlist toggle icon overlaid on image
                     Positioned(
-                      top: 8,
-                      right: 8,
+                      top: 6,
+                      right: 6,
                       child: GestureDetector(
                         onTap: onToggleWishlist,
                         child: Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(5),
                           decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(160),
+                            color: const Color(0xFF0B1017).withAlpha(210),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color:
-                                  isWishlisted ? AppColors.red : Colors.white24,
+                              color: isWishlisted
+                                  ? AppColors.red
+                                  : Colors.white.withAlpha(30),
                               width: 1.0,
                             ),
                           ),
                           child: Icon(
                             isWishlisted
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_outline_rounded,
                             color:
                                 isWishlisted ? AppColors.red : Colors.white70,
-                            size: 16,
+                            size: 15,
                           ),
                         ),
                       ),
@@ -916,14 +932,14 @@ class _SkinCatalogGridCard extends StatelessWidget {
                 ),
               ),
 
-              // ── Footer (Solid Black Background): Tier Icon + Skin Name ─────
+              // ── Footer (Solid Deep Tactical Background): Tier Icon + Skin Name ─────
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8.5),
                 decoration: const BoxDecoration(
-                  color: Colors.black, // Solid black background
+                  color: Color(0xFF06090E), // Solid tactical background
                   border: Border(
-                    top: BorderSide(color: Color(0x22FFFFFF), width: 0.8),
+                    top: BorderSide(color: Color(0x1FFFFFFF), width: 0.8),
                   ),
                 ),
                 child: Row(
@@ -931,7 +947,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
                     // Skin Tier Icon (only the icon) to the left of skin name
                     SkinTierIcon(
                       tierUuid: tierUuid,
-                      size: 16,
+                      size: 15,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -939,9 +955,9 @@ class _SkinCatalogGridCard extends StatelessWidget {
                         name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
+                          letterSpacing: 0.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

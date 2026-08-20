@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/exceptions/auth_exception.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../data/oauth_flow.dart';
 
 /// Opens Riot's real login page in a WebView and intercepts the redirect
@@ -196,31 +197,46 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
     return PopScope(
       canPop: !_isProcessing,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F1923),
+        backgroundColor: AppColors.bg,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0F1923),
-          title: const Text(
-            'Login with Riot',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: _isProcessing ? null : () => context.pop(),
-          ),
-          actions: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFFFF4655),
-                  ),
+          backgroundColor: AppColors.bgPanel,
+          title: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: AppColors.red,
+                  borderRadius: BorderRadius.circular(2),
+                  boxShadow: AppColors.redGlow(alpha: 0.5, blur: 6),
                 ),
               ),
-          ],
+              const SizedBox(width: 8),
+              const Text(
+                'RIOT AUTHENTICATION',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.white),
+            onPressed: _isProcessing ? null : () => context.pop(),
+          ),
+          bottom: _isLoading
+              ? const PreferredSize(
+                  preferredSize: Size.fromHeight(2),
+                  child: LinearProgressIndicator(
+                    minHeight: 2,
+                    backgroundColor: Colors.transparent,
+                    color: AppColors.red,
+                  ),
+                )
+              : null,
         ),
         body: Stack(
           children: [
@@ -231,16 +247,32 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
             // Processing overlay
             if (_isProcessing)
               Container(
-                color: const Color(0xFF0F1923),
+                color: AppColors.bg.withAlpha(240),
                 child: const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(color: Color(0xFFFF4655)),
+                      CircularProgressIndicator(
+                        color: AppColors.red,
+                        strokeWidth: 2.5,
+                      ),
                       SizedBox(height: 20),
                       Text(
-                        'Logging in...',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
+                        'AUTHENTICATING SESSION...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Generating secure token credentials',
+                        style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -250,23 +282,33 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
             // Error state
             if (_errorMessage != null)
               Container(
-                color: const Color(0xFF0F1923),
+                color: AppColors.bg,
                 padding: const EdgeInsets.all(32),
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline,
-                          color: Color(0xFFFF4655), size: 48),
-                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.red.withAlpha(25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.error_outline_rounded,
+                            color: AppColors.red, size: 42),
+                      ),
+                      const SizedBox(height: 18),
                       Text(
                         _errorMessage!,
                         style: const TextStyle(
-                            color: Colors.white70, fontSize: 14),
+                          color: Colors.white70,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 24),
-                      FilledButton(
+                      FilledButton.icon(
                         onPressed: () {
                           setState(() {
                             _errorMessage = null;
@@ -274,9 +316,8 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
                           });
                           _startAttempt();
                         },
-                        style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF4655)),
-                        child: const Text('Try Again'),
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('RETRY AUTHENTICATION'),
                       ),
                     ],
                   ),
