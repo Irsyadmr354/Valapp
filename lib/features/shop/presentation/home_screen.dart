@@ -460,26 +460,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
         // Timer bar
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF0E1622),
+              color: const Color(0xFF090D15),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: const Color(0xFFFF4655).withAlpha(60), width: 0.8),
+                  color: const Color(0xFFFF4655).withAlpha(70), width: 1.0),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF4655).withAlpha(15),
+                  blurRadius: 8,
+                ),
+              ],
             ),
             child: Row(
               children: [
-                const Icon(Icons.timer_outlined,
-                    color: Color(0xFFFF4655), size: 14),
-                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4655).withAlpha(30),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.timer_outlined,
+                      color: Color(0xFFFF4655), size: 14),
+                ),
+                const SizedBox(width: 8),
                 const Text('REFRESHES IN ',
                     style: TextStyle(
                         color: Color(0xFFFF4655),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8)),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.0)),
                 CountdownTimer(
                   remainingSeconds:
                       storefront.currentDailyOffersRemainingSeconds,
@@ -488,20 +501,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   onExpired: () => _refresh(isScheduledRotation: true),
                   style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5),
                 ),
                 const Spacer(),
-                Text(
-                  '${storefront.dailyOffers.length} ITEMS AVAILABLE',
-                  style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF131B2A),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white12, width: 0.8),
+                  ),
+                  child: Text(
+                    '${storefront.dailyOffers.length} ITEMS',
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8),
+                  ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.info_outline, color: Colors.white24, size: 13),
               ],
             ),
           ),

@@ -871,9 +871,22 @@ class _MatchTile extends ConsumerWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: resultColor.withAlpha(40),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(60),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -883,7 +896,7 @@ class _MatchTile extends ConsumerWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: SizedBox(
-                    width: 72,
+                    width: 76,
                     height: 56,
                     child: mapSplashUrl != null && mapSplashUrl.isNotEmpty
                         ? CachedNetworkImage(
@@ -903,9 +916,9 @@ class _MatchTile extends ConsumerWidget {
                   left: 0,
                   right: 0,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    padding: const EdgeInsets.symmetric(vertical: 2.5),
                     decoration: BoxDecoration(
-                      color: resultColor.withAlpha(210),
+                      color: resultColor.withAlpha(220),
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(8),
                         bottomRight: Radius.circular(8),
@@ -915,9 +928,9 @@ class _MatchTile extends ConsumerWidget {
                       child: Text(resultLabel,
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 8,
+                              fontSize: 8.5,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 0.6)),
+                              letterSpacing: 0.8)),
                     ),
                   ),
                 ),
@@ -927,33 +940,33 @@ class _MatchTile extends ConsumerWidget {
                     left: 4,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
+                          horizontal: 5, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(160),
+                        color: Colors.black.withAlpha(180),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(score,
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800)),
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w900)),
                     ),
                   ),
               ],
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
 
-            // Agent icon (small circle)
+            // Agent icon (small circle with status border)
             if (agentIconUrl != null && agentIconUrl.isNotEmpty)
               Container(
-                width: 30,
-                height: 30,
-                margin: const EdgeInsets.only(right: 8),
+                width: 34,
+                height: 34,
+                margin: const EdgeInsets.only(right: 10),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.bgCard2,
                   border:
-                      Border.all(color: resultColor.withAlpha(80), width: 1),
+                      Border.all(color: resultColor.withAlpha(100), width: 1.2),
                 ),
                 child: ClipOval(
                   child: CachedNetworkImage(
@@ -973,10 +986,10 @@ class _MatchTile extends ConsumerWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: resultColor.withAlpha(30),
+                      color: resultColor.withAlpha(25),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                          color: resultColor.withAlpha(80), width: 0.6),
+                          color: resultColor.withAlpha(80), width: 0.8),
                     ),
                     child: Text(
                       entry.queueDisplayName.toUpperCase(),
@@ -991,14 +1004,15 @@ class _MatchTile extends ConsumerWidget {
                   Text(dateStr,
                       style: const TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w500)),
                   if (mapName.isNotEmpty)
-                    Text(mapName,
+                    Text(mapName.toUpperCase(),
                         style: const TextStyle(
-                            color: Colors.white70,
+                            color: Colors.white,
                             fontSize: 12,
-                            fontWeight: FontWeight.w700)),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3)),
                 ],
               ),
             ),
@@ -1012,7 +1026,8 @@ class _MatchTile extends ConsumerWidget {
                       style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 9,
-                          fontWeight: FontWeight.w700)),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5)),
                   const SizedBox(height: 2),
                   Text(kdaStr,
                       style: const TextStyle(
@@ -1020,7 +1035,7 @@ class _MatchTile extends ConsumerWidget {
                           fontSize: 13,
                           fontWeight: FontWeight.w900)),
                   if (kdoStr != null)
-                    Text('$kdoStr K/O',
+                    Text('$kdoStr K/D',
                         style: TextStyle(
                             color: resultColor,
                             fontSize: 10,
@@ -1029,7 +1044,7 @@ class _MatchTile extends ConsumerWidget {
                     Container(
                       margin: const EdgeInsets.only(top: 3),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                          horizontal: 6, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFD700).withAlpha(35),
                         borderRadius: BorderRadius.circular(4),

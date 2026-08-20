@@ -1307,27 +1307,52 @@ class _UpdateTile extends StatelessWidget {
     final color = isWin ? AppColors.win : AppColors.loss;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withAlpha(40), width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(50),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 3,
-            height: 18,
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-                color: color, borderRadius: BorderRadius.circular(2)),
+              color: color.withAlpha(25),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(isWin ? Icons.trending_up : Icons.trending_down,
+                color: color, size: 18),
           ),
           const SizedBox(width: 12),
-          Icon(isWin ? Icons.trending_up : Icons.trending_down,
-              color: color, size: 18),
-          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              '${isWin ? '+' : ''}$rr RR',
-              style: TextStyle(
-                  color: color, fontSize: 15, fontWeight: FontWeight.w900),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${isWin ? '+' : ''}$rr RR',
+                  style: TextStyle(
+                      color: color, fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isWin ? 'VICTORY' : 'DEFEAT',
+                  style: TextStyle(
+                    color: color.withAlpha(200),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
             ),
           ),
           Column(
@@ -1336,14 +1361,14 @@ class _UpdateTile extends StatelessWidget {
               Text('${update.rankedRatingAfterUpdate} RR',
                   style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700)),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900)),
               if (update.afkPenalty != 0)
                 Text('AFK: ${update.afkPenalty}',
                     style: const TextStyle(
                         color: Colors.orange,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700)),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800)),
             ],
           ),
         ],

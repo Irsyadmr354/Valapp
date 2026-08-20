@@ -453,31 +453,48 @@ class _MissionTile extends ConsumerWidget {
     final xpReward = mission.xpGrant > 0 ? mission.xpGrant : null;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white10, width: 0.8)),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: mission.isCompleted
+              ? AppColors.win.withAlpha(50)
+              : AppColors.border,
+          width: 1.0,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                mission.isCompleted ? Icons.check_circle : typeIcon,
-                color: mission.isCompleted ? AppColors.win : AppColors.red,
-                size: 18,
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: mission.isCompleted
+                      ? AppColors.win.withAlpha(25)
+                      : AppColors.red.withAlpha(20),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  mission.isCompleted ? Icons.check_circle_rounded : typeIcon,
+                  color: mission.isCompleted ? AppColors.win : AppColors.red,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.red.withAlpha(20),
+                  color: AppColors.red.withAlpha(25),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(typeLabel,
                     style: const TextStyle(
                         color: AppColors.red,
-                        fontSize: 8,
+                        fontSize: 8.5,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.5)),
               ),
@@ -489,8 +506,8 @@ class _MissionTile extends ConsumerWidget {
                     color: mission.isCompleted
                         ? AppColors.textMuted
                         : Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
                     decoration:
                         mission.isCompleted ? TextDecoration.lineThrough : null,
                   ),
@@ -512,12 +529,6 @@ class _MissionTile extends ConsumerWidget {
                           fontSize: 10,
                           fontWeight: FontWeight.w900)),
                 ),
-              if (expiryStr != null) ...[
-                const SizedBox(width: 6),
-                Text(expiryStr,
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 10)),
-              ],
             ],
           ),
           if (!mission.isCompleted) ...[
@@ -525,7 +536,17 @@ class _MissionTile extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const SizedBox(),
+                if (expiryStr != null)
+                  Text(
+                    expiryStr,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else
+                  const SizedBox(),
                 Text(
                   progressTarget > 0
                       ? '${mission.currentProgress} / $progressTarget'
@@ -589,17 +610,24 @@ class _AgentContractTile extends ConsumerWidget {
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 0.8),
+        border: Border.all(color: AppColors.border, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(50),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: AppColors.bgCard2,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border, width: 0.8),
+              border: Border.all(color: AppColors.red.withAlpha(80), width: 1.0),
             ),
             child: agentPortrait != null
                 ? ClipRRect(
@@ -607,7 +635,7 @@ class _AgentContractTile extends ConsumerWidget {
                     child: CachedNetworkImage(
                       imageUrl: agentPortrait,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => const LoadingShimmer(height: 44),
+                      placeholder: (_, __) => const LoadingShimmer(height: 48),
                       errorWidget: (_, __, ___) => const Icon(
                           Icons.person_outline,
                           color: Colors.white24,
@@ -625,11 +653,12 @@ class _AgentContractTile extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  agentName ?? 'Agent Contract',
+                  (agentName ?? 'Agent Contract').toUpperCase(),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
-                      fontWeight: FontWeight.w800),
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -637,19 +666,30 @@ class _AgentContractTile extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('TIER ${contract.progressionLevelReached}',
-                        style: const TextStyle(
-                            color: AppColors.red,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: AppColors.red.withAlpha(25),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text('TIER ${contract.progressionLevelReached}',
+                          style: const TextStyle(
+                              color: AppColors.red,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5)),
+                    ),
                     Text(
                       '${contract.progressionTowardsNextLevel.clamp(0, 10000)} / 10,000 XP',
                       style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 10),
+                          color: Colors.white54,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 6),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
