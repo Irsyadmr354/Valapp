@@ -5,7 +5,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/exceptions/auth_exception.dart';
-import '../../../core/storage/secure_storage.dart';
 import '../data/oauth_flow.dart';
 
 /// Opens Riot's real login page in a WebView and intercepts the redirect
@@ -154,30 +153,7 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
             await _controller.runJavaScriptReturningResult('document.cookie');
         final cookiesStr = cookiesResult.toString().replaceAll('"', '');
         if (cookiesStr.isNotEmpty && cookiesStr != 'null') {
-          // Filter to only retain Riot auth session cookies (ssid, clid, sub, csid, tdid, asid)
-          final filteredCookies = cookiesStr
-              .split(';')
-              .map((c) => c.trim())
-              .where((c) {
-                final lower = c.toLowerCase();
-                return lower.startsWith('ssid=') ||
-                    lower.startsWith('clid=') ||
-                    lower.startsWith('sub=') ||
-                    lower.startsWith('csid=') ||
-                    lower.startsWith('tdid=') ||
-                    lower.startsWith('asid=') ||
-                    lower.startsWith('pbe_');
-              })
-              .join('; ');
-
-          final toSave =
-              filteredCookies.isNotEmpty ? filteredCookies : cookiesStr;
-          await SecureStorage.instance.write(
-            SecureStorage.keyRiotCookiesFor(creds.puuid),
-            toSave,
-          );
-          debugPrint(
-              '[WebViewLogin] Saved Riot session cookies per-account to Keychain');
+          await repo.saveSessionCookies(creds.puuid, cookiesStr);
         }
       } catch (e) {
         debugPrint('[WebViewLogin] Non-fatal cookie capture warning: $e');

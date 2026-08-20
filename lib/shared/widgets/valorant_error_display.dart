@@ -122,7 +122,8 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: AppColors.red.withAlpha(35),
-                    border: Border.all(color: AppColors.red.withAlpha(180), width: 1),
+                    border: Border.all(
+                        color: AppColors.red.withAlpha(180), width: 1),
                     borderRadius: BorderRadius.circular(4),
                     boxShadow: [
                       BoxShadow(

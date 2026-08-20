@@ -21,9 +21,6 @@ class StoreRepository {
   /// Fetches fresh storefront data, enriches skin metadata, and caches it.
   Future<Storefront> fetchStorefront(String shard, String puuid) async {
     final transaction = CacheStorage.instance.beginUserTransaction(puuid);
-    if (transaction == null) {
-      throw StateError('Storefront request started outside the active session');
-    }
     final raw = await _remote.fetchStorefrontRaw(shard, puuid);
 
     // Stamp the fetch time into the raw map before caching so that
@@ -31,7 +28,9 @@ class StoreRepository {
     // remainingSeconds calculation when loading from cache.
     raw['_fetchedAt'] = DateTime.now().toIso8601String();
     final storefront = Storefront.fromJson(raw);
-    await _cache.saveStorefront(raw, puuid: puuid, transaction: transaction);
+    if (transaction != null) {
+      await _cache.saveStorefront(raw, puuid: puuid, transaction: transaction);
+    }
 
     return _enrichStorefront(storefront);
   }
@@ -57,9 +56,8 @@ class StoreRepository {
           .catchError((_) => <String, dynamic>{});
     }
 
-    var bundleMap = await _assets
-        .getBundlesMap()
-        .catchError((_) => <String, dynamic>{});
+    var bundleMap =
+        await _assets.getBundlesMap().catchError((_) => <String, dynamic>{});
 
     final skinMap = unifiedMap;
 
@@ -93,8 +91,8 @@ class StoreRepository {
           skinMap[offer.skinLevelUuid.replaceAll('-', '').toLowerCase()]
               as Map<String, dynamic>?;
       return offer.copyWith(
-        displayName: (meta?['skinName'] as String?) ??
-            (meta?['displayName'] as String?),
+        displayName:
+            (meta?['skinName'] as String?) ?? (meta?['displayName'] as String?),
         displayIcon: meta?['displayIcon'] as String?,
         contentTierUuid: meta?['contentTierUuid'] as String?,
       );
@@ -167,8 +165,7 @@ class StoreRepository {
                 detectedCollectionName = cleaned;
               }
             } else if (itemType != 'Title') {
-              final skinName =
-                  (itemMeta['skinName'] as String?) ?? displayName;
+              final skinName = (itemMeta['skinName'] as String?) ?? displayName;
               if (skinName.isNotEmpty) {
                 detectedSkinNames.add(skinName);
               }
@@ -291,11 +288,10 @@ class StoreRepository {
 
   Future<Wallet> fetchWallet(String shard, String puuid) async {
     final transaction = CacheStorage.instance.beginUserTransaction(puuid);
-    if (transaction == null) {
-      throw StateError('Wallet request started outside the active session');
-    }
     final wallet = await _remote.fetchWallet(shard, puuid);
-    await _cache.saveWallet(wallet, puuid: puuid, transaction: transaction);
+    if (transaction != null) {
+      await _cache.saveWallet(wallet, puuid: puuid, transaction: transaction);
+    }
     return wallet;
   }
 

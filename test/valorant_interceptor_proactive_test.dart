@@ -24,10 +24,14 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('proactive reauth prefers fast onRefreshEntitlement when accessToken is valid', () async {
+  test(
+      'proactive reauth prefers fast onRefreshEntitlement when accessToken is valid',
+      () async {
     final validToken = _jwt({
       'sub': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      'exp': DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000,
+      'exp':
+          DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/
+              1000,
     });
 
     // Valid accessToken, expired entitlementToken
@@ -39,7 +43,8 @@ void main() {
       region: 'ap',
       shard: 'ap',
       expiresAt: DateTime.now().add(const Duration(hours: 1)),
-      entitlementExpiresAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      entitlementExpiresAt:
+          DateTime.now().subtract(const Duration(minutes: 10)),
     );
     await local.save(creds);
 
@@ -67,20 +72,30 @@ void main() {
     final dio = Dio()..httpClientAdapter = _MockAdapter();
     dio.interceptors.add(interceptor);
 
-    await dio.get<dynamic>('https://pd.ap.a.pvp.net/store/v3/storefront/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    await dio.get<dynamic>(
+        'https://pd.ap.a.pvp.net/store/v3/storefront/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 
-    expect(entitlementRefreshCalled, isTrue, reason: 'Fast entitlement refresh should have been called');
-    expect(fullReauthCalled, isFalse, reason: 'Full reauth (WebView) should NOT be called when access token is valid');
+    expect(entitlementRefreshCalled, isTrue,
+        reason: 'Fast entitlement refresh should have been called');
+    expect(fullReauthCalled, isFalse,
+        reason:
+            'Full reauth (WebView) should NOT be called when access token is valid');
   });
 
-  test('proactive reauth invokes onReauth when accessToken is expired', () async {
+  test('proactive reauth invokes onReauth when accessToken is expired',
+      () async {
     final expiredToken = _jwt({
       'sub': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      'exp': DateTime.now().subtract(const Duration(minutes: 10)).millisecondsSinceEpoch ~/ 1000,
+      'exp': DateTime.now()
+              .subtract(const Duration(minutes: 10))
+              .millisecondsSinceEpoch ~/
+          1000,
     });
     final freshToken = _jwt({
       'sub': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      'exp': DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000,
+      'exp':
+          DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/
+              1000,
     });
 
     // Expired accessToken
@@ -92,7 +107,8 @@ void main() {
       region: 'ap',
       shard: 'ap',
       expiresAt: DateTime.now().subtract(const Duration(minutes: 10)),
-      entitlementExpiresAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      entitlementExpiresAt:
+          DateTime.now().subtract(const Duration(minutes: 10)),
     );
     await local.save(creds);
 
@@ -122,10 +138,14 @@ void main() {
     final dio = Dio()..httpClientAdapter = _MockAdapter();
     dio.interceptors.add(interceptor);
 
-    await dio.get<dynamic>('https://pd.ap.a.pvp.net/store/v3/storefront/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    await dio.get<dynamic>(
+        'https://pd.ap.a.pvp.net/store/v3/storefront/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 
-    expect(fullReauthCalled, isTrue, reason: 'Full reauth should be called when access token is expired');
-    expect(entitlementRefreshCalled, isFalse, reason: 'Entitlement-only refresh cannot proceed without valid access token');
+    expect(fullReauthCalled, isTrue,
+        reason: 'Full reauth should be called when access token is expired');
+    expect(entitlementRefreshCalled, isFalse,
+        reason:
+            'Entitlement-only refresh cannot proceed without valid access token');
   });
 }
 

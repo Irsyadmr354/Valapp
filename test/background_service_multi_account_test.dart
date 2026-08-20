@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:valorant_app/core/network/valorant_headers.dart';
 import 'package:valorant_app/core/storage/cache_storage.dart';
@@ -17,8 +17,10 @@ void main() {
   });
 
   group('Background Service Multi-Account Wishlist Isolation', () {
-    test('wishlist reads are strictly isolated by PUUID in background isolate', () async {
-      await cache.setWishlist(['skin-vandal-prime', 'skin-phantom-oni'], puuidA);
+    test('wishlist reads are strictly isolated by PUUID in background isolate',
+        () async {
+      await cache
+          .setWishlist(['skin-vandal-prime', 'skin-phantom-oni'], puuidA);
       await cache.setWishlist(['skin-sheriff-reaver'], puuidB);
 
       final wishlistA = await cache.getWishlist(puuidA);
@@ -33,7 +35,9 @@ void main() {
   });
 
   group('Background Service Shop Reset State Isolation', () {
-    test('lastShopKey namespacing prevents false reset alerts when switching accounts', () async {
+    test(
+        'lastShopKey namespacing prevents false reset alerts when switching accounts',
+        () async {
       final keyA = CacheStorage.userKeyFor(lastShopKey, puuidA);
       final keyB = CacheStorage.userKeyFor(lastShopKey, puuidB);
 
@@ -52,23 +56,31 @@ void main() {
       expect(idsA, equals(offersA));
       expect(idsB, equals(offersB));
 
-      final isNewShopA = !Set.from(offersA).containsAll(idsA) || idsA.length != offersA.length;
+      final isNewShopA =
+          !Set.from(offersA).containsAll(idsA) || idsA.length != offersA.length;
       expect(isNewShopA, isFalse);
     });
   });
 
   group('Background Service Client Version Fallback', () {
-    test('resolves defaultClientVersion when cached version is missing or empty', () async {
-      final cachedVersion = await cache.getString(CacheStorage.keyClientVersion);
-      final effectiveVersion = cachedVersion ?? ValorantHeaders.defaultClientVersion;
+    test(
+        'resolves defaultClientVersion when cached version is missing or empty',
+        () async {
+      final cachedVersion =
+          await cache.getString(CacheStorage.keyClientVersion);
+      final effectiveVersion =
+          cachedVersion ?? ValorantHeaders.defaultClientVersion;
 
       expect(effectiveVersion, equals(ValorantHeaders.defaultClientVersion));
       expect(effectiveVersion, isNotEmpty);
       expect(effectiveVersion.startsWith('release-'), isTrue);
 
-      await cache.setString(CacheStorage.keyClientVersion, 'release-99.00-custom-12345');
-      final updatedCached = await cache.getString(CacheStorage.keyClientVersion);
-      final finalEffective = updatedCached ?? ValorantHeaders.defaultClientVersion;
+      await cache.setString(
+          CacheStorage.keyClientVersion, 'release-99.00-custom-12345');
+      final updatedCached =
+          await cache.getString(CacheStorage.keyClientVersion);
+      final finalEffective =
+          updatedCached ?? ValorantHeaders.defaultClientVersion;
 
       expect(finalEffective, equals('release-99.00-custom-12345'));
     });

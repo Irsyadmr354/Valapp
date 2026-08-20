@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -198,8 +199,11 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
     },
   ];
 
+  Timer? _debounce;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -390,7 +394,7 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                 children: [
                   Expanded(
                     child: Container(
-                      height: 42,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: AppColors.bgCard2,
                         borderRadius: BorderRadius.circular(12),
@@ -400,7 +404,13 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                         controller: _searchController,
                         style:
                             const TextStyle(color: Colors.white, fontSize: 13),
-                        onChanged: (v) => setState(() => _searchQuery = v),
+                        onChanged: (v) {
+                          _debounce?.cancel();
+                          _debounce =
+                              Timer(const Duration(milliseconds: 300), () {
+                            if (mounted) setState(() => _searchQuery = v);
+                          });
+                        },
                         decoration: InputDecoration(
                           hintText: 'Search skin name',
                           hintStyle: const TextStyle(
@@ -419,7 +429,7 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                               : null,
                           border: InputBorder.none,
                           contentPadding:
-                              const EdgeInsets.symmetric(vertical: 11),
+                              const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                     ),
@@ -429,7 +439,7 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                   GestureDetector(
                     onTap: _showTierFilterModal,
                     child: Container(
-                      height: 42,
+                      height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: AppColors.bgCard2,
@@ -468,7 +478,7 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                     onTap: () => setState(() =>
                         _sortMode = _sortMode == 'name' ? 'tier' : 'name'),
                     child: Container(
-                      height: 42,
+                      height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: AppColors.bgCard2,
@@ -612,8 +622,9 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                           final tierUuid = skin['contentTierUuid'] as String?;
                           final tierLabel =
                               _getTierLabel(tierUuid).toLowerCase();
-                          final allUuids = (skin['allUuids'] as List<dynamic>? ??
-                              [skin['skinLevelUuid'], skin['skinUuid']]);
+                          final allUuids =
+                              (skin['allUuids'] as List<dynamic>? ??
+                                  [skin['skinLevelUuid'], skin['skinUuid']]);
 
                           // Sidebar category / weapon filter
                           if (_selectedCategory == 'WISHLIST') {
@@ -648,30 +659,22 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
 
                         // Sort
                         if (_sortMode == 'tier') {
-                          const tierOrder = {
-                            '411e4a55': 0,
-                            'e046854e': 1,
-                            '60bca009': 2,
-                            '0cebb8be': 3,
-                            '12683d76': 4,
-                          };
+                          int getTierRank(String? uuid) {
+                            if (uuid == null || uuid.isEmpty) return 5;
+                            final u = uuid.toLowerCase();
+                            if (u.contains('411e4a55')) return 0; // Ultra
+                            if (u.contains('e046854e')) return 1; // Exclusive
+                            if (u.contains('60bca009')) return 2; // Premium
+                            if (u.contains('0cebb8be')) return 3; // Deluxe
+                            if (u.contains('12683d76')) return 4; // Select
+                            return 5;
+                          }
+
                           filteredSkins.sort((a, b) {
-                            final ta = tierOrder.entries
-                                .firstWhere(
-                                  (e) => (a['contentTierUuid'] as String? ?? '')
-                                      .toLowerCase()
-                                      .contains(e.key),
-                                  orElse: () => const MapEntry('', 5),
-                                )
-                                .value;
-                            final tb = tierOrder.entries
-                                .firstWhere(
-                                  (e) => (b['contentTierUuid'] as String? ?? '')
-                                      .toLowerCase()
-                                      .contains(e.key),
-                                  orElse: () => const MapEntry('', 5),
-                                )
-                                .value;
+                            final ta =
+                                getTierRank(a['contentTierUuid'] as String?);
+                            final tb =
+                                getTierRank(b['contentTierUuid'] as String?);
                             return ta.compareTo(tb);
                           });
                         }
@@ -741,9 +744,9 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                   final iconUrl = item['displayIcon'] as String;
                                   final tierUuid =
                                       item['contentTierUuid'] as String?;
-                                  final allUuids = (item['allUuids']
-                                          as List<dynamic>? ??
-                                      [levelUuid, item['skinUuid']]);
+                                  final allUuids =
+                                      (item['allUuids'] as List<dynamic>? ??
+                                          [levelUuid, item['skinUuid']]);
                                   final isWishlisted = allUuids
                                       .any((id) => wishlist.contains(id));
                                   final tierColor = _getTierColor(tierUuid);
@@ -756,8 +759,7 @@ class _WishlistCatalogScreenState extends ConsumerState<WishlistCatalogScreen> {
                                     isWishlisted: isWishlisted,
                                     onToggleWishlist: () {
                                       final matchedUuids = allUuids
-                                          .where((id) =>
-                                              wishlist.contains(id))
+                                          .where((id) => wishlist.contains(id))
                                           .toList();
                                       if (matchedUuids.isNotEmpty) {
                                         for (final id in matchedUuids) {
@@ -852,9 +854,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isWishlisted
-                ? AppColors.red
-                : Colors.white.withAlpha(18),
+            color: isWishlisted ? AppColors.red : Colors.white.withAlpha(18),
             width: isWishlisted ? 2 : 1,
           ),
         ),
@@ -896,9 +896,8 @@ class _SkinCatalogGridCard extends StatelessWidget {
                             color: Colors.black.withAlpha(160),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isWishlisted
-                                  ? AppColors.red
-                                  : Colors.white24,
+                              color:
+                                  isWishlisted ? AppColors.red : Colors.white24,
                               width: 1.0,
                             ),
                           ),
@@ -906,9 +905,8 @@ class _SkinCatalogGridCard extends StatelessWidget {
                             isWishlisted
                                 ? Icons.bookmark
                                 : Icons.bookmark_border,
-                            color: isWishlisted
-                                ? AppColors.red
-                                : Colors.white70,
+                            color:
+                                isWishlisted ? AppColors.red : Colors.white70,
                             size: 16,
                           ),
                         ),

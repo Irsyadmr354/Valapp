@@ -13,7 +13,6 @@ import '../../../shared/widgets/valorant_error_display.dart';
 import '../../auth/domain/session_reconnect.dart';
 import '../domain/models/player_mmr.dart';
 
-
 // Dynamic season provider
 final _activeSeasonProvider =
     FutureProvider.autoDispose<Map<String, String>>((ref) async {
@@ -571,38 +570,63 @@ class _MatchHistoryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      children: [
-        if (showCacheBanner) const CacheDataBanner(),
-        Row(
-          children: [
-            Container(width: 3, height: 14, color: const Color(0xFFFF4655)),
-            const SizedBox(width: 8),
-            const Text('RECENT COMPETITIVE UPDATES',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5)),
-          ],
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              if (showCacheBanner) const CacheDataBanner(),
+              Row(
+                children: [
+                  Container(
+                      width: 3, height: 14, color: const Color(0xFFFF4655)),
+                  const SizedBox(width: 8),
+                  const Text('RECENT COMPETITIVE UPDATES',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5)),
+                ],
+              ),
+              const SizedBox(height: 14),
+            ]),
+          ),
         ),
-        const SizedBox(height: 14),
         updatesAsync.when(
           data: (result) => result.data.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.only(top: 40),
-                  child: Center(
-                    child: Text('No recent competitive matches.',
-                        style: TextStyle(color: Colors.white38)),
+              ? const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 40),
+                    child: Center(
+                      child: Text('No recent competitive matches.',
+                          style: TextStyle(color: Colors.white38)),
+                    ),
                   ),
                 )
-              : Column(
-                  children:
-                      result.data.map((u) => _UpdateTile(update: u)).toList()),
-          loading: () => const RankHistorySkeleton(),
-          error: (e, _) => _ErrorCard(error: e),
+              : SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  sliver: SliverList.builder(
+                    itemCount: result.data.length,
+                    itemBuilder: (context, index) {
+                      return _UpdateTile(update: result.data[index]);
+                    },
+                  ),
+                ),
+          loading: () => const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 80),
+              child: RankHistorySkeleton(),
+            ),
+          ),
+          error: (e, _) => SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+              child: _ErrorCard(error: e),
+            ),
+          ),
         ),
       ],
     );
@@ -642,16 +666,17 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
         }
         final mmr = result.data;
         final selectedId = _selectedSeasonId ?? mmr.activeSeasonId;
-        final actData = (selectedId != null ? mmr.seasonalData[selectedId] : null) ??
-            mmr.activeSeasonData ??
-            ActRankSeasonData(
-              seasonId: selectedId ?? '',
-              tier: mmr.currentTier,
-              rankedRating: mmr.currentRankedRating,
-              numberOfWins: 0,
-              winsByTier: const {},
-              borderLevel: 0,
-            );
+        final actData =
+            (selectedId != null ? mmr.seasonalData[selectedId] : null) ??
+                mmr.activeSeasonData ??
+                ActRankSeasonData(
+                  seasonId: selectedId ?? '',
+                  tier: mmr.currentTier,
+                  rankedRating: mmr.currentRankedRating,
+                  numberOfWins: 0,
+                  winsByTier: const {},
+                  borderLevel: 0,
+                );
 
         final displayTier = actData.tier > 0 ? actData.tier : mmr.currentTier;
         final tierData = tiersAsync.asData?.value[displayTier];
@@ -704,8 +729,8 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                 // Act Selector Dropdown
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.bgCard2,
                       borderRadius: BorderRadius.circular(8),
@@ -797,14 +822,16 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                       color: const Color(0xFF090D14),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: TierColors.forCompetitiveTier(actData.peakWinTier)
-                            .withAlpha(120),
+                        color:
+                            TierColors.forCompetitiveTier(actData.peakWinTier)
+                                .withAlpha(120),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: TierColors.forCompetitiveTier(actData.peakWinTier)
-                              .withAlpha(45),
+                          color:
+                              TierColors.forCompetitiveTier(actData.peakWinTier)
+                                  .withAlpha(45),
                           blurRadius: 24,
                           spreadRadius: 2,
                         ),
@@ -925,7 +952,8 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                                     .clamp(0.0, 1.0),
                             backgroundColor: Colors.black45,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              TierColors.forCompetitiveTier(actData.peakWinTier),
+                              TierColors.forCompetitiveTier(
+                                  actData.peakWinTier),
                             ),
                             minHeight: 8,
                           ),
@@ -974,9 +1002,7 @@ class _ActRankTabState extends ConsumerState<_ActRankTab> {
                     _showOnPlayerCard
                         ? Icons.check_box_rounded
                         : Icons.check_box_outline_blank_rounded,
-                    color: _showOnPlayerCard
-                        ? AppColors.red
-                        : Colors.white38,
+                    color: _showOnPlayerCard ? AppColors.red : Colors.white38,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -1033,7 +1059,8 @@ class _ActPyramidPainter extends CustomPainter {
     final baseWidth = width;
 
     // Sort wins so highest tier wins fill top rows near apex, lower tier wins fill base
-    final sortedWins = List<int>.from(winsTierList)..sort((a, b) => b.compareTo(a));
+    final sortedWins = List<int>.from(winsTierList)
+      ..sort((a, b) => b.compareTo(a));
 
     var winIdx = 0;
 

@@ -187,7 +187,6 @@ class _VpChip extends StatelessWidget {
   }
 }
 
-
 class _ShimmerBox extends StatelessWidget {
   const _ShimmerBox();
 

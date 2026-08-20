@@ -12,27 +12,18 @@ import '../../../shared/widgets/valorant_error_display.dart';
 import '../../auth/domain/session_reconnect.dart';
 import '../domain/models/player_loadout.dart';
 
-
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final _loadoutProvider =
     FutureProvider.autoDispose<CachedFetchResult<PlayerLoadout>?>((ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
-  final source = await ref.watch(loadoutRemoteSourceProvider.future);
-  final cache = ref.watch(loadoutLocalCacheProvider);
-  final transaction =
-      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+  final repo = await ref.watch(loadoutRepositoryProvider.future);
   try {
-    final raw = await source.fetchLoadoutRaw(creds.shard, creds.puuid);
-    final loadout = PlayerLoadout.fromJson(raw);
-    if (transaction != null) {
-      await cache.saveLoadout(raw,
-          puuid: creds.puuid, transaction: transaction);
-    }
+    final loadout = await repo.fetchLoadout(creds.shard, creds.puuid);
     return CachedFetchResult(loadout);
   } catch (_) {
-    final cached = await cache.loadLoadout(puuid: creds.puuid);
+    final cached = await repo.loadCachedLoadout(creds.puuid);
     if (cached != null) return CachedFetchResult(cached, fromCache: true);
     rethrow;
   }

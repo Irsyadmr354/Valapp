@@ -23,7 +23,8 @@ class ContractsLocalCache {
     try {
       return PlayerContracts.fromJson(raw);
     } catch (e) {
-      debugPrint('[ContractsLocalCache] Error parsing cached PlayerContracts: $e');
+      debugPrint(
+          '[ContractsLocalCache] Error parsing cached PlayerContracts: $e');
       await _cache.remove(
           CacheStorage.userKeyFor(CacheStorage.keyContractsCache, puuid));
       await _cache.remove(CacheStorage.userKeyFor(

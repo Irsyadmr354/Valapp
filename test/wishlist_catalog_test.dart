@@ -2,7 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Wishlist Catalog Multi-UUID Matching Logic', () {
-    test('matches wishlisted level 1 offer to skin with multiple levels and chromas', () {
+    test(
+        'matches wishlisted level 1 offer to skin with multiple levels and chromas',
+        () {
       const skinUuid = 'skin-vandal-prime';
       const level1Uuid = 'level-1-uuid';
       const level4Uuid = 'level-4-uuid';
@@ -25,7 +27,9 @@ void main() {
           reason: 'Daily shop Level 1 wishlist ID must match the catalog item');
     });
 
-    test('unique skin counting matches 1 unique skin even if both levelUuid and skinUuid are in wishlist', () {
+    test(
+        'unique skin counting matches 1 unique skin even if both levelUuid and skinUuid are in wishlist',
+        () {
       const skinUuid = 'skin-phantom-oni';
       const level1Uuid = 'oni-lvl1';
       const level4Uuid = 'oni-lvl4';
@@ -53,7 +57,8 @@ void main() {
       }).length;
 
       expect(uniqueCount, 1,
-          reason: 'Only 1 unique skin is wishlisted even with multiple stored UUIDs');
+          reason:
+              'Only 1 unique skin is wishlisted even with multiple stored UUIDs');
     });
   });
 }

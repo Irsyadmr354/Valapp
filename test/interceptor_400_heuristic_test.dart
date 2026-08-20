@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -27,7 +27,9 @@ void main() {
   Future<Credentials> seedValidCredentials() async {
     final token = _jwt({
       'sub': '11112222333344445555666677778888',
-      'exp': DateTime.now().add(const Duration(hours: 2)).millisecondsSinceEpoch ~/ 1000,
+      'exp':
+          DateTime.now().add(const Duration(hours: 2)).millisecondsSinceEpoch ~/
+              1000,
     });
     final creds = Credentials(
       accessToken: token,
@@ -65,7 +67,10 @@ void main() {
       final dio = Dio()..interceptors.add(interceptor);
       dio.httpClientAdapter = _MockHttpAdapter((options) {
         return ResponseBody.fromString(
-          jsonEncode({'errorCode': 'VALIDATION_ISSUE', 'message': 'Invalid query parameters'}),
+          jsonEncode({
+            'errorCode': 'VALIDATION_ISSUE',
+            'message': 'Invalid query parameters'
+          }),
           400,
           headers: {
             Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -74,10 +79,12 @@ void main() {
       });
 
       try {
-        await dio.get<dynamic>('https://pd.ap.a.pvp.net/name-service/v2/players');
+        await dio
+            .get<dynamic>('https://pd.ap.a.pvp.net/name-service/v2/players');
       } catch (_) {}
 
-      expect(reauthInvoked, isFalse, reason: 'Validation error must not cause 15s reauth hang');
+      expect(reauthInvoked, isFalse,
+          reason: 'Validation error must not cause 15s reauth hang');
       expect(entitlementRefreshInvoked, isFalse);
     });
 
@@ -99,7 +106,8 @@ void main() {
       final dio = Dio()..interceptors.add(interceptor);
       dio.httpClientAdapter = _MockHttpAdapter((options) {
         return ResponseBody.fromString(
-          jsonEncode({'errorCode': 'INVALID_ARGUMENT', 'message': 'Bad argument'}),
+          jsonEncode(
+              {'errorCode': 'INVALID_ARGUMENT', 'message': 'Bad argument'}),
           400,
           headers: {
             Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -108,13 +116,16 @@ void main() {
       });
 
       try {
-        await dio.get<dynamic>('https://pd.ap.a.pvp.net/match-details/v1/matches/invalid-uuid');
+        await dio.get<dynamic>(
+            'https://pd.ap.a.pvp.net/match-details/v1/matches/invalid-uuid');
       } catch (_) {}
 
       expect(reauthInvoked, isFalse);
     });
 
-    test('400 with BAD_CLAIMS on game endpoint triggers fast entitlement refresh', () async {
+    test(
+        '400 with BAD_CLAIMS on game endpoint triggers fast entitlement refresh',
+        () async {
       await seedValidCredentials();
 
       var entitlementRefreshInvoked = false;
@@ -132,7 +143,8 @@ void main() {
       final dio = Dio()..interceptors.add(interceptor);
       dio.httpClientAdapter = _MockHttpAdapter((options) {
         return ResponseBody.fromString(
-          jsonEncode({'errorCode': 'BAD_CLAIMS', 'message': 'Token claims expired'}),
+          jsonEncode(
+              {'errorCode': 'BAD_CLAIMS', 'message': 'Token claims expired'}),
           400,
           headers: {
             Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -141,10 +153,12 @@ void main() {
       });
 
       try {
-        await dio.post<dynamic>('https://pd.ap.a.pvp.net/store/v3/storefront/11112222333344445555666677778888');
+        await dio.post<dynamic>(
+            'https://pd.ap.a.pvp.net/store/v3/storefront/11112222333344445555666677778888');
       } catch (_) {}
 
-      expect(entitlementRefreshInvoked, isTrue, reason: 'BAD_CLAIMS 400 must trigger fast entitlement renewal');
+      expect(entitlementRefreshInvoked, isTrue,
+          reason: 'BAD_CLAIMS 400 must trigger fast entitlement renewal');
     });
 
     test('401 Unauthorized triggers reauth', () async {
@@ -174,7 +188,8 @@ void main() {
       });
 
       try {
-        await dio.get<dynamic>('https://pd.ap.a.pvp.net/store/v1/wallet/11112222333344445555666677778888');
+        await dio.get<dynamic>(
+            'https://pd.ap.a.pvp.net/store/v1/wallet/11112222333344445555666677778888');
       } catch (_) {}
 
       expect(reauthInvoked, isTrue);

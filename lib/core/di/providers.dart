@@ -7,6 +7,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../network/auth_dio.dart';
 import '../network/api_dio.dart';
 import '../network/cookie_service.dart';
+import '../network/valorant_headers.dart';
 import '../network/interceptors/valorant_interceptor.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
@@ -30,6 +31,7 @@ import '../../features/shop/domain/store_repository.dart';
 
 import '../../features/match/data/match_remote_source.dart';
 import '../../features/match/data/match_local_cache.dart';
+import '../../features/match/domain/match_repository.dart';
 import '../../features/match/domain/models/match_history.dart';
 import '../../features/match/domain/models/match_details.dart';
 
@@ -43,6 +45,7 @@ import '../../features/rank/domain/models/player_mmr.dart';
 
 import '../../features/contracts/data/contracts_remote_source.dart';
 import '../../features/contracts/data/contracts_local_cache.dart';
+import '../../features/contracts/domain/contracts_repository.dart';
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,7 @@ import '../../features/profile/domain/models/account_xp.dart';
 
 import '../../features/loadout/data/loadout_remote_source.dart';
 import '../../features/loadout/data/loadout_local_cache.dart';
+import '../../features/loadout/domain/loadout_repository.dart';
 import '../../features/loadout/domain/models/player_loadout.dart';
 
 // ── News ──────────────────────────────────────────────────────────────────
@@ -106,6 +110,10 @@ final authRemoteSourceProvider = FutureProvider<AuthRemoteSource>((ref) async {
     Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
+      headers: {
+        'User-Agent': ValorantHeaders.riotClientUserAgent,
+        'Content-Type': 'application/json',
+      },
     )),
   );
 });
@@ -193,6 +201,17 @@ final matchDetailLocalCacheProvider = Provider<MatchDetailLocalCache>((ref) {
   return MatchDetailLocalCache(ref.watch(cacheStorageProvider));
 });
 
+final matchRepositoryProvider = FutureProvider<MatchRepository>((ref) async {
+  final remote = await ref.watch(matchRemoteSourceProvider.future);
+  final historyCache = ref.watch(matchHistoryLocalCacheProvider);
+  final detailCache = ref.watch(matchDetailLocalCacheProvider);
+  return MatchRepository(
+    remoteSource: remote,
+    historyCache: historyCache,
+    detailCache: detailCache,
+  );
+});
+
 // ── Rank ───────────────────────────────────────────────────────────────────
 
 final mmrRemoteSourceProvider = FutureProvider<MmrRemoteSource>((ref) async {
@@ -214,6 +233,13 @@ final contractsRemoteSourceProvider =
 
 final contractsLocalCacheProvider = Provider<ContractsLocalCache>((ref) {
   return ContractsLocalCache(ref.watch(cacheStorageProvider));
+});
+
+final contractsRepositoryProvider =
+    FutureProvider<ContractsRepository>((ref) async {
+  final remote = await ref.watch(contractsRemoteSourceProvider.future);
+  final local = ref.watch(contractsLocalCacheProvider);
+  return ContractsRepository(remoteSource: remote, localCache: local);
 });
 
 // ── Profile ───────────────────────────────────────────────────────────────
@@ -264,19 +290,13 @@ class SessionActions {
       final current = await local.load();
       if (current?.puuid == account.puuid) return;
 
-      // Purge old account's webview & HTTP cookies to prevent cookie bleed
+      // Purge HTTP in-memory cookie jar to prevent cookie bleed across accounts
       try {
         final jar = await _ref.read(cookieJarProvider.future);
         await jar.deleteAll();
       } catch (_) {}
-      try {
-        await WebViewCookieManager().clearCookies();
-      } catch (_) {}
-      try {
-        await SecureStorage.instance.delete(SecureStorage.keyRiotCookiesRaw);
-      } catch (_) {}
 
-      // Restore saved Riot session cookies for target account into WKWebView
+      // Restore saved Riot session cookies for target account into WKWebView if available
       try {
         final savedRaw = await SecureStorage.instance.read(
           SecureStorage.keyRiotCookiesFor(account.puuid),
@@ -341,17 +361,43 @@ class SessionActions {
     });
   }
 
+  Future<void> logout() {
+    return AsyncLock.run('active_session_action', () async {
+      try {
+        final jar = await _ref.read(cookieJarProvider.future);
+        await jar.deleteAll();
+      } catch (_) {}
+      try {
+        await WebViewCookieManager().clearCookies();
+      } catch (_) {}
+      try {
+        await CacheStorage.instance.clearAll();
+      } catch (_) {}
+      await _ref.read(credentialsLocalSourceProvider).clear();
+      invalidateSession();
+    });
+  }
+
   void invalidateSession() {
     _ref.invalidate(currentCredentialsProvider);
     _ref.invalidate(apiDioProvider);
     _ref.invalidate(storeRemoteSourceProvider);
     _ref.invalidate(storeRepositoryProvider);
     _ref.invalidate(matchRemoteSourceProvider);
+    _ref.invalidate(matchRepositoryProvider);
     _ref.invalidate(mmrRemoteSourceProvider);
     _ref.invalidate(contractsRemoteSourceProvider);
+    _ref.invalidate(contractsRepositoryProvider);
     _ref.invalidate(accountRemoteSourceProvider);
     _ref.invalidate(restrictionsRemoteSourceProvider);
     _ref.invalidate(loadoutRemoteSourceProvider);
+    _ref.invalidate(loadoutRepositoryProvider);
+    _ref.invalidate(accountXpProvider);
+    _ref.invalidate(displayNameProvider);
+    _ref.invalidate(playerMmrProvider);
+    _ref.invalidate(competitiveUpdatesProvider);
+    _ref.invalidate(playerCardArtProvider);
+    _ref.invalidate(enrichedMatchHistoryProvider);
   }
 }
 
@@ -365,6 +411,13 @@ final loadoutRemoteSourceProvider =
 
 final loadoutLocalCacheProvider = Provider<LoadoutLocalCache>((ref) {
   return LoadoutLocalCache(ref.watch(cacheStorageProvider));
+});
+
+final loadoutRepositoryProvider =
+    FutureProvider<LoadoutRepository>((ref) async {
+  final remote = await ref.watch(loadoutRemoteSourceProvider.future);
+  final local = ref.watch(loadoutLocalCacheProvider);
+  return LoadoutRepository(remoteSource: remote, localCache: local);
 });
 
 // ── News ───────────────────────────────────────────────────────────────────
@@ -433,7 +486,8 @@ final displayNameProvider =
       throw StateError('Display name unavailable');
     }
     if (transaction != null) {
-      await cache.saveDisplayName(name, puuid: creds.puuid, transaction: transaction);
+      await cache.saveDisplayName(name,
+          puuid: creds.puuid, transaction: transaction);
     }
     await local.updateAccountMetadata(creds.puuid, displayName: name);
     if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {

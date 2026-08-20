@@ -124,7 +124,9 @@ void main() {
                 }
               ],
               'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 9500},
-              'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 5225},
+              'TotalDiscountedCost': {
+                '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 5225
+              },
               'TotalDiscountPercent': 0.45,
               'DurationRemainingInSeconds': 10000,
             },
@@ -138,7 +140,9 @@ void main() {
                 }
               ],
               'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 7100},
-              'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 7100},
+              'TotalDiscountedCost': {
+                '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 7100
+              },
               'TotalDiscountPercent': 0.0,
               'DurationRemainingInSeconds': 5000,
             }
@@ -201,7 +205,9 @@ void main() {
               }
             ],
             'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 1775},
-            'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 1775},
+            'TotalDiscountedCost': {
+              '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 1775
+            },
             'DurationRemainingInSeconds': 80000,
           },
         },
@@ -237,8 +243,10 @@ void main() {
       });
 
       expect(storefront.featuredBundles.length, 1);
-      expect(storefront.featuredBundles.first.bundleUuid, 'direct-bundle-asset');
-      expect(storefront.featuredBundles.first.itemIds, contains('direct-skin-1'));
+      expect(
+          storefront.featuredBundles.first.bundleUuid, 'direct-bundle-asset');
+      expect(
+          storefront.featuredBundles.first.itemIds, contains('direct-skin-1'));
     });
 
     test('parses Aeris bundle with all weapons and accessories', () {
@@ -275,7 +283,9 @@ void main() {
               },
             ],
             'TotalBaseCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 8700},
-            'TotalDiscountedCost': {'85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 8700},
+            'TotalDiscountedCost': {
+              '85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741': 8700
+            },
             'DurationRemainingInSeconds': 1200000,
           },
         },

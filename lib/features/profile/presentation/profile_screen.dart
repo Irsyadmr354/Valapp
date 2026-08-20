@@ -3,9 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/storage/cache_storage.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_name_util.dart';
 import '../../../shared/widgets/cache_data_banner.dart';
@@ -249,20 +247,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             onPressed: () async {
               Navigator.of(ctx).pop();
-              final repo = await ref.read(authRepositoryProvider.future);
-              await repo.logout();
-              // Also wipe the persisted Riot cookie jar (ssid etc.) so a
-              // subsequent reauth can't silently re-login the "ghost" session.
-              try {
-                final jar = await ref.read(cookieJarProvider.future);
-                await jar.deleteAll();
-              } catch (_) {}
-              // Dio and native WebViews have independent cookie stores.
-              try {
-                await WebViewCookieManager().clearCookies();
-              } catch (_) {}
-              await CacheStorage.instance.clearAll();
-              ref.invalidate(currentCredentialsProvider);
+              await ref.read(sessionActionsProvider).logout();
             },
             child: const Text('Logout'),
           ),
@@ -387,21 +372,24 @@ class _ProfileHeaderBanner extends StatelessWidget {
                       Row(
                         children: [
                           IconButton(
-                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(
+                                minWidth: 44, minHeight: 44),
                             icon: const Icon(Icons.health_and_safety_outlined,
                                 color: AppColors.win, size: 20),
                             onPressed: () => AccountHealthModal.show(context),
                             tooltip: 'Account Health',
                           ),
                           IconButton(
-                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(
+                                minWidth: 44, minHeight: 44),
                             icon: const Icon(Icons.settings_outlined,
                                 color: Colors.white70, size: 20),
                             onPressed: onSettingsPressed,
                             tooltip: 'Switch Account',
                           ),
                           IconButton(
-                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(
+                                minWidth: 44, minHeight: 44),
                             icon: const Icon(Icons.logout_rounded,
                                 color: AppColors.red, size: 20),
                             onPressed: onLogoutPressed,

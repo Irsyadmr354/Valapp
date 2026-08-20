@@ -238,7 +238,6 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
     final themeName = themeInfo?['displayName'] as String? ??
         (widget.offer.displayName ?? 'Weapon Skin').split(' ').first;
 
-
     // Determine current image and video
     String? currentImage;
     String? currentChromaVideo;
@@ -803,7 +802,6 @@ class _SkinDetailModalState extends ConsumerState<SkinDetailModal> {
         .trim();
   }
 }
-
 
 final _themesMapProvider = FutureProvider.autoDispose<Map<String, dynamic>>(
     (ref) async => ref.watch(valorantAssetsProvider).getThemesMap());

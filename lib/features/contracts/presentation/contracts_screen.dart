@@ -15,21 +15,15 @@ final _contractsProvider =
         (ref) async {
   final creds = await ref.watch(currentCredentialsProvider.future);
   if (creds == null) return null;
-  final source = await ref.watch(contractsRemoteSourceProvider.future);
-  final cache = ref.watch(contractsLocalCacheProvider);
-  final transaction =
-      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+  final repo = await ref.watch(contractsRepositoryProvider.future);
   try {
-    final raw = await source.fetchContractsRaw(creds.shard, creds.puuid);
-    final contracts = PlayerContracts.fromJson(raw);
-    if (transaction != null) {
-      await cache.saveContracts(raw,
-          puuid: creds.puuid, transaction: transaction);
-    }
-    return CachedFetchResult(contracts);
+    final data = await repo.fetchContracts(creds.shard, creds.puuid);
+    return CachedFetchResult(data);
   } catch (_) {
-    final cached = await cache.loadContracts(puuid: creds.puuid);
-    if (cached != null) return CachedFetchResult(cached, fromCache: true);
+    final cached = await repo.loadCachedContracts(creds.puuid);
+    if (cached != null) {
+      return CachedFetchResult(cached, fromCache: true);
+    }
     rethrow;
   }
 });
@@ -178,43 +172,64 @@ class _ContractsContent extends ConsumerWidget {
       ..sort((a, b) =>
           b.progressionLevelReached.compareTo(a.progressionLevelReached));
 
-    return ListView(
+    return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (showCacheBanner) const CacheDataBanner(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              if (showCacheBanner) const CacheDataBanner(),
 
-        // ── Battle Pass ──────────────────────────────────────────────────
-        if (battlepass != null) ...[
-          const _SectionHeader(title: 'BATTLE PASS'),
-          _BattlepassCard(contract: battlepass),
-          const SizedBox(height: 24),
-        ],
+              // ── Battle Pass ──────────────────────────────────────────────────
+              if (battlepass != null) ...[
+                const _SectionHeader(title: 'BATTLE PASS'),
+                _BattlepassCard(contract: battlepass),
+                const SizedBox(height: 24),
+              ],
 
-        // ── Active Missions ──────────────────────────────────────────────
-        if (missions.isNotEmpty) ...[
-          const _SectionHeader(title: 'ACTIVE MISSIONS'),
-          ...missions.map((m) => _MissionTile(mission: m)),
-          const SizedBox(height: 24),
-        ],
+              // ── Active Missions ──────────────────────────────────────────────
+              if (missions.isNotEmpty) ...[
+                const _SectionHeader(title: 'ACTIVE MISSIONS'),
+                ...missions.map((m) => _MissionTile(mission: m)),
+                const SizedBox(height: 24),
+              ],
 
-        // ── Agent Contracts ──────────────────────────────────────────────
-        if (agentContracts.isNotEmpty) ...[
-          const _SectionHeader(title: 'AGENT CONTRACTS'),
-          ...agentContracts.map((c) => _AgentContractTile(contract: c)),
-          const SizedBox(height: 24),
-        ],
-
-        if (battlepass == null && missions.isEmpty && agentContracts.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.only(top: 60),
-              child: Text('No active contracts or missions.',
-                  style: TextStyle(color: Colors.white38, fontSize: 13)),
+              // ── Agent Contracts Header ───────────────────────────────────────
+              if (agentContracts.isNotEmpty) ...[
+                const _SectionHeader(title: 'AGENT CONTRACTS'),
+              ],
+            ]),
+          ),
+        ),
+        if (agentContracts.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList.builder(
+              itemCount: agentContracts.length,
+              itemBuilder: (context, index) {
+                return _AgentContractTile(contract: agentContracts[index]);
+              },
             ),
           ),
-
-        const SizedBox(height: 80),
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              if (battlepass == null &&
+                  missions.isEmpty &&
+                  agentContracts.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 60),
+                    child: Text('No active contracts or missions.',
+                        style: TextStyle(color: Colors.white38, fontSize: 13)),
+                  ),
+                ),
+              const SizedBox(height: 80),
+            ]),
+          ),
+        ),
       ],
     );
   }

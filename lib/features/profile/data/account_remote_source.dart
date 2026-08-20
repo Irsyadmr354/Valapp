@@ -65,7 +65,8 @@ class AccountRemoteSource {
           ? '$gameName#$tagLine'
           : gameName;
     } catch (e) {
-      debugPrint('[AccountRemoteSource] Error fetching userinfo display name: $e');
+      debugPrint(
+          '[AccountRemoteSource] Error fetching userinfo display name: $e');
       return null;
     }
   }
@@ -122,7 +123,8 @@ class AccountRemoteSource {
       }
       return result;
     } catch (e) {
-      debugPrint('[AccountRemoteSource] Error fetching name-service players: $e');
+      debugPrint(
+          '[AccountRemoteSource] Error fetching name-service players: $e');
       return {};
     }
   }

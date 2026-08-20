@@ -71,34 +71,57 @@ class ValorantAssets {
         }
       } catch (_) {}
 
-    final map = <String, dynamic>{};
-    for (final skin in skins) {
-      final levels = skin['levels'] as List<dynamic>? ?? [];
-      final chromas = skin['chromas'] as List<dynamic>? ?? [];
-      final skinUuid = skin['uuid'] as String?;
-      final weaponType =
-          skinUuid != null ? (weaponTypeMap[skinUuid] ?? '') : '';
+      final map = <String, dynamic>{};
+      for (final skin in skins) {
+        final levels = skin['levels'] as List<dynamic>? ?? [];
+        final chromas = skin['chromas'] as List<dynamic>? ?? [];
+        final skinUuid = skin['uuid'] as String?;
+        final weaponType =
+            skinUuid != null ? (weaponTypeMap[skinUuid] ?? '') : '';
 
-      // Find the best icon: prefer level 1 (index 0), fall back to any level
-      // with a non-null icon. Melee skins sometimes have a null icon on level 1.
-      String? bestIcon;
-      for (final level in levels) {
-        final icon = level['displayIcon'] as String?;
-        if (icon != null && icon.isNotEmpty) {
-          bestIcon = icon;
-          break;
+        // Find the best icon: prefer level 1 (index 0), fall back to any level
+        // with a non-null icon. Melee skins sometimes have a null icon on level 1.
+        String? bestIcon;
+        for (final level in levels) {
+          final icon = level['displayIcon'] as String?;
+          if (icon != null && icon.isNotEmpty) {
+            bestIcon = icon;
+            break;
+          }
         }
-      }
 
-      // Index each skin level
-      for (final level in levels) {
-        final uuid = level['uuid'] as String?;
-        if (uuid != null) {
-          final levelInfo = {
-            'displayName': level['displayName'],
-            'displayIcon': (level['displayIcon'] as String?)?.isNotEmpty == true
-                ? level['displayIcon']
-                : bestIcon,
+        // Index each skin level
+        for (final level in levels) {
+          final uuid = level['uuid'] as String?;
+          if (uuid != null) {
+            final levelInfo = {
+              'displayName': level['displayName'],
+              'displayIcon':
+                  (level['displayIcon'] as String?)?.isNotEmpty == true
+                      ? level['displayIcon']
+                      : bestIcon,
+              'skinName': skin['displayName'],
+              'skinUuid': skin['uuid'],
+              'themeUuid': skin['themeUuid'],
+              'contentTierUuid': skin['contentTierUuid'],
+              'wallpaper': skin['wallpaper'],
+              'chromas': skin['chromas'],
+              'levels': skin['levels'],
+              'weaponType': weaponType,
+              'itemType': 'Skin',
+            };
+            map[uuid] = levelInfo;
+            map[uuid.toLowerCase()] = levelInfo;
+            final raw = uuid.replaceAll('-', '').toLowerCase();
+            if (raw.isNotEmpty) map[raw] = levelInfo;
+          }
+        }
+
+        // Also index by base skin UUID (useful for bundles & loadouts that reference skin UUID)
+        if (skinUuid != null) {
+          final skinInfo = {
+            'displayName': skin['displayName'],
+            'displayIcon': bestIcon,
             'skinName': skin['displayName'],
             'skinUuid': skin['uuid'],
             'themeUuid': skin['themeUuid'],
@@ -109,58 +132,37 @@ class ValorantAssets {
             'weaponType': weaponType,
             'itemType': 'Skin',
           };
-          map[uuid] = levelInfo;
-          map[uuid.toLowerCase()] = levelInfo;
-          final raw = uuid.replaceAll('-', '').toLowerCase();
-          if (raw.isNotEmpty) map[raw] = levelInfo;
+          map[skinUuid] = skinInfo;
+          map[skinUuid.toLowerCase()] = skinInfo;
+          final raw = skinUuid.replaceAll('-', '').toLowerCase();
+          if (raw.isNotEmpty) map[raw] = skinInfo;
+        }
+
+        // Also index by each chroma UUID
+        for (final chroma in chromas) {
+          final cuuid = chroma['uuid'] as String?;
+          if (cuuid != null && !map.containsKey(cuuid)) {
+            final chromaInfo = {
+              'displayName': chroma['displayName'] ?? skin['displayName'],
+              'displayIcon':
+                  chroma['displayIcon'] ?? chroma['fullRender'] ?? bestIcon,
+              'skinName': skin['displayName'],
+              'skinUuid': skin['uuid'],
+              'themeUuid': skin['themeUuid'],
+              'contentTierUuid': skin['contentTierUuid'],
+              'wallpaper': skin['wallpaper'],
+              'chromas': skin['chromas'],
+              'levels': skin['levels'],
+              'weaponType': weaponType,
+              'itemType': 'Skin',
+            };
+            map[cuuid] = chromaInfo;
+            map[cuuid.toLowerCase()] = chromaInfo;
+            final raw = cuuid.replaceAll('-', '').toLowerCase();
+            if (raw.isNotEmpty) map[raw] = chromaInfo;
+          }
         }
       }
-
-      // Also index by base skin UUID (useful for bundles & loadouts that reference skin UUID)
-      if (skinUuid != null) {
-        final skinInfo = {
-          'displayName': skin['displayName'],
-          'displayIcon': bestIcon,
-          'skinName': skin['displayName'],
-          'skinUuid': skin['uuid'],
-          'themeUuid': skin['themeUuid'],
-          'contentTierUuid': skin['contentTierUuid'],
-          'wallpaper': skin['wallpaper'],
-          'chromas': skin['chromas'],
-          'levels': skin['levels'],
-          'weaponType': weaponType,
-          'itemType': 'Skin',
-        };
-        map[skinUuid] = skinInfo;
-        map[skinUuid.toLowerCase()] = skinInfo;
-        final raw = skinUuid.replaceAll('-', '').toLowerCase();
-        if (raw.isNotEmpty) map[raw] = skinInfo;
-      }
-
-      // Also index by each chroma UUID
-      for (final chroma in chromas) {
-        final cuuid = chroma['uuid'] as String?;
-        if (cuuid != null && !map.containsKey(cuuid)) {
-          final chromaInfo = {
-            'displayName': chroma['displayName'] ?? skin['displayName'],
-            'displayIcon': chroma['displayIcon'] ?? chroma['fullRender'] ?? bestIcon,
-            'skinName': skin['displayName'],
-            'skinUuid': skin['uuid'],
-            'themeUuid': skin['themeUuid'],
-            'contentTierUuid': skin['contentTierUuid'],
-            'wallpaper': skin['wallpaper'],
-            'chromas': skin['chromas'],
-            'levels': skin['levels'],
-            'weaponType': weaponType,
-            'itemType': 'Skin',
-          };
-          map[cuuid] = chromaInfo;
-          map[cuuid.toLowerCase()] = chromaInfo;
-          final raw = cuuid.replaceAll('-', '').toLowerCase();
-          if (raw.isNotEmpty) map[raw] = chromaInfo;
-        }
-      }
-    }
 
       _memorySkinLevelsMap = map;
       await cache.setJson(CacheStorage.keySkinMetadata, map);
@@ -328,14 +330,10 @@ class ValorantAssets {
     final results = await Future.wait([
       getSkinLevelsMap(forceRefresh: forceRefresh)
           .catchError((_) => <String, dynamic>{}),
-      getBuddiesMap()
-          .catchError((_) => <String, dynamic>{}),
-      getPlayerCardsMap()
-          .catchError((_) => <String, dynamic>{}),
-      getSpraysMap()
-          .catchError((_) => <String, dynamic>{}),
-      getPlayerTitlesMap()
-          .catchError((_) => <String, dynamic>{}),
+      getBuddiesMap().catchError((_) => <String, dynamic>{}),
+      getPlayerCardsMap().catchError((_) => <String, dynamic>{}),
+      getSpraysMap().catchError((_) => <String, dynamic>{}),
+      getPlayerTitlesMap().catchError((_) => <String, dynamic>{}),
     ]);
 
     final skinMap = results[0];
@@ -400,9 +398,8 @@ class ValorantAssets {
     // Merge spray entries
     sprayMap.forEach((uuid, value) {
       if (value is Map) {
-        final icon = value['displayIcon'] ??
-            value['fullIcon'] ??
-            value['animationPng'];
+        final icon =
+            value['displayIcon'] ?? value['fullIcon'] ?? value['animationPng'];
         final entry = {
           'displayName': value['displayName'],
           'skinName': value['displayName'],
@@ -801,8 +798,6 @@ class ValorantAssets {
     }
   }
 
-
-
   // ── Seasons ────────────────────────────────────────────────────────────────
 
   /// Returns the active episode and act display names as a map:
@@ -903,7 +898,9 @@ class ValorantAssets {
       if (cached != null) {
         return Map<String, Map<String, dynamic>>.from(cached.map((k, v) =>
             MapEntry(
-                k, Map<String, dynamic>.from(v is Map ? v : <String, dynamic>{}))));
+                k,
+                Map<String, dynamic>.from(
+                    v is Map ? v : <String, dynamic>{}))));
       }
     }
 
@@ -950,9 +947,8 @@ class ValorantAssets {
                   episodesByUuid[parentUuid.toLowerCase()])
               : null;
           final actLabel = _formatSeasonLabel(type, name);
-          fullLabel = episodeLabel != null
-              ? '$episodeLabel // $actLabel'
-              : actLabel;
+          fullLabel =
+              episodeLabel != null ? '$episodeLabel // $actLabel' : actLabel;
         } else if (_isEpisode(type)) {
           fullLabel = episodesByUuid[uuid] ?? name.toUpperCase();
         }
@@ -973,7 +969,9 @@ class ValorantAssets {
       if (cached != null) {
         return Map<String, Map<String, dynamic>>.from(cached.map((k, v) =>
             MapEntry(
-                k, Map<String, dynamic>.from(v is Map ? v : <String, dynamic>{}))));
+                k,
+                Map<String, dynamic>.from(
+                    v is Map ? v : <String, dynamic>{}))));
       }
       return {};
     }

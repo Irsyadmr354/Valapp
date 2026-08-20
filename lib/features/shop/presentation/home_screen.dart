@@ -133,15 +133,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-
-
   Future<void> _checkAndTriggerWishlistAlerts(Storefront? storefront) async {
     if (storefront == null) return;
     final wishlist = ref.read(wishlistProvider).toSet();
     if (wishlist.isEmpty) return;
 
-    final skinMap =
-        await ref.read(valorantAssetsProvider).getSkinLevelsMap().catchError((_) => <String, dynamic>{});
+    final skinMap = await ref
+        .read(valorantAssetsProvider)
+        .getSkinLevelsMap()
+        .catchError((_) => <String, dynamic>{});
 
     final shopIdentity = storefront.dailyOffers
         .map((offer) => offer.skinLevelUuid)
@@ -157,7 +157,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         NotificationService.instance.showWishlistAlertOnce(
           shopIdentity: shopIdentity.join(','),
           skinId: offer.skinLevelUuid,
-          skinName: offer.displayName ?? meta?['skinName'] as String? ?? 'Wishlist Skin',
+          skinName: offer.displayName ??
+              meta?['skinName'] as String? ??
+              'Wishlist Skin',
           price: offer.price,
         );
       }
@@ -170,7 +172,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _checkAndTriggerWishlistAlerts(next.asData?.value);
     });
     ref.listen<List<String>>(wishlistProvider, (_, __) {
-      _checkAndTriggerWishlistAlerts(ref.read(_storefrontProvider).asData?.value);
+      _checkAndTriggerWishlistAlerts(
+          ref.read(_storefrontProvider).asData?.value);
     });
 
     final storefrontAsync = ref.watch(_storefrontProvider);
@@ -594,8 +597,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
       // Force background asset cache refresh on explicit user pull-to-refresh
       final assets = ref.read(valorantAssetsProvider);
-      unawaited(assets.getBundlesMap(forceRefresh: true).catchError((_) => <String, dynamic>{}));
-      unawaited(assets.getAllStoreItemsMap(forceRefresh: true).catchError((_) => <String, dynamic>{}));
+      unawaited(assets
+          .getBundlesMap(forceRefresh: true)
+          .catchError((_) => <String, dynamic>{}));
+      unawaited(assets
+          .getAllStoreItemsMap(forceRefresh: true)
+          .catchError((_) => <String, dynamic>{}));
 
       try {
         await ref.read(_storefrontProvider.future);
@@ -847,12 +854,12 @@ class _FeaturedBundleCard extends ConsumerWidget {
 
     final finalImageUrl = imageUrl;
 
-    final displayName = (bundle.displayName != null &&
-            bundle.displayName!.isNotEmpty)
-        ? bundle.displayName!
-        : (((bundleInfo?['displayName'] as String?)?.isNotEmpty == true)
-            ? (bundleInfo!['displayName'] as String)
-            : 'Featured Bundle');
+    final displayName =
+        (bundle.displayName != null && bundle.displayName!.isNotEmpty)
+            ? bundle.displayName!
+            : (((bundleInfo?['displayName'] as String?)?.isNotEmpty == true)
+                ? (bundleInfo!['displayName'] as String)
+                : 'Featured Bundle');
 
     // Calculate effective price if total discount cost is 0
     final effectiveDiscountedCost = bundle.totalDiscountedCost > 0
@@ -1147,10 +1154,12 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
             onPageChanged: (idx) => setState(() => _currentPage = idx),
             itemBuilder: (context, i) {
               final offer = widget.offers[i];
-              final meta = widget.skinMap?[offer.skinLevelUuid] as Map<String, dynamic>?;
+              final meta =
+                  widget.skinMap?[offer.skinLevelUuid] as Map<String, dynamic>?;
               final skinUuid = meta?['skinUuid'] as String?;
-              final inWishlist = widget.wishlist.contains(offer.skinLevelUuid) ||
-                  (skinUuid != null && widget.wishlist.contains(skinUuid));
+              final inWishlist =
+                  widget.wishlist.contains(offer.skinLevelUuid) ||
+                      (skinUuid != null && widget.wishlist.contains(skinUuid));
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),

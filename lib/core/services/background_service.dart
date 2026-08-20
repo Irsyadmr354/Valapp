@@ -12,8 +12,7 @@ import '../../features/auth/data/credentials_local_source.dart';
 import 'notification_service.dart';
 
 const String taskWishlistBackgroundCheck = 'valapp_background_wishlist_check';
-const String iosWishlistBackgroundTask =
-    'com.valapp.mobile.wishlist-refresh';
+const String iosWishlistBackgroundTask = 'com.valapp.mobile.wishlist-refresh';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {

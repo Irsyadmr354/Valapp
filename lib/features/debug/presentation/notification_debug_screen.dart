@@ -98,7 +98,8 @@ class _NotificationDebugScreenState
 
       if (wishlist.isEmpty) {
         if (mounted) {
-          setState(() => _lastResult = 'Wishlist kosong — tambahkan skin dulu.');
+          setState(
+              () => _lastResult = 'Wishlist kosong — tambahkan skin dulu.');
         }
         return;
       }
@@ -119,9 +120,7 @@ class _NotificationDebugScreenState
           skin['skinLevelUuid'] as String: skin['displayName'] as String,
       };
 
-      final matched = _mockShopIds
-          .where((id) => wishlist.contains(id))
-          .toList()
+      final matched = _mockShopIds.where((id) => wishlist.contains(id)).toList()
         ..sort();
 
       if (matched.isEmpty) {
@@ -147,9 +146,8 @@ class _NotificationDebugScreenState
         if (shown) notifiedCount++;
       }
 
-      final skinNames = matched
-          .map((id) => nameByLevelId[id] ?? id.substring(0, 8))
-          .toList();
+      final skinNames =
+          matched.map((id) => nameByLevelId[id] ?? id.substring(0, 8)).toList();
       await NotificationService.instance.showShopResetAlert(
         skinNames: skinNames,
         wishlistMatchCount: matched.length,
@@ -171,8 +169,7 @@ class _NotificationDebugScreenState
   Future<void> _testInstantNotification() async {
     setState(() => _lastResult = 'Sending test notification...');
     try {
-      final granted =
-          await NotificationService.instance.showTestNotification();
+      final granted = await NotificationService.instance.showTestNotification();
       if (mounted) {
         setState(() {
           _lastResult = granted == true
@@ -350,7 +347,8 @@ class _NotificationDebugScreenState
                     const SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: _resetDedupeLedger,
-                      child: const Text('RESET', style: TextStyle(fontSize: 11)),
+                      child:
+                          const Text('RESET', style: TextStyle(fontSize: 11)),
                     ),
                   ],
                 ),
@@ -371,7 +369,8 @@ class _NotificationDebugScreenState
                     decoration: InputDecoration(
                       hintText: 'Search skin...',
                       hintStyle: const TextStyle(color: Colors.white38),
-                      prefixIcon: const Icon(Icons.search, color: Colors.white38),
+                      prefixIcon:
+                          const Icon(Icons.search, color: Colors.white38),
                       filled: true,
                       fillColor: AppColors.bgCard2,
                       border: OutlineInputBorder(
@@ -422,8 +421,7 @@ class _NotificationDebugScreenState
             child: skinsAsync.when(
               data: (skins) {
                 final filtered = skins.where((skin) {
-                  final name =
-                      (skin['displayName'] as String).toLowerCase();
+                  final name = (skin['displayName'] as String).toLowerCase();
                   final weaponType = skin['weaponType'] as String? ?? '';
                   if (_searchQuery.isNotEmpty &&
                       !name.contains(_searchQuery.toLowerCase())) {

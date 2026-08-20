@@ -15,7 +15,8 @@ class DateTimeUtils {
   }
 
   /// Formats DateTime as 'MMM d, yyyy HH:mm' (e.g. 'Aug 16, 2026 16:04').
-  static String formatFullDateTime(DateTime? dateTime, {String fallback = 'Indefinite'}) {
+  static String formatFullDateTime(DateTime? dateTime,
+      {String fallback = 'Indefinite'}) {
     if (dateTime == null) return fallback;
     return _dateTime.format(dateTime);
   }

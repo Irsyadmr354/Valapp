@@ -35,7 +35,8 @@ class SecureStorage {
   static const keyRiotCookiesRaw = 'riot_cookies_raw';
 
   /// Generates a per-account secure storage key for Riot session cookies.
-  static String keyRiotCookiesFor(String puuid) => '${keyRiotCookiesRaw}_$puuid';
+  static String keyRiotCookiesFor(String puuid) =>
+      '${keyRiotCookiesRaw}_$puuid';
 
   /// Conservative estimate — Riot does not expose entitlement token TTL.
   /// Tune here if stale-400 errors persist after proactive refresh.
@@ -45,15 +46,20 @@ class SecureStorage {
 
   // ── Methods ─────────────────────────────────────────────────────────────────
 
+  /// Securely writes a [value] associated with [key].
   Future<void> write(String key, String value) =>
       _storage.write(key: key, value: value);
 
+  /// Securely reads a value associated with [key].
   Future<String?> read(String key) => _storage.read(key: key);
 
+  /// Securely deletes a specific [key].
   Future<void> delete(String key) => _storage.delete(key: key);
 
+  /// Wipes all items stored in secure storage.
   Future<void> deleteAll() => _storage.deleteAll();
 
+  /// Persists entitlement token expiry timestamp string.
   Future<void> writeEntitlementExpiry(DateTime expiresAt) => write(
         keyEntitlementExpiresAt,
         expiresAt.toIso8601String(),

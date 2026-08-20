@@ -20,7 +20,8 @@ void main() {
   });
 
   group('Match History Progressive & Instant Cache Tests', () {
-    test('instant cache loading provides non-blocking 0ms history display', () async {
+    test('instant cache loading provides non-blocking 0ms history display',
+        () async {
       final transaction = storage.beginUserTransaction(testPuuid)!;
       final rawEntry = MatchHistoryEntry(
         matchId: 'match-alpha-101',
@@ -39,7 +40,8 @@ void main() {
         matches: [rawEntry],
       );
 
-      await historyCache.saveHistory(initialResult, puuid: testPuuid, transaction: transaction);
+      await historyCache.saveHistory(initialResult,
+          puuid: testPuuid, transaction: transaction);
 
       final cached = await historyCache.loadHistory(puuid: testPuuid);
       expect(cached, isNotNull);
@@ -48,7 +50,9 @@ void main() {
       expect(cached.matches.first.queueId, equals('competitive'));
     });
 
-    test('progressive in-place enrichment preserves core match info while adding stats', () async {
+    test(
+        'progressive in-place enrichment preserves core match info while adding stats',
+        () async {
       const baseEntry = MatchHistoryEntry(
         matchId: 'match-bravo-202',
         gameStartMillis: 1700000000000,
@@ -127,16 +131,38 @@ void main() {
           {'teamId': 'Red', 'won': false, 'roundsPlayed': 20, 'roundsWon': 7},
         ],
         'roundResults': [
-          {'roundNum': 0, 'winningTeam': 'Blue', 'roundResult': 'Elimination', 'roundCeremony': '', 'plantTime': 0, 'defuseTime': 0},
-          {'roundNum': 1, 'winningTeam': 'Blue', 'roundResult': 'Elimination', 'roundCeremony': '', 'plantTime': 0, 'defuseTime': 0},
-          {'roundNum': 2, 'winningTeam': 'Red', 'roundResult': 'Elimination', 'roundCeremony': '', 'plantTime': 0, 'defuseTime': 0},
+          {
+            'roundNum': 0,
+            'winningTeam': 'Blue',
+            'roundResult': 'Elimination',
+            'roundCeremony': '',
+            'plantTime': 0,
+            'defuseTime': 0
+          },
+          {
+            'roundNum': 1,
+            'winningTeam': 'Blue',
+            'roundResult': 'Elimination',
+            'roundCeremony': '',
+            'plantTime': 0,
+            'defuseTime': 0
+          },
+          {
+            'roundNum': 2,
+            'winningTeam': 'Red',
+            'roundResult': 'Elimination',
+            'roundCeremony': '',
+            'plantTime': 0,
+            'defuseTime': 0
+          },
         ],
       };
 
       await detailCache.saveMatchDetail('match-charlie-303', matchDetailJson,
           puuid: testPuuid, transaction: transaction);
 
-      final rawDetail = await detailCache.loadMatchDetailRaw('match-charlie-303', puuid: testPuuid);
+      final rawDetail = await detailCache
+          .loadMatchDetailRaw('match-charlie-303', puuid: testPuuid);
       expect(rawDetail, isNotNull);
 
       final details = MatchDetails.fromJson(rawDetail!);

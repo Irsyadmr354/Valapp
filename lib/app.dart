@@ -241,50 +241,55 @@ class _BottomNav extends StatelessWidget {
               final tab = tabs[i];
               final isSelected = i == currentIndex;
               return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onTap(i),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: isSelected
-                            ? const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 4)
-                            : EdgeInsets.zero,
-                        decoration: isSelected
-                            ? BoxDecoration(
-                                color: AppColors.red.withAlpha(35),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: AppColors.red.withAlpha(130),
-                                  width: 1,
-                                ),
-                              )
-                            : null,
-                        child: Icon(
-                          isSelected ? tab.$3 : tab.$2,
-                          size: 22,
-                          color: isSelected
-                              ? AppColors.red
-                              : const Color(0xFF5C6B7A),
+                child: Semantics(
+                  button: true,
+                  selected: isSelected,
+                  label: tab.$4,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onTap(i),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: isSelected
+                              ? const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 4)
+                              : EdgeInsets.zero,
+                          decoration: isSelected
+                              ? BoxDecoration(
+                                  color: AppColors.red.withAlpha(35),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: AppColors.red.withAlpha(130),
+                                    width: 1,
+                                  ),
+                                )
+                              : null,
+                          child: Icon(
+                            isSelected ? tab.$3 : tab.$2,
+                            size: 22,
+                            color: isSelected
+                                ? AppColors.red
+                                : const Color(0xFF5C6B7A),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        tab.$4,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight:
-                              isSelected ? FontWeight.w800 : FontWeight.w500,
-                          color: isSelected
-                              ? AppColors.red
-                              : const Color(0xFF5C6B7A),
-                          letterSpacing: isSelected ? 0.4 : 0,
+                        const SizedBox(height: 3),
+                        Text(
+                          tab.$4,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight:
+                                isSelected ? FontWeight.w800 : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF5C6B7A),
+                            letterSpacing: isSelected ? 0.4 : 0,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );

@@ -8,17 +8,23 @@ import 'package:valorant_app/shared/utils/error_classifier.dart';
 
 void main() {
   group('ErrorClassifier Tests', () {
-    test('classifies TokenExpiredException and InvalidSessionException as authPermanent', () {
-      expect(classifyError(const TokenExpiredException()), ErrorCategory.authPermanent);
-      expect(classifyError(const InvalidSessionException()), ErrorCategory.authPermanent);
+    test(
+        'classifies TokenExpiredException and InvalidSessionException as authPermanent',
+        () {
+      expect(classifyError(const TokenExpiredException()),
+          ErrorCategory.authPermanent);
+      expect(classifyError(const InvalidSessionException()),
+          ErrorCategory.authPermanent);
     });
 
     test('classifies TransientReauthException as authTransient', () {
-      expect(classifyError(const TransientReauthException()), ErrorCategory.authTransient);
+      expect(classifyError(const TransientReauthException()),
+          ErrorCategory.authTransient);
     });
 
     test('classifies RateLimitedException and 429 as rateLimit', () {
-      expect(classifyError(const RateLimitedException()), ErrorCategory.rateLimit);
+      expect(
+          classifyError(const RateLimitedException()), ErrorCategory.rateLimit);
       expect(
         classifyError(
           DioException(
@@ -89,7 +95,9 @@ void main() {
       );
     });
 
-    test('classifies unexpected 400 or other errors as unknown rather than auth', () {
+    test(
+        'classifies unexpected 400 or other errors as unknown rather than auth',
+        () {
       expect(
         classifyError(
           DioException(
@@ -103,7 +111,8 @@ void main() {
         ),
         ErrorCategory.unknown,
       );
-      expect(classifyError(const FormatException('bad format')), ErrorCategory.unknown);
+      expect(classifyError(const FormatException('bad format')),
+          ErrorCategory.unknown);
     });
   });
 }

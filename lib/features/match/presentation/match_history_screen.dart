@@ -42,8 +42,11 @@ final _agentsMapProvider =
 
 class MatchHistoryNotifier
     extends AutoDisposeAsyncNotifier<CachedFetchResult<MatchHistoryResult>?> {
+  int _enrichmentGeneration = 0;
+
   @override
   Future<CachedFetchResult<MatchHistoryResult>?> build() async {
+    final gen = ++_enrichmentGeneration;
     final creds = await ref.watch(currentCredentialsProvider.future);
     if (creds == null) return null;
     final queue = ref.watch(_queueFilterProvider);
@@ -69,7 +72,8 @@ class MatchHistoryNotifier
             queue: queue, puuid: creds.puuid, transaction: transaction);
       }
     } catch (_) {
-      final cached = await historyCache.loadHistory(queue: queue, puuid: creds.puuid);
+      final cached =
+          await historyCache.loadHistory(queue: queue, puuid: creds.puuid);
       if (cached != null) {
         result = cached;
         fromCache = true;
@@ -100,6 +104,7 @@ class MatchHistoryNotifier
       source: source,
       detailCache: detailCache,
       transaction: transaction,
+      generation: gen,
     );
 
     return initialResult;
@@ -157,6 +162,7 @@ class MatchHistoryNotifier
     required MatchRemoteSource source,
     required MatchDetailLocalCache detailCache,
     required CacheTransaction? transaction,
+    required int generation,
   }) async {
     final failedIds = ref.read(_failedEnrichmentIdsProvider);
     // Enrich top 12 unenriched matches to provide fast responsiveness
@@ -174,6 +180,7 @@ class MatchHistoryNotifier
 
     const batchSize = 3;
     for (var i = 0; i < missing.length; i += batchSize) {
+      if (_enrichmentGeneration != generation) return;
       if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) return;
       final batch = missing.skip(i).take(batchSize).toList();
       bool batchUpdated = false;
@@ -203,7 +210,8 @@ class MatchHistoryNotifier
             final scoreStr = details.scoreStringForPlayer(creds.puuid);
             final sorted = List<PlayerStats>.from(details.players)
               ..sort((a, b) => b.score.compareTo(a.score));
-            final isMvp = sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
+            final isMvp =
+                sorted.isNotEmpty && sorted.first.puuid == creds.puuid;
 
             final updatedEntry = entry.copyWithStats(
               kills: player.kills,
@@ -224,6 +232,7 @@ class MatchHistoryNotifier
       }));
 
       // Update state incrementally per batch so user sees results appear smoothly without reload
+      if (_enrichmentGeneration != generation) return;
       if (batchUpdated &&
           ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
         final currentVal = state.asData?.value;

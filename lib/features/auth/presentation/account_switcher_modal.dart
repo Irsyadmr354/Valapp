@@ -325,8 +325,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                     tooltip: 'Hapus Akun',
                                     onPressed: () async {
                                       final nav = Navigator.of(context);
-                                      final confirmed =
-                                          await showDialog<bool>(
+                                      final confirmed = await showDialog<bool>(
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           backgroundColor:
@@ -362,11 +361,9 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                           actions: [
                                             TextButton(
                                               onPressed: () =>
-                                                  Navigator.of(ctx)
-                                                      .pop(false),
+                                                  Navigator.of(ctx).pop(false),
                                               style: TextButton.styleFrom(
-                                                foregroundColor:
-                                                    Colors.white54,
+                                                foregroundColor: Colors.white54,
                                               ),
                                               child: const Text(
                                                 'BATAL',
@@ -380,17 +377,15 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                               onPressed: () =>
                                                   Navigator.of(ctx).pop(true),
                                               style: FilledButton.styleFrom(
-                                                backgroundColor:
-                                                    AppColors.red,
+                                                backgroundColor: AppColors.red,
                                                 shape: RoundedRectangleBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(
-                                                          8),
+                                                      BorderRadius.circular(8),
                                                 ),
-                                                padding: const EdgeInsets
-                                                    .symmetric(
-                                                    horizontal: 20,
-                                                    vertical: 10),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 20,
+                                                        vertical: 10),
                                               ),
                                               child: const Text(
                                                 'HAPUS',

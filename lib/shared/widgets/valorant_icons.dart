@@ -23,7 +23,8 @@ class ValorantContentTierUrls {
   static const ultra = ValorantContentTiers.ultraCdnUrl;
   static const exclusive = ValorantContentTiers.exclusiveCdnUrl;
 
-  static String? forUuid(String? uuid) => ValorantContentTiers.cdnUrlForUuid(uuid);
+  static String? forUuid(String? uuid) =>
+      ValorantContentTiers.cdnUrlForUuid(uuid);
 }
 
 // ── Gambar 2: Valorant Points (VP) Icon ─────────────────────────────────────
@@ -31,7 +32,8 @@ class ValorantContentTierUrls {
 /// Official Valorant Points (VP) Icon (Gambar 2).
 /// Displays the official Riot PNG asset with a pixel-perfect CustomPainter vector fallback.
 class VpIcon extends StatelessWidget {
-  const VpIcon({super.key, this.size = 14, this.color = const Color(0xFF00F0FF)});
+  const VpIcon(
+      {super.key, this.size = 14, this.color = const Color(0xFF00F0FF)});
 
   final double size;
   final Color color;
@@ -46,7 +48,8 @@ class VpIcon extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.contain,
-        placeholder: (_, __) => CustomPaint(painter: VpIconPainter(color: color)),
+        placeholder: (_, __) =>
+            CustomPaint(painter: VpIconPainter(color: color)),
         errorWidget: (_, __, ___) =>
             CustomPaint(painter: VpIconPainter(color: color)),
       ),
@@ -108,7 +111,8 @@ class VpIconPainter extends CustomPainter {
 /// Official Kingdom Credits (KC) Icon (Gambar 3).
 /// Displays the official Riot PNG asset with a pixel-perfect CustomPainter vector fallback.
 class KcIcon extends StatelessWidget {
-  const KcIcon({super.key, this.size = 14, this.color = const Color(0xFF10B981)});
+  const KcIcon(
+      {super.key, this.size = 14, this.color = const Color(0xFF10B981)});
 
   final double size;
   final Color color;
@@ -123,7 +127,8 @@ class KcIcon extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.contain,
-        placeholder: (_, __) => CustomPaint(painter: KcIconPainter(color: color)),
+        placeholder: (_, __) =>
+            CustomPaint(painter: KcIconPainter(color: color)),
         errorWidget: (_, __, ___) =>
             CustomPaint(painter: KcIconPainter(color: color)),
       ),
@@ -150,7 +155,8 @@ class KcIconPainter extends CustomPainter {
 
     // Tilted rounded card border
     final cardRect = Rect.fromLTWH(w * 0.08, h * 0.18, w * 0.84, h * 0.64);
-    final cardRRect = RRect.fromRectAndRadius(cardRect, Radius.circular(w * 0.15));
+    final cardRRect =
+        RRect.fromRectAndRadius(cardRect, Radius.circular(w * 0.15));
 
     final borderPaint = Paint()
       ..color = color
@@ -200,7 +206,8 @@ class KcIconPainter extends CustomPainter {
 
 /// Official Radianite Points (RP) Icon.
 class RpIcon extends StatelessWidget {
-  const RpIcon({super.key, this.size = 14, this.color = const Color(0xFFFF9900)});
+  const RpIcon(
+      {super.key, this.size = 14, this.color = const Color(0xFFFF9900)});
 
   final double size;
   final Color color;
@@ -215,7 +222,8 @@ class RpIcon extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.contain,
-        placeholder: (_, __) => CustomPaint(painter: RpIconPainter(color: color)),
+        placeholder: (_, __) =>
+            CustomPaint(painter: RpIconPainter(color: color)),
         errorWidget: (_, __, ___) =>
             CustomPaint(painter: RpIconPainter(color: color)),
       ),

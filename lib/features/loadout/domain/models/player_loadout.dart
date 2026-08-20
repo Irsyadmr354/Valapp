@@ -82,9 +82,7 @@ class PlayerLoadout {
   /// Shared by [playerCardArtProvider] and [AuthRepository.resolveAndSaveMetadata]
   /// to avoid duplicating the `Loadout → Identity → PlayerCardID` extraction.
   static String? extractPlayerCardId(Map<String, dynamic> raw) {
-    final root = raw.containsKey('Loadout')
-        ? _asMap(raw['Loadout'])
-        : raw;
+    final root = raw.containsKey('Loadout') ? _asMap(raw['Loadout']) : raw;
     final identity = _asMap(root['Identity'] ?? raw['Identity']);
     return identity['PlayerCardID'] as String? ??
         root['PlayerCardID'] as String? ??

@@ -77,11 +77,10 @@ class FeaturedBundle {
         final itemObj = e['Item'] as Map?;
         final offerObj = e['Offer'] as Map?;
         final rewards = offerObj?['Rewards'] as List<dynamic>?;
-        final rewardId = (rewards != null &&
-                rewards.isNotEmpty &&
-                rewards.first is Map)
-            ? rewards.first['ItemID']?.toString()
-            : null;
+        final rewardId =
+            (rewards != null && rewards.isNotEmpty && rewards.first is Map)
+                ? rewards.first['ItemID']?.toString()
+                : null;
         final id = itemObj?['ItemID']?.toString() ??
             e['ItemID']?.toString() ??
             rewardId ??
@@ -389,8 +388,8 @@ class Storefront {
       if (bundlesList != null && bundlesList.isNotEmpty) {
         for (final b in bundlesList.whereType<Map>()) {
           try {
-            featuredBundles.add(
-                FeaturedBundle.fromJson(Map<String, dynamic>.from(b)));
+            featuredBundles
+                .add(FeaturedBundle.fromJson(Map<String, dynamic>.from(b)));
           } catch (_) {}
         }
       } else if (fbJson['Bundle'] != null && fbJson['Bundle'] is Map) {

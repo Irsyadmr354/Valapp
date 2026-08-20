@@ -2,6 +2,9 @@
 class ValorantHeaders {
   ValorantHeaders._();
 
+  static const riotClientUserAgent =
+      'RiotClient/60.0.6.4770705.4749685 rso-auth (Windows;10;;Professional, x64)';
+
   /// Standard base64 Client Platform payload expected by Riot Games API endpoints:
   /// {"platformType": "PC", "platformOS": "Windows", "platformOSVersion": "10.0.19042.1.256.64bit", "platformChipset": "Unknown"}
   static const clientPlatform =

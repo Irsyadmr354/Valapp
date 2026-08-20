@@ -106,8 +106,7 @@ class AuthRepository {
 
     await _local.save(
       creds,
-      displayName:
-          (realName != null && realName.isNotEmpty) ? realName : null,
+      displayName: (realName != null && realName.isNotEmpty) ? realName : null,
       playerCardId: cardId,
       avatarUrl: avatarUrl,
     );
@@ -169,7 +168,8 @@ class AuthRepository {
     final expiresIn = int.parse(tokens['expires_in']!);
     final refreshedPuuid = AuthRemoteSource.extractPuuid(accessToken);
     if (refreshedPuuid != old.puuid) {
-      debugPrint('[AuthRepo] Reauth returned a token for another account — purging stale cookies');
+      debugPrint(
+          '[AuthRepo] Reauth returned a token for another account — purging stale cookies');
       try {
         await WebViewCookieManager().clearCookies();
       } catch (_) {}
@@ -220,8 +220,32 @@ class AuthRepository {
     return creds;
   }
 
+  /// Extracts and persists session cookies per-account to SecureStorage.
+  Future<void> saveSessionCookies(String puuid, String cookiesRaw) async {
+    final filteredCookies =
+        cookiesRaw.split(';').map((c) => c.trim()).where((c) {
+      final lower = c.toLowerCase();
+      return lower.startsWith('ssid=') ||
+          lower.startsWith('clid=') ||
+          lower.startsWith('sub=') ||
+          lower.startsWith('csid=') ||
+          lower.startsWith('tdid=') ||
+          lower.startsWith('asid=') ||
+          lower.startsWith('pbe_');
+    }).join('; ');
+
+    final toSave = filteredCookies.isNotEmpty ? filteredCookies : cookiesRaw;
+    if (toSave.isNotEmpty && toSave != 'null') {
+      await SecureStorage.instance.write(
+        SecureStorage.keyRiotCookiesFor(puuid),
+        toSave,
+      );
+      debugPrint(
+          '[AuthRepo] Saved Riot session cookies per-account to Keychain');
+    }
+  }
+
   // ── Logout ─────────────────────────────────────────────────────────────────
 
   Future<void> logout() => _local.clear();
 }
-

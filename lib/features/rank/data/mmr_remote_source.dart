@@ -20,8 +20,22 @@ class MmrRemoteSource {
     );
   }
 
-  List<CompetitiveUpdate> parseCompetitiveUpdates(Map<String, dynamic> data) =>
-      _parseCompetitiveUpdates(data);
+  Future<List<CompetitiveUpdate>> fetchCompetitiveUpdates(
+    String shard,
+    String puuid, {
+    int startIndex = 0,
+    int endIndex = 20,
+  }) async {
+    final raw = await fetchCompetitiveUpdatesRaw(
+      shard,
+      puuid,
+      startIndex: startIndex,
+      endIndex: endIndex,
+    );
+    final list = parseCompetitiveUpdates(raw);
+    await _cacheMatchMaps(list);
+    return list;
+  }
 
   Future<Map<String, dynamic>> fetchCompetitiveUpdatesRaw(
     String shard,
@@ -43,21 +57,27 @@ class MmrRemoteSource {
         source: url, lists: ['Matches']);
   }
 
-  List<CompetitiveUpdate> _parseCompetitiveUpdates(Map<String, dynamic> data) {
+  List<CompetitiveUpdate> parseCompetitiveUpdates(Map<String, dynamic> data) {
     final matches = data['Matches'];
     if (matches is! List) return const [];
-    final list = matches
+    return matches
         .whereType<Map>()
         .map((e) => CompetitiveUpdate.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+  }
 
+  Future<void> _cacheMatchMaps(List<CompetitiveUpdate> list) async {
+    final futures = <Future<void>>[];
     for (final update in list) {
       final mapId = update.mapId;
       if (update.matchId.isNotEmpty && mapId != null && mapId.isNotEmpty) {
-        CacheStorage.instance.saveMatchMap(update.matchId, mapId);
+        futures.add(CacheStorage.instance.saveMatchMap(update.matchId, mapId));
       }
     }
-
-    return list;
+    if (futures.isNotEmpty) {
+      try {
+        await Future.wait(futures);
+      } catch (_) {}
+    }
   }
 }

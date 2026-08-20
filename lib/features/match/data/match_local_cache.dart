@@ -54,7 +54,8 @@ class MatchHistoryLocalCache {
     try {
       return MatchHistoryResult.fromJson(Map<String, dynamic>.from(value));
     } catch (e) {
-      debugPrint('[MatchHistoryLocalCache] Error parsing cached MatchHistoryResult: $e');
+      debugPrint(
+          '[MatchHistoryLocalCache] Error parsing cached MatchHistoryResult: $e');
       all.remove(_cacheKey(queue));
       if (all.isEmpty) {
         await _cache.remove(

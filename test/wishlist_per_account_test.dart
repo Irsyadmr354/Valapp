@@ -40,10 +40,12 @@ void main() {
       expect(await cache.getWishlist(puuidB), ['skin-common']);
     });
 
-    test('migrates legacy un-namespaced wishlist to active user on first read', () async {
+    test('migrates legacy un-namespaced wishlist to active user on first read',
+        () async {
       await cache.clearAll();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(CacheStorage.keyWishlist, ['legacy-skin-1', 'legacy-skin-2']);
+      await prefs.setStringList(
+          CacheStorage.keyWishlist, ['legacy-skin-1', 'legacy-skin-2']);
       await cache.setActiveSession(puuidA);
 
       // Read for puuidA when its namespaced key is empty
@@ -51,7 +53,8 @@ void main() {
       expect(listA, ['legacy-skin-1', 'legacy-skin-2']);
 
       final namespacedKey = CacheStorage.wishlistKeyFor(puuidA);
-      expect(prefs.getStringList(namespacedKey), ['legacy-skin-1', 'legacy-skin-2']);
+      expect(prefs.getStringList(namespacedKey),
+          ['legacy-skin-1', 'legacy-skin-2']);
     });
   });
 }

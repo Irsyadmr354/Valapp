@@ -254,12 +254,6 @@ class CredentialsLocalSource {
     String? avatarUrl,
   }) async {
     final changesAccount = _cache != null && _cache.activePuuid != creds.puuid;
-    if (changesAccount) {
-      // Close the old generation before committing new credentials. If the
-      // secure write fails, cache scope remains closed instead of claiming a
-      // session that was never persisted.
-      await _cache.setActiveSession('', clearPrevious: true);
-    }
 
     _validateProfileMetadata(
       displayName: displayName,
@@ -355,6 +349,7 @@ class CredentialsLocalSource {
       final profiles = await getSavedAccounts();
       profiles.removeWhere((p) => p.puuid == puuid);
       await _saveProfiles(profiles);
+      await _cache?.clearUserCache(puuid: puuid);
 
       // If active account was removed, switch to the next available one
       final currentPuuid = (await load())?.puuid;

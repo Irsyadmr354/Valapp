@@ -82,8 +82,9 @@ class SilentWebviewReauth {
               final uri = Uri.tryParse(url);
               if (uri != null && OAuthFlow.isRedirectUri(uri)) return;
               if (!completer.isCompleted) {
+                final safeHost = uri?.host ?? 'unknown-host';
                 debugPrint(
-                    '[SilentReauth] WebView error: ${err.description} (url: $url)');
+                    '[SilentReauth] WebView resource error on $safeHost: ${err.description}');
                 completer.completeError(
                   TransientReauthException('WebView error: ${err.description}'),
                 );
@@ -129,7 +130,7 @@ class SilentWebviewReauth {
               }
             }
             debugPrint(
-                '[SilentReauth] Restored Riot session cookies for account $puuid into WKWebView');
+                '[SilentReauth] Restored Riot session cookies into WKWebView');
           }
         } catch (e) {
           debugPrint('[SilentReauth] Non-fatal cookie restoration warning: $e');
@@ -172,6 +173,9 @@ class SilentWebviewReauth {
     } finally {
       overlayEntry?.remove();
       overlayEntry = null;
+      try {
+        _controller?.loadRequest(Uri.parse('about:blank'));
+      } catch (_) {}
       _controller = null; // Release reference after completion
     }
   }

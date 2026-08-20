@@ -36,13 +36,15 @@ class NotificationService {
     final androidImpl = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (androidImpl != null) {
-      await androidImpl.createNotificationChannel(const AndroidNotificationChannel(
+      await androidImpl
+          .createNotificationChannel(const AndroidNotificationChannel(
         _wishlistChannelId,
         'Wishlist Alerts',
         description: 'Alerts when your wishlisted skin appears in the shop',
         importance: Importance.max,
       ));
-      await androidImpl.createNotificationChannel(const AndroidNotificationChannel(
+      await androidImpl
+          .createNotificationChannel(const AndroidNotificationChannel(
         _shopChannelId,
         'Shop Reset',
         description: 'Notification when your daily shop resets',
@@ -61,7 +63,8 @@ class NotificationService {
 
     final iosImpl = _notifications.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
-    final iosGranted = await iosImpl?.requestPermissions(alert: true, badge: true, sound: true);
+    final iosGranted = await iosImpl?.requestPermissions(
+        alert: true, badge: true, sound: true);
 
     return iosGranted ?? androidGranted;
   }

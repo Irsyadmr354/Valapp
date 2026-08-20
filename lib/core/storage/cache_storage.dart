@@ -199,6 +199,7 @@ class CacheStorage {
     await prefs.setString(key, DateTime.now().toIso8601String());
   }
 
+  /// Checks if a cache entry identified by [timestampKey] is older than [maxAge].
   Future<bool> isStale(String timestampKey, Duration maxAge) async {
     final prefs = await _getPrefs();
     final raw = prefs.getString(timestampKey);
@@ -211,6 +212,7 @@ class CacheStorage {
     }
   }
 
+  /// Returns the per-user wishlist key for a given [puuid].
   static String wishlistKeyFor(String puuid) => userKeyFor(keyWishlist, puuid);
 
   String _resolveWishlistKey([String? puuid]) {
@@ -222,6 +224,7 @@ class CacheStorage {
     return keyWishlist;
   }
 
+  /// Gets the wishlist skin IDs for [puuid] (or the currently active user).
   Future<List<String>> getWishlist([String? puuid]) async {
     final prefs = await _getPrefs();
     final key = _resolveWishlistKey(puuid);
@@ -239,12 +242,14 @@ class CacheStorage {
     return list ?? [];
   }
 
+  /// Sets the wishlist skin IDs for [puuid] (or the currently active user).
   Future<void> setWishlist(List<String> skinIds, [String? puuid]) async {
     final prefs = await _getPrefs();
     final key = _resolveWishlistKey(puuid);
     await prefs.setStringList(key, skinIds);
   }
 
+  /// Adds a skin ID to the user's wishlist under an asynchronous lock.
   Future<void> addToWishlist(String skinId, [String? puuid]) {
     return AsyncLock.run('wishlist', () async {
       final list = await getWishlist(puuid);
@@ -255,6 +260,7 @@ class CacheStorage {
     });
   }
 
+  /// Removes a skin ID from the user's wishlist under an asynchronous lock.
   Future<void> removeFromWishlist(String skinId, [String? puuid]) {
     return AsyncLock.run('wishlist', () async {
       final list = await getWishlist(puuid);
@@ -267,12 +273,14 @@ class CacheStorage {
 
   static const keyMatchMapCache = 'match_map_cache';
 
+  /// Loads the cached mapping between match IDs and map asset IDs.
   Future<Map<String, String>> getMatchMaps() async {
     final cached = await getJson(keyMatchMapCache);
     if (cached == null) return {};
     return cached.map((k, v) => MapEntry(k, v.toString()));
   }
 
+  /// Persists a match ID to map asset ID mapping in cache under an async lock.
   Future<void> saveMatchMap(String matchId, String mapId) async {
     if (matchId.isEmpty || mapId.isEmpty) return;
     await AsyncLock.run('cache_match_map', () async {
@@ -284,6 +292,7 @@ class CacheStorage {
 
   // ── Remove ─────────────────────────────────────────────────────────────────
 
+  /// Removes a specific key from shared preferences.
   Future<void> remove(String key) async {
     final prefs = await _getPrefs();
     await prefs.remove(key);

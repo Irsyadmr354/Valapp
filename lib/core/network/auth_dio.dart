@@ -2,8 +2,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
-const _riotUserAgent =
-    'RiotClient/60.0.6.4770705.4749685 rso-auth (Windows;10;;Professional, x64)';
+import 'valorant_headers.dart';
 
 /// Creates a [Dio] instance dedicated to `auth.riotgames.com` requests.
 /// - Attaches the required Riot User-Agent header on every request.
@@ -16,7 +15,7 @@ Dio createAuthDio(CookieJar cookieJar) {
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       headers: {
-        'User-Agent': _riotUserAgent,
+        'User-Agent': ValorantHeaders.riotClientUserAgent,
         'Content-Type': 'application/json',
       },
       // Do NOT follow redirects — we need to read location headers ourselves.

@@ -20,8 +20,7 @@ class MatchRemoteSource {
       'endIndex': endIndex,
       if (queue != null && queue.isNotEmpty) 'queue': queue,
     };
-    final url =
-        '${RiotEndpoints.pd(shard)}/match-history/v1/history/$puuid';
+    final url = '${RiotEndpoints.pd(shard)}/match-history/v1/history/$puuid';
     final response = await _dio.get<dynamic>(url, queryParameters: params);
     final data = ApiResponseDecoder.decodeMap(response.data, source: url);
     return ApiResponseDecoder.requireShape(
@@ -34,8 +33,7 @@ class MatchRemoteSource {
 
   Future<Map<String, dynamic>> fetchMatchDetailsRaw(
       String shard, String matchId) async {
-    final url =
-        '${RiotEndpoints.pd(shard)}/match-details/v1/matches/$matchId';
+    final url = '${RiotEndpoints.pd(shard)}/match-details/v1/matches/$matchId';
     final response = await _dio.get<dynamic>(url);
     final raw = ApiResponseDecoder.decodeMap(response.data, source: url);
     ApiResponseDecoder.requireShape(
@@ -46,7 +44,10 @@ class MatchRemoteSource {
     );
     final details = MatchDetails.fromJson(raw);
     if (details.matchInfo.mapId.isNotEmpty) {
-      CacheStorage.instance.saveMatchMap(matchId, details.matchInfo.mapId);
+      try {
+        await CacheStorage.instance
+            .saveMatchMap(matchId, details.matchInfo.mapId);
+      } catch (_) {}
     }
     return raw;
   }
