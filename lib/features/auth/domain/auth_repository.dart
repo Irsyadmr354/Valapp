@@ -14,7 +14,7 @@ import '../../profile/data/account_remote_source.dart';
 
 /// Orchestrates the full RSO auth flow and token lifecycle.
 class AuthRepository {
-  const AuthRepository({
+  AuthRepository({
     required AuthRemoteSource remoteSource,
     required CredentialsLocalSource localSource,
   })  : _remote = remoteSource,
@@ -22,6 +22,16 @@ class AuthRepository {
 
   final AuthRemoteSource _remote;
   final CredentialsLocalSource _local;
+
+  /// In-flight reauth future shared by ALL reauth entry points (interceptor
+  /// reactive path, ensureValidSession proactive path, session reconnect).
+  ///
+  /// Deduplicating HERE — at the result level — is critical: callers each own
+  /// a different [OAuthAttempt] (state/nonce), so sharing the raw redirect URL
+  /// across callers (the old SilentWebviewReauth dedup) made every caller but
+  /// the first fail state validation. Sharing final [Credentials] instead is
+  /// always correct regardless of which attempt produced them.
+  Future<Credentials>? _reauthInFlight;
 
   Future<Credentials> completeLoginFromRedirectUrl(
     String redirectUrl,
@@ -132,11 +142,28 @@ class AuthRepository {
 
   /// Refreshes tokens silently using Dio HTTP cookie reauth (primary - ultra fast)
   /// or WebView session cookies (fallback).
-  Future<Credentials> reauth() async {
+  ///
+  /// Concurrent callers share ONE in-flight reauth and receive the same fresh
+  /// [Credentials] — no duplicate round-trips, no cross-attempt state mismatch.
+  Future<Credentials> reauth() {
+    final existing = _reauthInFlight;
+    if (existing != null) {
+      debugPrint('[AuthRepo] Reauth already in flight — joining shared attempt');
+      return existing;
+    }
+    final operation = _doReauth();
+    final guarded = operation.whenComplete(() {
+      if (identical(_reauthInFlight, operation)) _reauthInFlight = null;
+    });
+    _reauthInFlight = operation;
+    return guarded;
+  }
+
+  Future<Credentials> _doReauth() async {
     final old = await _local.load();
     if (old == null) throw const TokenExpiredException();
 
-    String? uri;
+    String uri;
     final attempt = OAuthAttempt.create();
 
     // PRIMARY: WebView-based silent reauth — uses shared OS native cookie store (WKWebsiteDataStore / CookieManager)
@@ -148,7 +175,20 @@ class AuthRepository {
 
       // FALLBACK: Dio HTTP cookie reauth
       try {
-        uri = await _remote.cookieReauth(attempt);
+        final result = await _remote.cookieReauth(attempt);
+        uri = result.$1;
+        // H4 mitigation: upgrade the per-account cookie backup with the
+        // fresh Set-Cookie headers. HTTP clients see HttpOnly cookies that
+        // WebView's document.cookie cannot — this is how backups gain a
+        // complete, valid `ssid` over time without native platform channels.
+        final merged = mergeSetCookieHeaders(result.$2);
+        if (merged.isNotEmpty) {
+          try {
+            await saveSessionCookies(old.puuid, merged);
+          } catch (e2) {
+            debugPrint('[AuthRepo] Cookie backup upgrade warning: $e2');
+          }
+        }
       } catch (e2) {
         debugPrint('[AuthRepo] Dio cookie reauth also failed: $e2');
         if (e is InvalidSessionException || e2 is InvalidSessionException) {
@@ -243,6 +283,22 @@ class AuthRepository {
       debugPrint(
           '[AuthRepo] Saved Riot session cookies per-account to Keychain');
     }
+  }
+
+  /// Extracts `name=value` pairs from raw `Set-Cookie` header lines.
+  /// Per RFC 6265 the name=value pair is ALWAYS the segment before the first
+  /// ';' — attributes (Path/Domain/Expires/HttpOnly/SameSite/…) follow and are
+  /// dropped. Output is a ';'-joined string compatible with
+  /// [saveSessionCookies]'s prefix filter.
+  static String mergeSetCookieHeaders(Iterable<String> headers) {
+    final pairs = <String>{};
+    for (final header in headers) {
+      final first = header.split(';').first.trim();
+      if (first.isEmpty || !first.contains('=')) continue;
+      if (first.split('=').first.trim().isEmpty) continue;
+      pairs.add(first);
+    }
+    return pairs.join('; ');
   }
 
   // ── Logout ─────────────────────────────────────────────────────────────────

@@ -40,7 +40,7 @@ ErrorCategory classifyError(Object error) {
     return ErrorCategory.rateLimit;
   }
   if (error is ApiException) {
-    if (error.statusCode == 401 || error.statusCode == 403) {
+    if (error.statusCode == 401) {
       return ErrorCategory.authPermanent;
     }
     if (error.statusCode == 429) {
@@ -51,12 +51,16 @@ ErrorCategory classifyError(Object error) {
   // 3. Dio Exceptions
   if (error is DioException) {
     final status = error.response?.statusCode;
-    if (status == 401 || status == 403) {
+    if (status == 401) {
       return ErrorCategory.authPermanent;
     }
     if (status == 429) {
       return ErrorCategory.rateLimit;
     }
+    // NOTE: 403 is intentionally NOT classified as authPermanent — Riot also
+    // uses 403 for IP-blocks / geo-blocks / rate-limiting variants. Wiping or
+    // demanding re-login for those would be wrong; the interceptor has already
+    // attempted one token refresh before the error reaches this classifier.
     if (_isNetworkDio(error)) {
       return ErrorCategory.network;
     }

@@ -12,3 +12,19 @@ library;
 /// the edge case of exactly 1% discount. This helper always multiplies by 100
 /// and rounds, which is correct for the fractional format Riot uses.
 int discountPercent(double value) => (value * 100).round();
+
+/// Normalises a raw discount value from ANY Riot endpoint into 0–100 percent.
+///
+/// Endpoint formats differ in the wild:
+/// - `TotalDiscountPercent` (featured bundles) is consistently a FRACTION ≤ 1.0;
+/// - `DiscountPercent` (night-market BonusStore offers) has been observed BOTH
+///   as a whole-number percent (e.g. `22`) and as a fraction depending on
+///   rotation/region payloads.
+///
+/// Rule: values > 1 can only mean "already a percent" (a fraction cannot
+/// exceed 1.0); anything else is treated as a fraction and scaled ×100.
+/// This keeps both endpoint shapes correct through a single code path.
+int normalizeDiscountPercent(num value) {
+  final v = value.toDouble();
+  return v > 1 ? v.round() : (v * 100).round();
+}

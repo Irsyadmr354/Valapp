@@ -265,10 +265,14 @@ class StoreRepository {
       );
     }).toList();
 
-    // Enrich Night Market
+    // Enrich Night Market — must try the SAME three key variants as the
+    // daily-offer/bundle lookups above, otherwise skins whose metadata is
+    // indexed under the stripped-dash key silently fail to enrich.
     final enrichedNightMarket = storefront.nightMarket.map((nm) {
       final meta = skinMap[nm.skinLevelUuid] as Map<String, dynamic>? ??
-          skinMap[nm.skinLevelUuid.toLowerCase()] as Map<String, dynamic>?;
+          skinMap[nm.skinLevelUuid.toLowerCase()] as Map<String, dynamic>? ??
+          skinMap[nm.skinLevelUuid.replaceAll('-', '').toLowerCase()]
+              as Map<String, dynamic>?;
       return nm.copyWith(
         skinName: meta?['skinName'] as String?,
         skinIcon: meta?['displayIcon'] as String?,

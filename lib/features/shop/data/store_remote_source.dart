@@ -17,8 +17,12 @@ class StoreRemoteSource {
         data: {},
       );
       return _validateStorefront(response.data, 'storefront v3');
-    } catch (_) {
-      // Fallback: storefront v2
+    } on DioException catch (e) {
+      // Fallback to v2 ONLY when v3 is gone (404) or method not allowed (405).
+      // Swallowing auth/rate-limit/network errors here would mask the root
+      // cause and burn a second request against the same broken session.
+      final status = e.response?.statusCode;
+      if (status != 404 && status != 405) rethrow;
       final response = await _dio.post<dynamic>(
         '$pdBase/store/v2/storefront/$puuid',
         data: {},

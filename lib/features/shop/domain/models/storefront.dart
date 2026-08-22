@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../shared/utils/price_utils.dart' as price_utils;
 import 'skin_offer.dart';
 import 'wallet.dart';
 
@@ -202,7 +203,7 @@ class NightMarketOffer {
 
     final rawDiscount = (json['DiscountPercent'] as num?)?.toDouble() ?? 0.0;
     final discountPercent =
-        rawDiscount > 1 ? rawDiscount.round() : (rawDiscount * 100).round();
+        price_utils.normalizeDiscountPercent(rawDiscount);
 
     return NightMarketOffer(
       offerId:

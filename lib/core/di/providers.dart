@@ -284,79 +284,124 @@ class SessionActions {
 
   final Ref _ref;
 
+  /// Restores saved Riot session cookies for [puuid] into the native
+  /// WebView cookie store. Caller must have cleared stale cookies first.
+  Future<void> _restoreWebViewCookies(String puuid) async {
+    try {
+      final savedRaw = await SecureStorage.instance.read(
+        SecureStorage.keyRiotCookiesFor(puuid),
+      );
+      if (savedRaw != null && savedRaw.isNotEmpty) {
+        final cookieMgr = WebViewCookieManager();
+        final pairs = savedRaw.split(';');
+        for (final pair in pairs) {
+          final parts = pair.split('=');
+          if (parts.length >= 2) {
+            final name = parts[0].trim();
+            final value = parts.sublist(1).join('=').trim();
+            if (name.isNotEmpty && value.isNotEmpty) {
+              await cookieMgr.setCookie(
+                WebViewCookie(
+                  name: name,
+                  value: value,
+                  domain: 'auth.riotgames.com',
+                  path: '/',
+                ),
+              );
+              await cookieMgr.setCookie(
+                WebViewCookie(
+                  name: name,
+                  value: value,
+                  domain: '.riotgames.com',
+                  path: '/',
+                ),
+              );
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Purges every cookie source so no previous account's session can leak
+  /// into a silent reauth for the new account.
+  Future<void> _purgeCookieStores() async {
+    try {
+      final jar = await _ref.read(cookieJarProvider.future);
+      await jar.deleteAll();
+    } catch (_) {}
+    // Clear native cookies BEFORE restoring the target's backup — otherwise a
+    // leftover `ssid` from the previous account can authenticate the WRONG
+    // account when the target has no stored backup.
+    try {
+      await WebViewCookieManager().clearCookies();
+    } catch (_) {}
+  }
+
+  /// Shared activation pipeline for explicit switches AND the auto-switch
+  /// after removing the active account: purge cookie stores → restore the
+  /// target's backup cookies → optional entitlement refresh → persist snapshot.
+  Future<void> _activateProfile(
+    SavedAccountProfile account,
+    CredentialsLocalSource local,
+  ) async {
+    await _purgeCookieStores();
+    await _restoreWebViewCookies(account.puuid);
+
+    var creds = account.credentials;
+    // If accessToken is still valid, proactively refresh entitlement token to sync with Riot PD
+    if (!creds.isExpired) {
+      try {
+        final authRepo = await _ref.read(authRepositoryProvider.future);
+        creds = await authRepo.refreshEntitlementOnly(creds);
+      } catch (e) {
+        debugPrint(
+            '[SessionActions] Proactive entitlement refresh warning: $e');
+      }
+    }
+
+    await local.save(
+      creds,
+      displayName: account.displayName,
+      playerCardId: account.playerCardId,
+      avatarUrl: account.avatarUrl,
+    );
+  }
+
   Future<void> switchAccount(SavedAccountProfile account) {
     return AsyncLock.run('active_session_action', () async {
       final local = _ref.read(credentialsLocalSourceProvider);
       final current = await local.load();
       if (current?.puuid == account.puuid) return;
 
-      // Purge HTTP in-memory cookie jar to prevent cookie bleed across accounts
-      try {
-        final jar = await _ref.read(cookieJarProvider.future);
-        await jar.deleteAll();
-      } catch (_) {}
-
-      // Restore saved Riot session cookies for target account into WKWebView if available
-      try {
-        final savedRaw = await SecureStorage.instance.read(
-          SecureStorage.keyRiotCookiesFor(account.puuid),
-        );
-        if (savedRaw != null && savedRaw.isNotEmpty) {
-          final cookieMgr = WebViewCookieManager();
-          final pairs = savedRaw.split(';');
-          for (final pair in pairs) {
-            final parts = pair.split('=');
-            if (parts.length >= 2) {
-              final name = parts[0].trim();
-              final value = parts.sublist(1).join('=').trim();
-              if (name.isNotEmpty && value.isNotEmpty) {
-                await cookieMgr.setCookie(
-                  WebViewCookie(
-                    name: name,
-                    value: value,
-                    domain: 'auth.riotgames.com',
-                    path: '/',
-                  ),
-                );
-                await cookieMgr.setCookie(
-                  WebViewCookie(
-                    name: name,
-                    value: value,
-                    domain: '.riotgames.com',
-                    path: '/',
-                  ),
-                );
-              }
-            }
-          }
-        }
-      } catch (_) {}
-
-      var creds = account.credentials;
-      // If accessToken is still valid, proactively refresh entitlement token to sync with Riot PD
-      if (!creds.isExpired) {
-        try {
-          final authRepo = await _ref.read(authRepositoryProvider.future);
-          creds = await authRepo.refreshEntitlementOnly(creds);
-        } catch (e) {
-          debugPrint(
-              '[SessionActions] Proactive entitlement refresh on switch warning: $e');
-        }
-      }
-
-      await local.save(
-        creds,
-        displayName: account.displayName,
-        playerCardId: account.playerCardId,
-        avatarUrl: account.avatarUrl,
-      );
+      await _activateProfile(account, local);
       invalidateSession();
     });
   }
 
   Future<void> removeAccount(String puuid) {
     return AsyncLock.run('active_session_action', () async {
-      await _ref.read(credentialsLocalSourceProvider).removeAccount(puuid);
+      final local = _ref.read(credentialsLocalSourceProvider);
+      final current = await local.load();
+      final wasActive = current?.puuid == puuid;
+      // Capture the next candidate BEFORE removal (list minus removed entry).
+      final remaining = (await local.getSavedAccounts())
+          .where((a) => a.puuid != puuid)
+          .toList();
+
+      // Tears down profile + caches; if it was active it also clears the
+      // active-session keys (activation of the next account happens below).
+      await local.removeAccount(puuid);
+
+      // Purge file-backed match details so removed accounts leave nothing
+      // behind on disk either.
+      try {
+        await _ref.read(matchDetailLocalCacheProvider).purgeAccount(puuid);
+      } catch (_) {}
+
+      if (wasActive && remaining.isNotEmpty) {
+        await _activateProfile(remaining.first, local);
+      }
       invalidateSession();
     });
   }

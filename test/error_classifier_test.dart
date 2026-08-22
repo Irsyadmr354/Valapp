@@ -39,7 +39,7 @@ void main() {
       );
     });
 
-    test('classifies 401 and 403 DioException as authPermanent', () {
+    test('classifies 401 DioException as authPermanent but NOT 403', () {
       expect(
         classifyError(
           DioException(
@@ -52,6 +52,8 @@ void main() {
         ),
         ErrorCategory.authPermanent,
       );
+      // Riot also returns 403 for IP-blocks / geo-blocks — demanding a
+      // re-login for those is wrong, so 403 must not be authPermanent.
       expect(
         classifyError(
           DioException(
@@ -62,7 +64,7 @@ void main() {
             ),
           ),
         ),
-        ErrorCategory.authPermanent,
+        isNot(ErrorCategory.authPermanent),
       );
     });
 

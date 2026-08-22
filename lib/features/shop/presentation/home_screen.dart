@@ -124,11 +124,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // If the storefront has already expired (e.g. past 07:00 WIB reset),
-      // allow CountdownTimer.onExpired to trigger _refresh(isScheduledRotation: true)
-      // with the full 2.5s propagation buffer instead of preempting it with 600ms.
       final storefront = ref.read(_storefrontProvider).asData?.value;
-      if (storefront != null && storefront.isExpired) return;
+      if (storefront != null && storefront.isExpired) {
+        // If the storefront has already expired (e.g. past 07:00 WIB reset),
+        // proactively trigger refresh with the rotation propagation buffer.
+        _refresh(isScheduledRotation: true);
+        return;
+      }
       _refresh();
     }
   }

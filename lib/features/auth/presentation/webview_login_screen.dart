@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/exceptions/auth_exception.dart';
+import '../../../core/network/native_cookie_reader.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../data/oauth_flow.dart';
 
@@ -148,11 +149,17 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
       // Invalidate credentials & session providers so router and UI pick up the new session
       ref.read(sessionActionsProvider).invalidateSession();
 
-      // Extract & save Riot session cookies into Keychain/SecureStorage per-account for resilient auto-reauth
+      // Extract & save Riot session cookies into Keychain/SecureStorage per-account
+      // for resilient auto-reauth. Preferred source is the NATIVE cookie store
+      // (includes HttpOnly `ssid` — see audit H4); JS document.cookie remains
+      // as a best-effort fallback for desktop/unsupported platforms.
       try {
-        final cookiesResult =
-            await _controller.runJavaScriptReturningResult('document.cookie');
-        final cookiesStr = cookiesResult.toString().replaceAll('"', '');
+        var cookiesStr = await NativeCookieReader.readRiotSessionCookies();
+        if (cookiesStr == null || cookiesStr.isEmpty) {
+          final jsResult =
+              await _controller.runJavaScriptReturningResult('document.cookie');
+          cookiesStr = jsResult.toString().replaceAll('"', '');
+        }
         if (cookiesStr.isNotEmpty && cookiesStr != 'null') {
           await repo.saveSessionCookies(creds.puuid, cookiesStr);
         }
@@ -188,7 +195,11 @@ class _WebViewLoginScreenState extends ConsumerState<WebViewLoginScreen> {
 
   @override
   void dispose() {
-    _controller.loadRequest(Uri.parse('about:blank'));
+    // about:blank teardown — the platform controller may already be released
+    // when the widget tree is destroyed mid-navigation, so swallow errors.
+    try {
+      _controller.loadRequest(Uri.parse('about:blank'));
+    } catch (_) {}
     super.dispose();
   }
 

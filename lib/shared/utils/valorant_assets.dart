@@ -15,6 +15,65 @@ class ValorantAssets {
     receiveTimeout: const Duration(seconds: 20),
   ));
 
+  // ── Compact metadata persistence ────────────────────────────────────────────
+  //
+  // Every metadata entry used to be serialized SEPARATELY under three key
+  // variants (exact, lowercased, stripped-dash) — including its full
+  // `chromas` + `levels` arrays each time. Disk blobs reached multiple MB and
+  // jsonEncode ran over all of it on every refresh.
+  //
+  // Compact format stores each entry ONCE under its canonical lowercased key
+  // (`{'_compact': 1, 'entries': {...}}`); variant keys are rebuilt on load.
+  // Callers' lookups always chain exact → toLowerCase → stripped-dash, so
+  // lowercase + stripped variants fully cover them.
+
+  /// Marks whether [raw] uses the compact on-disk format.
+  static bool _isCompact(Map<String, dynamic> raw) => raw['_compact'] != null;
+
+  /// Persists [map] in compact (deduplicated) form under [key].
+  static Future<void> _persistCompact(
+    CacheStorage cache,
+    String key,
+    Map<String, dynamic> map,
+  ) async {
+    final entries = <String, dynamic>{};
+    map.forEach((k, v) {
+      final canonical = k.toLowerCase();
+      entries.putIfAbsent(canonical, () => v);
+    });
+    await cache.setJson(key, {'_compact': 1, 'entries': entries});
+  }
+
+  /// Rebuilds the full lookup map (canonical + stripped-dash variants) from a
+  /// compact blob. Legacy plain-map blobs are returned untouched.
+  static Map<String, dynamic> _expandCompact(Map<String, dynamic> raw) {
+    if (!_isCompact(raw)) return raw;
+    final entries = raw['entries'];
+    final out = <String, dynamic>{};
+    if (entries is Map) {
+      entries.forEach((k, v) {
+        if (k is! String || v is! Map) return;
+        final entry = Map<String, dynamic>.from(v);
+        out[k] = entry;
+        final stripped = k.replaceAll('-', '');
+        if (stripped.isNotEmpty && !out.containsKey(stripped)) {
+          out[stripped] = entry;
+        }
+      });
+    }
+    return out;
+  }
+
+  /// Reads a metadata blob from [key], expanding compact form transparently.
+  static Future<Map<String, dynamic>?> _readExpanded(
+    CacheStorage cache,
+    String key,
+  ) async {
+    final raw = await cache.getJson(key);
+    if (raw == null) return null;
+    return _expandCompact(raw);
+  }
+
   // In-memory caches for fast, zero-lag synchronous access during app session
   Map<String, dynamic>? _memorySkinLevelsMap;
   Map<String, dynamic>? _memoryBundlesMap;
@@ -42,7 +101,7 @@ class ValorantAssets {
     );
 
     if (!forceRefresh && !isStale) {
-      final cached = await cache.getJson(CacheStorage.keySkinMetadata);
+      final cached = await _readExpanded(cache, CacheStorage.keySkinMetadata);
       if (cached != null && cached.isNotEmpty) {
         _memorySkinLevelsMap = cached;
         return cached;
@@ -165,11 +224,11 @@ class ValorantAssets {
       }
 
       _memorySkinLevelsMap = map;
-      await cache.setJson(CacheStorage.keySkinMetadata, map);
+      await _persistCompact(cache, CacheStorage.keySkinMetadata, map);
       await cache.setTimestamp(CacheStorage.keySkinMetadataFetchedAt);
       return map;
     } catch (_) {
-      final cached = await cache.getJson(CacheStorage.keySkinMetadata);
+      final cached = await _readExpanded(cache, CacheStorage.keySkinMetadata);
       if (cached != null && cached.isNotEmpty) {
         _memorySkinLevelsMap = cached;
         return cached;
@@ -319,7 +378,7 @@ class ValorantAssets {
       _cacheDuration,
     );
     if (!forceRefresh && !isStale) {
-      final cached = await cache.getJson(CacheStorage.keyUnifiedStoreItems);
+      final cached = await _readExpanded(cache, CacheStorage.keyUnifiedStoreItems);
       if (cached != null && cached.isNotEmpty) {
         _memoryUnifiedMap = cached;
         return cached;
@@ -429,13 +488,13 @@ class ValorantAssets {
 
     if (unified.isNotEmpty) {
       _memoryUnifiedMap = unified;
-      await cache.setJson(CacheStorage.keyUnifiedStoreItems, unified);
+      await _persistCompact(cache, CacheStorage.keyUnifiedStoreItems, unified);
       await cache.setTimestamp(CacheStorage.keyUnifiedStoreItemsFetchedAt);
       return unified;
     }
 
     final fallbackCached =
-        await cache.getJson(CacheStorage.keyUnifiedStoreItems);
+        await _readExpanded(cache, CacheStorage.keyUnifiedStoreItems);
     if (fallbackCached != null && fallbackCached.isNotEmpty) {
       _memoryUnifiedMap = fallbackCached;
       return fallbackCached;

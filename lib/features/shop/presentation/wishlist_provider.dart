@@ -18,6 +18,9 @@ class WishlistNotifier extends StateNotifier<List<String>> {
 
   Future<void> _load() async {
     await AsyncLock.run('wishlist_toggle', () async {
+      if (_puuid != null) {
+        await CacheStorage.instance.migrateLegacyWishlist(_puuid);
+      }
       final list = await CacheStorage.instance.getWishlist(_puuid);
       if (mounted) state = list;
     });
@@ -33,11 +36,14 @@ class WishlistNotifier extends StateNotifier<List<String>> {
       final current = await CacheStorage.instance.getWishlist(_puuid);
       if (current.contains(skinId)) {
         await CacheStorage.instance.removeFromWishlist(skinId, _puuid);
-        if (mounted) state = current.where((id) => id != skinId).toList();
       } else {
         await CacheStorage.instance.addToWishlist(skinId, _puuid);
-        if (mounted) state = [...current, skinId];
       }
+      // Sync the UI from the post-mutation canonical state — never from the
+      // pre-mutation snapshot, which could silently drop items another
+      // writer added between our read and write.
+      final fresh = await CacheStorage.instance.getWishlist(_puuid);
+      if (mounted) state = fresh;
     });
   }
 }

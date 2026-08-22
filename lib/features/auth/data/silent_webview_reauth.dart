@@ -25,10 +25,21 @@ class SilentWebviewReauth {
 
   /// Performs background silent token refresh using native WebView session cookies.
   /// Returns the redirect URI containing the fresh `access_token`.
+  ///
+  /// Concurrent callers do NOT share each other's redirect URL: every caller
+  /// owns a distinct [OAuthAttempt] (state/nonce), so returning another
+  /// caller's URL would fail its state validation. Instead, a new call waits
+  /// for any in-flight refresh to finish and then runs its OWN attempt.
   Future<String> refreshTokens(OAuthAttempt attempt, {String? puuid}) async {
-    final existing = _inFlight;
-    if (existing != null) return existing;
-
+    while (true) {
+      final existing = _inFlight;
+      if (existing == null) break;
+      try {
+        await existing;
+      } catch (_) {
+        // Predecessor failed — its slot is free; proceed with our own attempt.
+      }
+    }
     final operation = _doRefreshTokens(attempt, puuid: puuid);
     _inFlight = operation;
     try {
@@ -78,13 +89,28 @@ class SilentWebviewReauth {
             },
             onWebResourceError: (err) {
               final url = err.url ?? '';
-              // Ignore errors for the redirect URI — it's not a real page
               final uri = Uri.tryParse(url);
+              // Ignore errors for the redirect URI — it's not a real page
               if (uri != null && OAuthFlow.isRedirectUri(uri)) return;
+
+              // Ignore non-main-frame errors (subresources, analytics, fonts, trackers)
+              if (err.isForMainFrame == false) {
+                return;
+              }
+
+              // Ignore aborted / cancelled requests (caused by redirects or page transitions)
+              // -999 on iOS is NSURLErrorCancelled, -1 on Android is ERR_ABORTED
+              if (err.errorCode == -999 ||
+                  err.errorCode == -1 ||
+                  err.description.toLowerCase().contains('cancel') ||
+                  err.description.toLowerCase().contains('abort')) {
+                return;
+              }
+
               if (!completer.isCompleted) {
                 final safeHost = uri?.host ?? 'unknown-host';
                 debugPrint(
-                    '[SilentReauth] WebView resource error on $safeHost: ${err.description}');
+                    '[SilentReauth] WebView resource error on $safeHost: ${err.description} (code: ${err.errorCode})');
                 completer.completeError(
                   TransientReauthException('WebView error: ${err.description}'),
                 );

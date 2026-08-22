@@ -15,6 +15,11 @@ class RateLimitInterceptor extends Interceptor {
   /// after the current tail, so all requests execute in arrival order.
   Future<void> _tail = Future.value();
 
+  /// When the last request was dispatched. Used to compute the REMAINING
+  /// gap instead of imposing a fixed sleep — an idle client must not pay a
+  /// 500 ms tax on every single request.
+  DateTime _lastSentAt = DateTime.fromMillisecondsSinceEpoch(0);
+
   @override
   void onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
@@ -28,8 +33,12 @@ class RateLimitInterceptor extends Interceptor {
       // Wait for all preceding requests to finish their delay slots.
       await previous;
 
-      // Enforce the minimum inter-request gap.
-      await Future.delayed(_minInterval);
+      // Enforce only the REMAINING inter-request gap.
+      final elapsed = DateTime.now().difference(_lastSentAt);
+      if (elapsed < _minInterval) {
+        await Future.delayed(_minInterval - elapsed);
+      }
+      _lastSentAt = DateTime.now();
     } finally {
       // Release our slot so the next queued request can proceed.
       completer.complete();

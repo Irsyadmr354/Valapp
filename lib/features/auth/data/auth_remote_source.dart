@@ -62,7 +62,13 @@ class AuthRemoteSource {
 
   // ── Cookie Reauth ─────────────────────────────────────────────────────────
 
-  Future<String> cookieReauth(OAuthAttempt attempt) async {
+  /// Performs the silent Dio-cookie reauth round-trip.
+  ///
+  /// Returns `(redirectUri, rawSetCookieHeaders)`. The `Set-Cookie` headers
+  /// matter: unlike WebView's JS `document.cookie` (blocked by HttpOnly), an
+  /// HTTP client SEES every fresh cookie Riot rotates here — so the caller can
+  /// upgrade the per-account backup with a complete, valid session.
+  Future<(String, List<String>)> cookieReauth(OAuthAttempt attempt) async {
     late final Response<dynamic> response;
     try {
       response = await _authDio.get<dynamic>(
@@ -78,24 +84,27 @@ class AuthRemoteSource {
           'Reauthentication request failed: ${e.type.name}');
     }
 
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      throw const InvalidSessionException();
+    if (response.statusCode == 401 ||
+        response.statusCode == 403 ||
+        response.statusCode == null ||
+        response.statusCode! >= 400) {
+      throw TransientReauthException(
+          'Cookie reauth failed: HTTP ${response.statusCode}');
     }
-    if (response.statusCode == null || response.statusCode! >= 400) {
-      throw const TransientReauthException();
-    }
+
+    final setCookies = response.headers['set-cookie'] ?? const <String>[];
 
     final location = response.headers['location']?.first;
     if (location != null &&
         OAuthFlow.isRedirectUri(Uri.tryParse(location) ?? Uri())) {
-      return location;
+      return (location, setCookies);
     }
 
     if (response.data is Map) {
       final uri =
           (response.data as Map)['response']?['parameters']?['uri'] as String?;
       if (uri != null && OAuthFlow.isRedirectUri(Uri.tryParse(uri) ?? Uri())) {
-        return uri;
+        return (uri, setCookies);
       }
     }
 

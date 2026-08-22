@@ -75,6 +75,12 @@ class BackgroundShopChecker {
 
   static const _lastShopKey = 'background_last_shop_ids';
 
+  /// Install-level flag: set after the very first shop observation. The first
+  /// run after install/login establishes the baseline SILENTLY (no "shop
+  /// reset" spam), but any LATER new-shop observation — including the first
+  /// check for a freshly-switched account — still notifies.
+  static const _baselineSeenKey = 'background_shop_baseline_seen';
+
   Future<void> runCheck() async {
     final storage = SecureStorage.instance;
     final cache = CacheStorage.instance;
@@ -190,6 +196,7 @@ class BackgroundShopChecker {
     final lastOffers =
         (lastShopRaw?['ids'] as List<dynamic>?)?.cast<String>() ?? [];
     final isNewShop = !_setsEqual(offerIds.toSet(), lastOffers.toSet());
+    final baselineSeen = await cache.getString(_baselineSeenKey) != null;
     final sortedOfferIds = List<String>.from(offerIds)..sort();
     final shopIdentity = sortedOfferIds.join(',');
 
@@ -218,14 +225,21 @@ class BackgroundShopChecker {
         );
       }
 
-      final skinNames = offerIds
-          .map((id) =>
-              skinNameMap[id] ?? (id.length > 8 ? id.substring(0, 8) : id))
-          .toList();
-      await NotificationService.instance.showShopResetAlert(
-        skinNames: skinNames,
-        wishlistMatchCount: matchedOffers.length,
-      );
+      // Reset summary only when a baseline already existed — the very first
+      // observation after a fresh install is just establishing it.
+      if (baselineSeen) {
+        final skinNames = offerIds
+            .map((id) =>
+                skinNameMap[id] ?? (id.length > 8 ? id.substring(0, 8) : id))
+            .toList();
+        await NotificationService.instance.showShopResetAlert(
+          skinNames: skinNames,
+          wishlistMatchCount: matchedOffers.length,
+        );
+      } else {
+        await cache.setString(_baselineSeenKey,
+            DateTime.now().toIso8601String());
+      }
       // Save current offer IDs so we don't re-notify for same shop
       await cache.setJson(lastShopKey, {'ids': offerIds});
     }

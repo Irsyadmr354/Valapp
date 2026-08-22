@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../storage/cache_storage.dart';
 
@@ -152,13 +153,25 @@ class NotificationService {
       skinId: skinId,
     );
     if (!claimed) return false;
-    await showWishlistAlert(
-      skinName: skinName,
-      price: price,
-      skinId: skinId,
-      puuid: account,
-    );
-    return true;
+    try {
+      await showWishlistAlert(
+        skinName: skinName,
+        price: price,
+        skinId: skinId,
+        puuid: account,
+      );
+      return true;
+    } catch (e) {
+      // The claim was consumed but the alert never surfaced — roll the slot
+      // back so a later check can still notify for this rotation.
+      debugPrint('[NotificationService] Wishlist alert failed, rolling back claim: $e');
+      await CacheStorage.instance.rollbackWishlistNotificationClaim(
+        puuid: account,
+        shopIdentity: shopIdentity,
+        skinId: skinId,
+      );
+      return false;
+    }
   }
 
   // ── Daily shop reset notification ─────────────────────────────────────────

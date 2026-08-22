@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/exceptions/auth_exception.dart';
@@ -42,7 +41,12 @@ class ValorantInterceptor extends Interceptor {
 
   /// Shared Dio instance used when retrying a request after reauth.
   /// Created lazily and reused to avoid allocating a new instance per retry.
-  late final Dio _retryDio = Dio();
+  /// Timeouts mirror createApiDio — a bare Dio() would default to no timeout
+  /// and let a hung retry connection block forever.
+  late final Dio _retryDio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
 
   /// Tracks when we last ran the proactive reauth check so we don't re-read
   /// SecureStorage on every single API request. The check is skipped if it
@@ -61,27 +65,52 @@ class ValorantInterceptor extends Interceptor {
       RequestOptions options, RequestInterceptorHandler handler) async {
     try {
       await _maybeProactiveReauth();
-
-      final credentials = await _credentials.load();
-      final clientVersion = await _versionService.get();
-
-      if (credentials != null) {
-        options.headers['Authorization'] = 'Bearer ${credentials.accessToken}';
-        options.headers['X-Riot-Entitlements-JWT'] =
-            credentials.entitlementToken;
-      }
-      options.headers['X-Riot-ClientVersion'] = clientVersion;
-      options.headers['X-Riot-ClientPlatform'] = ValorantHeaders.clientPlatform;
-      if (options.data != null ||
-          (options.method.toUpperCase() != 'GET' &&
-              options.method.toUpperCase() != 'HEAD')) {
-        options.headers['Content-Type'] = 'application/json';
-      }
-    } catch (e) {
-      debugPrint('[ValorantInterceptor] Error injecting headers: $e');
+    } catch (_) {
+      // The proactive check logs and recovers internally; never let it
+      // block or crash the request pipeline.
     }
 
+    await _injectHeaders(options);
+
     handler.next(options);
+  }
+
+  /// Injects auth/version headers with ONE bounded retry.
+  ///
+  /// Previously any exception here was swallowed and the request continued
+  /// WITHOUT auth headers — guaranteeing a 401 and a needless full WebView
+  /// reauth round-trip for what is usually a transient platform-channel
+  /// hiccup while reading SecureStorage.
+  Future<void> _injectHeaders(RequestOptions options) async {
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final credentials = await _credentials.loadCached();
+        final clientVersion = await _versionService.get();
+
+        if (credentials != null) {
+          options.headers['Authorization'] =
+              'Bearer ${credentials.accessToken}';
+          options.headers['X-Riot-Entitlements-JWT'] =
+              credentials.entitlementToken;
+        }
+        options.headers['X-Riot-ClientVersion'] = clientVersion;
+        options.headers['X-Riot-ClientPlatform'] =
+            ValorantHeaders.clientPlatform;
+        if (options.data != null ||
+            (options.method.toUpperCase() != 'GET' &&
+                options.method.toUpperCase() != 'HEAD')) {
+          options.headers['Content-Type'] = 'application/json';
+        }
+        return;
+      } catch (e) {
+        if (attempt == 2) {
+          debugPrint(
+              '[ValorantInterceptor] Header injection failed after retry: $e');
+          return;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+    }
   }
 
   Future<void> _maybeProactiveReauth() async {
@@ -111,7 +140,7 @@ class ValorantInterceptor extends Interceptor {
   }
 
   Future<void> _checkAndMaybeReauth() async {
-    final credentials = await _credentials.load();
+    final credentials = await _credentials.loadCached();
     if (credentials == null) {
       _lastReauthCheckAt = DateTime.now();
       return;
@@ -221,8 +250,12 @@ class ValorantInterceptor extends Interceptor {
   bool _isLikelyAuthError(DioException err) {
     final data = err.response?.data;
     if (data != null) {
-      final body =
-          data is String ? data.toLowerCase() : jsonEncode(data).toLowerCase();
+      // toString() instead of jsonEncode: jsonEncode throws on non-encodable
+      // bodies, and an exception escaping this method inside onError would
+      // leave the handler unresolved (request hangs forever).
+      final body = data is String
+          ? data.toLowerCase()
+          : data.toString().toLowerCase();
 
       // Explicit non-auth error indicators returned by Riot API
       const nonAuthHints = [

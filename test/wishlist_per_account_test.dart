@@ -40,20 +40,29 @@ void main() {
       expect(await cache.getWishlist(puuidB), ['skin-common']);
     });
 
-    test('migrates legacy un-namespaced wishlist to active user on first read',
-        () async {
+    test('migrates legacy wishlist via explicit locked migrate call', () async {
       await cache.clearAll();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(
           CacheStorage.keyWishlist, ['legacy-skin-1', 'legacy-skin-2']);
       await cache.setActiveSession(puuidA);
 
-      // Read for puuidA when its namespaced key is empty
-      final listA = await cache.getWishlist(puuidA);
-      expect(listA, ['legacy-skin-1', 'legacy-skin-2']);
+      // getWishlist itself must NOT mutate during reads (it runs while the
+      // 'wishlist' lock is held by add/remove operations).
+      expect(await cache.getWishlist(puuidA), isEmpty);
+
+      // Bootstrap performs the one-time migration explicitly.
+      await cache.migrateLegacyWishlist(puuidA);
+      expect(await cache.getWishlist(puuidA), ['legacy-skin-1', 'legacy-skin-2']);
 
       final namespacedKey = CacheStorage.wishlistKeyFor(puuidA);
       expect(prefs.getStringList(namespacedKey),
+          ['legacy-skin-1', 'legacy-skin-2']);
+
+      // Migration is idempotent — legacy edits after migration don't leak in.
+      await prefs.setStringList(CacheStorage.keyWishlist, ['rogue-skin']);
+      await cache.migrateLegacyWishlist(puuidA);
+      expect(await cache.getWishlist(puuidA),
           ['legacy-skin-1', 'legacy-skin-2']);
     });
   });

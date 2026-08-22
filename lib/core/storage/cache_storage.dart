@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/async_lock.dart';
+import '../utils/cross_isolate_lock.dart';
 
 /// Lightweight cache using [SharedPreferences] for non-sensitive data
 /// (skin metadata, client version, last-fetch timestamps, etc.).
@@ -225,21 +226,30 @@ class CacheStorage {
   }
 
   /// Gets the wishlist skin IDs for [puuid] (or the currently active user).
+  ///
+  /// NOTE: no legacy migration here on purpose — [getWishlist] runs while the
+  /// 'wishlist' lock is already held by add/remove operations, and taking that
+  /// lock again would deadlock. Use [migrateLegacyWishlist] once during
+  /// wishlist bootstrap instead.
   Future<List<String>> getWishlist([String? puuid]) async {
     final prefs = await _getPrefs();
     final key = _resolveWishlistKey(puuid);
-    var list = prefs.getStringList(key);
+    return prefs.getStringList(key) ?? [];
+  }
 
-    // One-time auto migration from legacy global wishlist
-    if (list == null && key != keyWishlist) {
+  /// One-time copy of the legacy global wishlist into [puuid]'s namespace.
+  /// Runs under the 'wishlist' lock; call from wishlist UI bootstrap before
+  /// the first read.
+  Future<void> migrateLegacyWishlist(String puuid) {
+    return AsyncLock.run('wishlist', () async {
+      if (puuid.isEmpty) return;
+      final prefs = await _getPrefs();
+      final key = wishlistKeyFor(puuid);
+      if (prefs.getStringList(key) != null) return;
       final legacy = prefs.getStringList(keyWishlist);
-      if (legacy != null && legacy.isNotEmpty) {
-        list = List<String>.from(legacy);
-        await prefs.setStringList(key, list);
-      }
-    }
-
-    return list ?? [];
+      if (legacy == null || legacy.isEmpty) return;
+      await prefs.setStringList(key, List<String>.from(legacy));
+    });
   }
 
   /// Sets the wishlist skin IDs for [puuid] (or the currently active user).
@@ -314,6 +324,12 @@ class CacheStorage {
   /// Atomically claims a wishlist alert for a specific shop rotation.
   /// Foreground and background callers share this persisted ledger, so only
   /// the first caller is allowed to display the notification.
+  ///
+  /// Guarded by BOTH locks:
+  /// - [AsyncLock] 'wishlist_notification_dedupe' orders same-isolate callers,
+  /// - [CrossIsolateLock] excludes the workmanager isolate (audit H2), which
+  ///   otherwise could interleave read-modify-write cycles and duplicate
+  ///   notifications.
   Future<bool> claimWishlistNotification({
     required String puuid,
     required String shopIdentity,
@@ -322,23 +338,78 @@ class CacheStorage {
     if (puuid.isEmpty || shopIdentity.isEmpty || skinId.isEmpty) {
       return Future.value(false);
     }
-    return AsyncLock.run('wishlist_notification_dedupe', () async {
-      final key = userKeyFor(keyWishlistNotificationDedupe, puuid);
-      final ledger = await getJson(key) ?? <String, dynamic>{};
-      final previousShop = ledger['shopIdentity'] as String?;
-      final notified = previousShop == shopIdentity
-          ? (ledger['skinIds'] as List<dynamic>?)
-                  ?.whereType<String>()
-                  .toSet() ??
-              <String>{}
-          : <String>{};
-      if (notified.contains(skinId)) return false;
-      notified.add(skinId);
-      await setJson(key, {
-        'shopIdentity': shopIdentity,
-        'skinIds': notified.toList()..sort(),
-      });
-      return true;
+    return AsyncLock.run('wishlist_notification_dedupe', () {
+      return CrossIsolateLock.run(
+        'wishlist_claim_$puuid',
+        () => _claimWishlistNotificationInternal(
+          puuid: puuid,
+          shopIdentity: shopIdentity,
+          skinId: skinId,
+        ),
+      );
+    });
+  }
+
+  Future<bool> _claimWishlistNotificationInternal({
+    required String puuid,
+    required String shopIdentity,
+    required String skinId,
+  }) async {
+    final key = userKeyFor(keyWishlistNotificationDedupe, puuid);
+    final ledger = await getJson(key) ?? <String, dynamic>{};
+    final previousShop = ledger['shopIdentity'] as String?;
+    final notified = previousShop == shopIdentity
+        ? (ledger['skinIds'] as List<dynamic>?)?.whereType<String>().toSet() ??
+            <String>{}
+        : <String>{};
+    if (notified.contains(skinId)) return false;
+    notified.add(skinId);
+    await setJson(key, {
+      'shopIdentity': shopIdentity,
+      'skinIds': notified.toList()..sort(),
+    });
+    return true;
+  }
+
+  /// Rolls back a previously-claimed wishlist notification slot (e.g. the
+  /// OS notification could not actually be displayed). Only mutates the
+  /// ledger when it still belongs to [shopIdentity].
+  Future<void> rollbackWishlistNotificationClaim({
+    required String puuid,
+    required String shopIdentity,
+    required String skinId,
+  }) {
+    if (puuid.isEmpty || shopIdentity.isEmpty || skinId.isEmpty) {
+      return Future.value();
+    }
+    return AsyncLock.run('wishlist_notification_dedupe', () {
+      return CrossIsolateLock.run(
+        'wishlist_claim_$puuid',
+        () => _rollbackWishlistNotificationInternal(
+          puuid: puuid,
+          shopIdentity: shopIdentity,
+          skinId: skinId,
+        ),
+      );
+    });
+  }
+
+  Future<void> _rollbackWishlistNotificationInternal({
+    required String puuid,
+    required String shopIdentity,
+    required String skinId,
+  }) async {
+    final key = userKeyFor(keyWishlistNotificationDedupe, puuid);
+    final ledger = await getJson(key);
+    if (ledger == null) return;
+    if ((ledger['shopIdentity'] as String?) != shopIdentity) return;
+    final notified =
+        (ledger['skinIds'] as List<dynamic>?)?.whereType<String>().toSet() ??
+            <String>{};
+    notified.remove(skinId);
+    await setJson(key, {
+      'shopIdentity': shopIdentity,
+      'skinIds': notified.toList()..sort(),
     });
   }
 

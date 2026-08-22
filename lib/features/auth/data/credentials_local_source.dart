@@ -79,11 +79,38 @@ class SavedAccountProfile {
 
 /// Reads and writes [Credentials] and multi-account profiles to/from [SecureStorage].
 class CredentialsLocalSource {
-  const CredentialsLocalSource(this._storage, [this._cache]);
+  CredentialsLocalSource(this._storage, [this._cache]);
 
   final SecureStorage _storage;
   final CacheStorage? _cache;
   static const _keySavedAccounts = 'valapp_saved_accounts_v1';
+
+  /// Hot-path variant of [load] with a short instance-local memo (2 s).
+  ///
+  /// The network interceptor reads credentials TWICE per request (proactive
+  /// check + header injection); every read also JWT-decodes twice. This memo
+  /// collapses those into one storage read + decode per 2 s window without
+  /// changing [load] semantics anywhere else — mutation flows, tests, and
+  /// direct-storage writers keep exact freshness guarantees.
+  ///
+  /// A ≤2 s-stale view is safe here: a mid-window account switch makes the
+  /// next API call fail auth, and the reactive retry path re-reads via
+  /// [load] (always fresh) before sending.
+  Future<Credentials?> loadCached() async {
+    final memo = _hotMemo;
+    if (memo != null &&
+        DateTime.now().difference(_hotMemoAt) < hotMemoTtl) {
+      return memo;
+    }
+    final fresh = await load();
+    _hotMemo = fresh;
+    _hotMemoAt = DateTime.now();
+    return fresh;
+  }
+
+  Credentials? _hotMemo;
+  DateTime _hotMemoAt = DateTime.fromMillisecondsSinceEpoch(0);
+  static const hotMemoTtl = Duration(milliseconds: 2000);
 
   /// Returns [Credentials] if all required keys are present, otherwise null.
   Future<Credentials?> load() async {
@@ -126,6 +153,12 @@ class CredentialsLocalSource {
   /// Saves refreshed credentials only if the same session is still active.
   /// The comparison and write share the credentials lock, so an account switch
   /// cannot land between them and then be overwritten by an older reauth.
+  ///
+  /// Cross-isolate freshness guard (H2): the workmanager isolate can hold
+  /// tokens captured BEFORE the foreground completed a newer reauth for the
+  /// same account. Without this guard its late write would REGRESS the stored
+  /// `expiresAt`. Skipped-as-stale returns TRUE — the session is fine; a
+  /// fresher writer already handled persistence.
   Future<bool> saveIfCurrent(
     Credentials expected,
     Credentials updated,
@@ -134,6 +167,12 @@ class CredentialsLocalSource {
       final current = await load();
       if (current?.puuid != expected.puuid) {
         return false;
+      }
+      // Entitlement-only refreshes keep `expiresAt` unchanged (copyWith), so
+      // they still pass this guard via equality; full reauths always produce
+      // a strictly later expiry.
+      if (current != null && updated.expiresAt.isBefore(current.expiresAt)) {
+        return true;
       }
       await _saveInternal(updated);
       return true;
@@ -351,18 +390,22 @@ class CredentialsLocalSource {
       await _saveProfiles(profiles);
       await _cache?.clearUserCache(puuid: puuid);
 
-      // If active account was removed, switch to the next available one
+      // Also remove the removed account's per-user wishlist namespace —
+      // clearUserCache intentionally preserves wishlists on SWITCH, but a
+      // deleted account must not leave orphaned keys behind.
+      if (_cache != null && puuid.isNotEmpty) {
+        await _cache.remove(CacheStorage.wishlistKeyFor(puuid));
+      }
+
+      // If active account was removed, tear down its session entirely.
+      // Selecting & activating the next account is the CALLER's job
+      // (SessionActions) — it must also purge HTTP cookie jars / native
+      // WebView stores first, otherwise a stale-cookie silent reauth can
+      // resurrect the just-removed account and trip the puuid guard.
       final currentPuuid = (await load())?.puuid;
       await _storage.delete(SecureStorage.keyRiotCookiesFor(puuid));
       if (currentPuuid == puuid) {
-        if (profiles.isNotEmpty) {
-          // Use _saveInternal — NOT save() — to avoid nested lock deadlock.
-          // (AsyncLock is non-reentrant; calling save() here would wait forever.)
-          await _saveInternal(profiles.first.credentials,
-              displayName: profiles.first.displayName);
-        } else {
-          await clear();
-        }
+        await _clearActiveSessionKeysInternal(currentPuuid);
       }
     });
   }
@@ -390,8 +433,20 @@ class CredentialsLocalSource {
   /// saved accounts list intact so other accounts remain switchable.
   /// Call this when a single account's reauth fails permanently (Opsi A:
   /// also remove the failed account's entry from the saved list).
-  Future<void> clearActiveSessionOnly() async {
-    final currentPuuid = (await load())?.puuid;
+  ///
+  /// Serialized under the 'credentials_save' lock: without it, a concurrent
+  /// login/switch could write a fresh snapshot between our read and deletes,
+  /// and we would wipe a brand-new session.
+  Future<void> clearActiveSessionOnly() {
+    return AsyncLock.run('credentials_save', () async {
+      final currentPuuid = (await load())?.puuid;
+      await _clearActiveSessionKeysInternal(currentPuuid);
+    });
+  }
+
+  /// Core teardown of active-session keys. Runs INSIDE an existing
+  /// 'credentials_save' lock — do not wrap again (non-reentrant mutex).
+  Future<void> _clearActiveSessionKeysInternal(String? currentPuuid) async {
     await _cache?.setActiveSession('', clearPrevious: true);
     final deletes = <Future<void>>[
       _storage.delete(SecureStorage.keyAccessToken),
