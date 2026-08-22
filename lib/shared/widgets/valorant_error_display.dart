@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import '../utils/error_classifier.dart';
+import '../../core/utils/app_logger.dart';
 import 'valorant_icons.dart';
 
 /// Tactical Valorant Protocol Error Display Card.
@@ -35,6 +36,8 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
     try {
       await widget.onRetry();
       await Future<void>.delayed(const Duration(milliseconds: 600));
+    } catch (e, st) {
+      AppLogger.error('Retry failed', e, st);
     } finally {
       if (mounted) {
         setState(() => _isRetrying = false);
@@ -287,7 +290,7 @@ class _ValorantErrorDisplayState extends State<ValorantErrorDisplay> {
   }
 
   _ErrorDetail _parseError(Object error) {
-    final str = error.toString();
+    final str = AppLogger.sanitizeUrl(error.toString());
     final category = classifyError(error);
 
     switch (category) {

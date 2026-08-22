@@ -6,9 +6,49 @@ on:
   workflow_dispatch: # allow manual trigger from GitHub UI
 
 jobs:
+  verify:
+    name: Verify (analyze + test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+      - name: Get Flutter dependencies
+        run: flutter pub get
+      - name: Flutter analyze
+        run: flutter analyze
+      - name: Flutter test
+        run: flutter test --reporter compact
+
+  verify:
+    name: Verify (analyze + test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.8'
+          channel: 'stable'
+          cache: true
+      - name: Get Flutter dependencies
+        run: flutter pub get
+      - name: Flutter analyze
+        run: flutter analyze
+      - name: Flutter test
+        run: flutter test --reporter compact
+
   # ── iOS ────────────────────────────────────────────────────────────────────
   build-ios:
     name: Build iOS (unsigned IPA)
+    needs: verify (unsigned IPA)
+    needs: verify (unsigned IPA)
     runs-on: macos-latest
 
     steps:
@@ -50,6 +90,8 @@ jobs:
   # ── Android ────────────────────────────────────────────────────────────────
   build-android:
     name: Build Android APK (debug)
+    needs: verify
+    needs: verify
     runs-on: ubuntu-latest
 
     steps:

@@ -84,7 +84,9 @@ class AccountRemoteSource {
           data: puuids,
         );
         data = response.data;
-      } on DioException catch (_) {
+      } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status != 404 && status != 405) rethrow;
         final response = await _dio.post<dynamic>(
           '$pdBase/name-service/v3/players',
           data: puuids,

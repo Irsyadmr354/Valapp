@@ -2,6 +2,7 @@ import 'dart:convert';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../../../core/exceptions/auth_exception.dart';
+import '../../../core/utils/app_logger.dart';
 import '../../../core/utils/async_lock.dart';
 import '../domain/models/credentials.dart';
 import 'oauth_flow.dart';
@@ -366,19 +367,23 @@ class CredentialsLocalSource {
     if (raw == null || raw.isEmpty) return [];
     try {
       final list = jsonDecode(raw);
-      if (list is! List) return [];
+      if (list is! List) {
+        AppLogger.warn('Saved accounts JSON is not a list - returning empty');
+        return [];
+      }
       final profiles = <SavedAccountProfile>[];
       for (final value in list) {
         try {
           if (value is Map<String, dynamic>) {
             profiles.add(SavedAccountProfile.fromJson(value));
           }
-        } on FormatException {
-          // Keep valid accounts if one persisted profile is corrupt.
+        } on FormatException catch (e) {
+          AppLogger.warn('Skipping corrupt saved profile: $e');
         }
       }
       return profiles;
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.error('Failed to decode saved accounts', e, st);
       return [];
     }
   }

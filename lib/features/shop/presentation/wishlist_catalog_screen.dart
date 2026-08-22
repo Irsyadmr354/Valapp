@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
+import '../../../shared/constants/valorant_constants.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
@@ -99,10 +100,9 @@ bool _matchesWeaponId(String skinName, String weaponId,
 
 Color _getTierColor(String? tierUuid) {
   // Intentional: Premium uses AppColors.red in the catalog (brand consistency).
-  // All other tiers delegate to the shared TierColors utility.
-  const premiumUuidFragment = '60bca009';
-  if (tierUuid != null &&
-      tierUuid.toLowerCase().contains(premiumUuidFragment)) {
+  // All other tiers delegate to the shared TierColors utility. Premium is
+  // detected via the canonical kTierPrefixTable (no hard-coded prefix here).
+  if (ValorantContentTiers.infoByUuidPrefix(tierUuid)?.name == 'Premium') {
     return AppColors.red;
   }
   return TierColors.tierColorForUuid(tierUuid);
@@ -888,6 +888,7 @@ class _SkinCatalogGridCard extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
                         child: CachedNetworkImage(
                           imageUrl: iconUrl,
+                          memCacheWidth: 400,
                           fit: BoxFit.contain,
                           placeholder: (_, __) =>
                               const LoadingShimmer(height: 60),

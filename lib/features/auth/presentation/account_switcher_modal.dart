@@ -162,7 +162,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFFFF4655)),
+                    child: CircularProgressIndicator(color: AppColors.red),
                   )
                 : _savedAccounts.isEmpty
                     ? const Center(
@@ -206,7 +206,7 @@ class _AccountSwitcherModalState extends ConsumerState<AccountSwitcherModal> {
                                     decoration: BoxDecoration(
                                       color: isActive
                                           ? AppColors.red.withAlpha(40)
-                                          : const Color(0xFF070A10),
+                                          : AppColors.bgDeep,
                                       shape: BoxShape.circle,
                                       border: Border.all(
                                         color: isActive

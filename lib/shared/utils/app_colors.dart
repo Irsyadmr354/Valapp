@@ -43,6 +43,11 @@ class AppColors {
   static const Color borderAccent =
       Color(0xFF3A1A1E); // subtle red-tinted border
 
+  // ── Neutral grey / alt surfaces ────────────────────────────────────────────
+  static const Color mutedGrey = Color(0xFF6B7280); // inactive / disabled grey
+  static const Color borderAlt = Color(0xFF1F2937); // lighter alt border
+  static const Color bgDeep = Color(0xFF070A10); // deep scrim / backdrop
+
   // ── Gradients ──────────────────────────────────────────────────────────────
   static const LinearGradient redGradient = LinearGradient(
     colors: [red, redDark],

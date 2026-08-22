@@ -11,6 +11,7 @@ library;
 /// The previous guard `value > 1 ? value : value * 100` was ambiguous for
 /// the edge case of exactly 1% discount. This helper always multiplies by 100
 /// and rounds, which is correct for the fractional format Riot uses.
+@Deprecated('''Use normalizeDiscountPercent for all endpoints''')
 int discountPercent(double value) => (value * 100).round();
 
 /// Normalises a raw discount value from ANY Riot endpoint into 0–100 percent.

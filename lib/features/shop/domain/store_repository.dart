@@ -3,6 +3,7 @@ import '../data/store_remote_source.dart';
 import '../domain/models/storefront.dart';
 import '../domain/models/wallet.dart';
 import '../../../shared/utils/valorant_assets.dart';
+import '../../../shared/utils/uuid_lookup.dart';
 import '../../../core/storage/cache_storage.dart';
 
 class StoreRepository {
@@ -10,17 +11,22 @@ class StoreRepository {
     required StoreRemoteSource remoteSource,
     required StoreLocalCache localCache,
     required ValorantAssets assets,
+    CacheStorage? cacheStorage,
   })  : _remote = remoteSource,
         _cache = localCache,
-        _assets = assets;
+        _assets = assets,
+        _cacheStorage = cacheStorage;
 
   final StoreRemoteSource _remote;
   final StoreLocalCache _cache;
   final ValorantAssets _assets;
+  final CacheStorage? _cacheStorage;
+
+  CacheStorage get _effectiveCache => _cacheStorage ?? CacheStorage.instance;
 
   /// Fetches fresh storefront data, enriches skin metadata, and caches it.
   Future<Storefront> fetchStorefront(String shard, String puuid) async {
-    final transaction = CacheStorage.instance.beginUserTransaction(puuid);
+    final transaction = _effectiveCache.beginUserTransaction(puuid);
     final raw = await _remote.fetchStorefrontRaw(shard, puuid);
 
     // Stamp the fetch time into the raw map before caching so that
@@ -63,17 +69,11 @@ class StoreRepository {
 
     // Check if any active featured bundle or any of its items are missing from metadata cache.
     final hasUnknownBundle = storefront.featuredBundles.any((b) =>
-        b.bundleUuid.isNotEmpty &&
-        !bundleMap.containsKey(b.bundleUuid) &&
-        !bundleMap.containsKey(b.bundleUuid.toLowerCase()) &&
-        !bundleMap.containsKey(b.bundleUuid.replaceAll('-', '').toLowerCase()));
+        b.bundleUuid.isNotEmpty && lookupMap(bundleMap, b.bundleUuid) == null);
 
     final hasUnknownItems = storefront.featuredBundles.any((b) =>
         b.itemIds.isNotEmpty &&
-        b.itemIds.any((id) =>
-            !unifiedMap.containsKey(id) &&
-            !unifiedMap.containsKey(id.toLowerCase()) &&
-            !unifiedMap.containsKey(id.replaceAll('-', '').toLowerCase())));
+        b.itemIds.any((id) => lookupMap(unifiedMap, id) == null));
 
     if (hasUnknownBundle || hasUnknownItems) {
       bundleMap = await _assets
@@ -86,10 +86,7 @@ class StoreRepository {
 
     // Enrich daily offers
     final enrichedOffers = storefront.dailyOffers.map((offer) {
-      final meta = skinMap[offer.skinLevelUuid] as Map<String, dynamic>? ??
-          skinMap[offer.skinLevelUuid.toLowerCase()] as Map<String, dynamic>? ??
-          skinMap[offer.skinLevelUuid.replaceAll('-', '').toLowerCase()]
-              as Map<String, dynamic>?;
+      final meta = lookupMap(skinMap, offer.skinLevelUuid);
       return offer.copyWith(
         displayName:
             (meta?['skinName'] as String?) ?? (meta?['displayName'] as String?),
@@ -100,12 +97,7 @@ class StoreRepository {
 
     // Enrich all Featured Bundles
     final enrichedBundles = storefront.featuredBundles.map((bundle) {
-      final bundleMeta =
-          (bundleMap[bundle.bundleUuid] as Map<String, dynamic>?) ??
-              (bundleMap[bundle.bundleUuid.toLowerCase()]
-                  as Map<String, dynamic>?) ??
-              (bundleMap[bundle.bundleUuid.replaceAll('-', '').toLowerCase()]
-                  as Map<String, dynamic>?);
+      final bundleMeta = lookupMap(bundleMap, bundle.bundleUuid);
 
       String? bundleName = bundleMeta?['displayName'] as String?;
       String? bundleIcon = bundleMeta?['displayIcon'] as String?;
@@ -123,10 +115,7 @@ class StoreRepository {
         final detectedSkinNames = <String>[];
 
         for (final itemId in bundle.itemIds) {
-          final itemMeta = (unifiedMap[itemId] as Map<String, dynamic>?) ??
-              (unifiedMap[itemId.toLowerCase()] as Map<String, dynamic>?) ??
-              (unifiedMap[itemId.replaceAll('-', '').toLowerCase()]
-                  as Map<String, dynamic>?);
+          final itemMeta = lookupMap(unifiedMap, itemId);
 
           if (itemMeta != null) {
             final displayName = (itemMeta['displayName'] as String?) ??
@@ -269,10 +258,7 @@ class StoreRepository {
     // daily-offer/bundle lookups above, otherwise skins whose metadata is
     // indexed under the stripped-dash key silently fail to enrich.
     final enrichedNightMarket = storefront.nightMarket.map((nm) {
-      final meta = skinMap[nm.skinLevelUuid] as Map<String, dynamic>? ??
-          skinMap[nm.skinLevelUuid.toLowerCase()] as Map<String, dynamic>? ??
-          skinMap[nm.skinLevelUuid.replaceAll('-', '').toLowerCase()]
-              as Map<String, dynamic>?;
+      final meta = lookupMap(skinMap, nm.skinLevelUuid);
       return nm.copyWith(
         skinName: meta?['skinName'] as String?,
         skinIcon: meta?['displayIcon'] as String?,
@@ -291,7 +277,7 @@ class StoreRepository {
   }
 
   Future<Wallet> fetchWallet(String shard, String puuid) async {
-    final transaction = CacheStorage.instance.beginUserTransaction(puuid);
+    final transaction = _effectiveCache.beginUserTransaction(puuid);
     final wallet = await _remote.fetchWallet(shard, puuid);
     if (transaction != null) {
       await _cache.saveWallet(wallet, puuid: puuid, transaction: transaction);

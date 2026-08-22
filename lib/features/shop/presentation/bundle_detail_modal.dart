@@ -96,7 +96,7 @@ class BundleDetailModal extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFF4655),
+                                color: AppColors.red,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(

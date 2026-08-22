@@ -245,7 +245,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
       child: Row(
         children: [
-          Container(width: 3, height: 14, color: const Color(0xFFFF4655)),
+          Container(width: 3, height: 14, color: AppColors.red),
           const SizedBox(width: 8),
           Text(
             title.toUpperCase(),

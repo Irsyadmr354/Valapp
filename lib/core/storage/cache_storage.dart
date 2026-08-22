@@ -249,6 +249,12 @@ class CacheStorage {
       final legacy = prefs.getStringList(keyWishlist);
       if (legacy == null || legacy.isEmpty) return;
       await prefs.setStringList(key, List<String>.from(legacy));
+      // Tombstone legacy after first successful copy so subsequent new accounts
+      // do not inherit the same snapshot (which may be stale after the first
+      // account mutates its own wishlist). First-run-only behavior.
+      try {
+        await prefs.remove(keyWishlist);
+      } catch (_) {}
     });
   }
 

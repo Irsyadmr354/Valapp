@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import '../../../shared/utils/app_colors.dart';
 
 /// Fullscreen immersive video player for inspecting Valorant weapon skins,
 /// upgrade VFX, chroma variants, and finishers on iOS (iPhone) and Android.
@@ -429,11 +430,11 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF4655),
+                    color: AppColors.red,
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF4655).withAlpha(120),
+                        color: AppColors.red.withAlpha(120),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
@@ -495,7 +496,7 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CircularProgressIndicator(
-                        color: Color(0xFFFF4655),
+                        color: AppColors.red,
                         strokeWidth: 2.5,
                       ),
                       SizedBox(height: 14),
@@ -524,7 +525,7 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.error_outline_rounded,
-                          color: Color(0xFFFF4655), size: 48),
+                          color: AppColors.red, size: 48),
                       const SizedBox(height: 12),
                       const Text(
                         'Failed to load weapon video',
@@ -538,7 +539,7 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                       ElevatedButton.icon(
                         onPressed: _loadVideo,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF4655),
+                          backgroundColor: AppColors.red,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -657,12 +658,12 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                           height: 38,
                           decoration: BoxDecoration(
                             color: _isLandscape
-                                ? const Color(0xFFFF4655).withAlpha(200)
+                                ? AppColors.red.withAlpha(200)
                                 : Colors.black.withAlpha(160),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: _isLandscape
-                                  ? const Color(0xFFFF4655)
+                                  ? AppColors.red
                                   : Colors.white.withAlpha(50),
                               width: 1,
                             ),
@@ -733,7 +734,7 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                                 overlayShape: const RoundSliderOverlayShape(
                                   overlayRadius: 12,
                                 ),
-                                activeTrackColor: const Color(0xFFFF4655),
+                                activeTrackColor: AppColors.red,
                                 inactiveTrackColor: Colors.white24,
                                 thumbColor: Colors.white,
                               ),
@@ -830,12 +831,12 @@ class _SkinVideoScreenState extends State<SkinVideoScreen> {
                               decoration: BoxDecoration(
                                 color: _isMuted
                                     ? Colors.white.withAlpha(20)
-                                    : const Color(0xFFFF4655).withAlpha(60),
+                                    : AppColors.red.withAlpha(60),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: _isMuted
                                       ? Colors.white.withAlpha(30)
-                                      : const Color(0xFFFF4655),
+                                      : AppColors.red,
                                   width: 1,
                                 ),
                               ),

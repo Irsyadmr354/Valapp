@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -43,41 +44,72 @@ final _agentsMapProvider =
 class MatchHistoryNotifier
     extends AutoDisposeAsyncNotifier<CachedFetchResult<MatchHistoryResult>?> {
   int _enrichmentGeneration = 0;
+  late final Stopwatch _trace = Stopwatch()..start();
+
+  void _log(String msg) =>
+      debugPrint('[CAREER +${_trace.elapsedMilliseconds}ms] $msg');
 
   @override
   Future<CachedFetchResult<MatchHistoryResult>?> build() async {
+    _trace.reset();
     final gen = ++_enrichmentGeneration;
-    final creds = await ref.watch(currentCredentialsProvider.future);
-    if (creds == null) return null;
+    // Register ALL watched dependencies synchronously BEFORE the first await,
+    // so a rebuild during any stage restarts cleanly instead of leaving the
+    // UI in an endless skeleton.
+    final credsFuture = ref.watch(currentCredentialsProvider.future);
     final queue = ref.watch(_queueFilterProvider);
-    final source = await ref.watch(matchRemoteSourceProvider.future);
+    final sourceFuture = ref.watch(matchRemoteSourceProvider.future);
     final historyCache = ref.watch(matchHistoryLocalCacheProvider);
     final detailCache = ref.watch(matchDetailLocalCacheProvider);
+
+    _log('build#$gen start (queue=$queue)');
+
+    final creds = await credsFuture
+        .timeout(const Duration(seconds: 30), onTimeout: () {
+      throw TimeoutException('CAREER: credentials load exceeded 30s');
+    });
+    if (creds == null) {
+      _log('no credentials — returning null');
+      return null;
+    }
     final transaction =
         ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
+    _log('credentials ok puuid=${creds.puuid}');
+    final source = await sourceFuture
+        .timeout(const Duration(seconds: 30), onTimeout: () {
+      throw TimeoutException('CAREER: remote source init exceeded 30s');
+    });
 
     MatchHistoryResult result;
     bool fromCache = false;
 
     // 1. Fetch live history (with fallback to local history cache)
     try {
-      final raw = await source.fetchHistoryRaw(
-        creds.shard,
-        creds.puuid,
-        queue: queue,
-      );
+      final raw = await source
+          .fetchHistoryRaw(
+            creds.shard,
+            creds.puuid,
+            queue: queue,
+          )
+          .timeout(const Duration(seconds: 45), onTimeout: () {
+        throw TimeoutException('CAREER: history fetch exceeded 45s');
+      });
       result = MatchHistoryResult.fromJson(raw);
       if (transaction != null) {
         await historyCache.saveHistory(result,
             queue: queue, puuid: creds.puuid, transaction: transaction);
       }
-    } catch (_) {
+      _log('history fetched live: ${result.matches.length} matches');
+    } catch (e) {
+      _log('live fetch FAILED: $e — trying history cache');
       final cached =
           await historyCache.loadHistory(queue: queue, puuid: creds.puuid);
       if (cached != null) {
         result = cached;
         fromCache = true;
+        _log('history from CACHE: ${result.matches.length} matches');
       } else {
+        _log('no cache either — rethrowing');
         rethrow;
       }
     }
@@ -85,6 +117,7 @@ class MatchHistoryNotifier
     // 2. Fast cache-only enrich (0ms lag, no detail network requests here)
     final quickEnriched =
         await _enrichFromCache(result.matches, creds.puuid, detailCache);
+    _log('cache-enrich done (${quickEnriched.where((m) => m.kills != null).length}/${quickEnriched.length} known)');
 
     final initialResult = CachedFetchResult(
       MatchHistoryResult(
@@ -173,7 +206,11 @@ class MatchHistoryNotifier
         .take(12)
         .toList();
 
-    if (missing.isEmpty) return;
+    if (missing.isEmpty) {
+      _log('background enrichment: nothing to fetch');
+      return;
+    }
+    _log('background enrichment: ${missing.length} detail(s) to fetch');
 
     final newlyFailed = <String>{};
     final currentMatchesMap = {for (final m in matches) m.matchId: m};
@@ -185,6 +222,7 @@ class MatchHistoryNotifier
       final batch = missing.skip(i).take(batchSize).toList();
       bool batchUpdated = false;
 
+      final batchSw = Stopwatch()..start();
       await Future.wait(batch.map((entry) async {
         try {
           final existing = await detailCache.loadMatchDetailRaw(entry.matchId,
@@ -226,10 +264,14 @@ class MatchHistoryNotifier
             currentMatchesMap[entry.matchId] = updatedEntry;
             batchUpdated = true;
           }
-        } catch (_) {
-          newlyFailed.add(entry.matchId);
-        }
+        } catch (e) {
+        debugPrint('[CAREER] detail ${entry.matchId} FAILED: $e');
+        newlyFailed.add(entry.matchId);
+      }
       }));
+
+      _log('batch done in ${batchSw.elapsedMilliseconds}ms '
+          '(updated=$batchUpdated, failed=${newlyFailed.length})');
 
       // Update state incrementally per batch so user sees results appear smoothly without reload
       if (_enrichmentGeneration != generation) return;
@@ -263,7 +305,7 @@ class MatchHistoryNotifier
   }
 }
 
-final _matchHistoryProvider = AutoDisposeAsyncNotifierProvider<
+final matchHistoryProvider = AutoDisposeAsyncNotifierProvider<
     MatchHistoryNotifier,
     CachedFetchResult<MatchHistoryResult>?>(MatchHistoryNotifier.new);
 
@@ -286,7 +328,7 @@ class MatchHistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final historyAsync = ref.watch(_matchHistoryProvider);
+    final historyAsync = ref.watch(matchHistoryProvider);
     final selectedQueue = ref.watch(_queueFilterProvider);
     final selectedResult = ref.watch(_resultFilterProvider);
     final hasResultFilter = selectedResult != null;
@@ -328,9 +370,9 @@ class MatchHistoryScreen extends ConsumerWidget {
         onRefresh: () async {
           // Reset failed enrichment set so pull-to-refresh retries everything
           ref.read(_failedEnrichmentIdsProvider.notifier).state = {};
-          ref.invalidate(_matchHistoryProvider);
+          ref.invalidate(matchHistoryProvider);
           // Await the refresh so the spinner stays until the fetch finishes.
-          await ref.read(_matchHistoryProvider.future);
+          await ref.read(matchHistoryProvider.future);
         },
         child: historyAsync.when(
           data: (result) {
@@ -415,7 +457,7 @@ class MatchHistoryScreen extends ConsumerWidget {
                 title: 'Gagal Memuat Riwayat Pertandingan',
                 onRetry: () => reconnectAndInvalidate(
                   ref,
-                  invalidateData: () => ref.invalidate(_matchHistoryProvider),
+                  invalidateData: () => ref.invalidate(matchHistoryProvider),
                   onPermanentAuthFailure: () => context.push('/login/webview'),
                 ),
                 onReauth: () => context.push('/login/webview'),

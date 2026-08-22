@@ -1,12 +1,16 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import '../../../core/network/api_response_decoder.dart';
 import '../../../core/storage/cache_storage.dart';
+import '../../../core/utils/app_logger.dart';
 import '../domain/models/news_article.dart';
 
 class NewsRemoteSource {
-  const NewsRemoteSource(this._dio);
+  const NewsRemoteSource(this._dio, {CacheStorage? cacheStorage})
+      : _cacheStorage = cacheStorage;
   final Dio _dio;
+  final CacheStorage? _cacheStorage;
+
+  CacheStorage get _cache => _cacheStorage ?? CacheStorage.instance;
 
   static const _cacheKey = 'valorant_news_feed';
   static const _cacheTimestampKey = 'valorant_news_feed_fetched_at';
@@ -17,7 +21,7 @@ class NewsRemoteSource {
       'https://playvalorant.com/page-data/en-us/news/page-data.json';
 
   Future<List<NewsArticle>> fetchNews() async {
-    final cache = CacheStorage.instance;
+    final cache = _cache;
 
     // Cache-first: return cached data if fresh
     final isStale = await cache.isStale(_cacheTimestampKey, _cacheDuration);
@@ -74,10 +78,13 @@ class NewsRemoteSource {
       await cache.setTimestamp(_cacheTimestampKey);
       return articles;
     } catch (e) {
-      debugPrint('[NewsRemoteSource] Error fetching news: $e');
+      AppLogger.warn('NewsRemoteSource: fetch failed, falling back to cache: $e');
       final stale = await _loadCached(cache);
       if (stale != null) return stale;
-      return [];
+      // EH-09: intentional ambiguity — empty list means both "no articles"
+      // and "fetch failed with no cache". Callers cannot distinguish the two;
+      // kept to preserve the existing API contract.
+      return const <NewsArticle>[];
     }
   }
 

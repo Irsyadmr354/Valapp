@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../features/shop/domain/models/skin_offer.dart';
+import '../utils/app_colors.dart';
 import '../utils/tier_colors.dart';
 import 'valorant_icons.dart';
 
@@ -36,14 +37,14 @@ class SkinCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isHighlighted
-              ? const Color(0xFFFF4655)
+              ? AppColors.red
               : Colors.white.withAlpha(22),
           width: isHighlighted ? 1.8 : 1.0,
         ),
         boxShadow: isHighlighted
             ? [
                 BoxShadow(
-                  color: const Color(0xFFFF4655).withAlpha(60),
+                  color: AppColors.red.withAlpha(60),
                   blurRadius: 12,
                   spreadRadius: 1,
                 ),
@@ -86,6 +87,7 @@ class SkinCard extends StatelessWidget {
                       child: offer.displayIcon != null
                           ? CachedNetworkImage(
                               imageUrl: offer.displayIcon!,
+                              memCacheWidth: 600,
                               fit: BoxFit.contain,
                               placeholder: (_, __) => const _ShimmerBox(),
                               errorWidget: (_, __, ___) =>
@@ -125,7 +127,7 @@ class SkinCard extends StatelessWidget {
                           SizedBox(width: 3),
                           Icon(
                             Icons.arrow_forward_rounded,
-                            color: Color(0xFFFF4655),
+                            color: AppColors.red,
                             size: 11,
                           ),
                         ],

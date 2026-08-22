@@ -66,6 +66,7 @@ class CrossIsolateLock {
             try {
               await lockFile.delete();
             } catch (_) {}
+            await Future<void>.delayed(pollInterval);
             continue;
           }
         } catch (_) {}

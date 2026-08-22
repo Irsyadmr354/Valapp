@@ -246,9 +246,9 @@ class _MatchDetailsContent extends ConsumerWidget {
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: [
-                          const Color(0xFF070A10).withAlpha(240),
-                          const Color(0xFF070A10).withAlpha(180),
-                          const Color(0xFF070A10).withAlpha(100),
+                          AppColors.bgDeep.withAlpha(240),
+                          AppColors.bgDeep.withAlpha(180),
+                          AppColors.bgDeep.withAlpha(100),
                         ],
                       ),
                     ),
@@ -267,7 +267,7 @@ class _MatchDetailsContent extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF4655),
+                          color: AppColors.red,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -316,7 +316,7 @@ class _MatchDetailsContent extends ConsumerWidget {
           _TeamSection(
             title: 'ATTACK',
             players: redTeam,
-            color: const Color(0xFFFF4655),
+            color: AppColors.red,
             matchMvpPuuid: matchMvpPuuid,
           ),
           const SizedBox(height: 12),

@@ -37,17 +37,79 @@ class ValorantContentTiers {
   static const String exclusiveCdnUrl =
       'https://media.valorant-api.com/contenttiers/e046854e-406c-37f4-6607-19a9ba8426fc/displayicon.png';
 
-  static String? cdnUrlForUuid(String? uuid) {
+  /// Resolves the canonical [ValorantTierInfo] whose UUID prefix is contained
+  /// in [uuid] (case-insensitive, works with full or partial UUIDs).
+  static ValorantTierInfo? infoByUuidPrefix(String? uuid) {
     if (uuid == null || uuid.isEmpty) return null;
     final lower = uuid.toLowerCase();
-    if (lower.contains('12683d76')) return selectCdnUrl;
-    if (lower.contains('0cebb8be')) return deluxeCdnUrl;
-    if (lower.contains('60bca009')) return premiumCdnUrl;
-    if (lower.contains('411e4a55')) return ultraCdnUrl;
-    if (lower.contains('e046854e')) return exclusiveCdnUrl;
+    for (final entry in kTierPrefixTable.entries) {
+      if (lower.contains(entry.key)) return entry.value;
+    }
     return null;
   }
+
+  static String? cdnUrlForUuid(String? uuid) =>
+      infoByUuidPrefix(uuid)?.cdnUrl;
 }
+
+/// Immutable description of one official content tier.
+/// Single canonical source shared by TierColors, cdn URL resolution, and the
+/// wishlist catalog — replaces previously duplicated prefix chains.
+class ValorantTierInfo {
+  final String name; // e.g. 'Premium'
+  final String editionName; // e.g. 'Premium Edition'
+  final int colorValue; // e.g. 0xFFD1548D
+  final String uuid;
+  final String cdnUrl;
+
+  const ValorantTierInfo({
+    required this.name,
+    required this.editionName,
+    required this.colorValue,
+    required this.uuid,
+    required this.cdnUrl,
+  });
+}
+
+/// Canonical content-tier table: UUID prefix (first 8 hex chars) -> tier info.
+const Map<String, ValorantTierInfo> kTierPrefixTable =
+    <String, ValorantTierInfo>{
+  '12683d76': ValorantTierInfo(
+    name: 'Select',
+    editionName: 'Select Edition',
+    colorValue: 0xFF5A9FE2,
+    uuid: ValorantContentTiers.selectUuid,
+    cdnUrl: ValorantContentTiers.selectCdnUrl,
+  ),
+  '0cebb8be': ValorantTierInfo(
+    name: 'Deluxe',
+    editionName: 'Deluxe Edition',
+    colorValue: 0xFF009587,
+    uuid: ValorantContentTiers.deluxeUuid,
+    cdnUrl: ValorantContentTiers.deluxeCdnUrl,
+  ),
+  '60bca009': ValorantTierInfo(
+    name: 'Premium',
+    editionName: 'Premium Edition',
+    colorValue: 0xFFD1548D,
+    uuid: ValorantContentTiers.premiumUuid,
+    cdnUrl: ValorantContentTiers.premiumCdnUrl,
+  ),
+  '411e4a55': ValorantTierInfo(
+    name: 'Ultra',
+    editionName: 'Ultra Edition',
+    colorValue: 0xFFFAD663,
+    uuid: ValorantContentTiers.ultraUuid,
+    cdnUrl: ValorantContentTiers.ultraCdnUrl,
+  ),
+  'e046854e': ValorantTierInfo(
+    name: 'Exclusive',
+    editionName: 'Exclusive Edition',
+    colorValue: 0xFFF5955B,
+    uuid: ValorantContentTiers.exclusiveUuid,
+    cdnUrl: ValorantContentTiers.exclusiveCdnUrl,
+  ),
+};
 
 /// Base URL builders for Riot PVP endpoints.
 class RiotEndpoints {

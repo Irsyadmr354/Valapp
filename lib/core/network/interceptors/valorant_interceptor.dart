@@ -204,38 +204,46 @@ class ValorantInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    final status = err.response?.statusCode;
+    try {
+      final status = err.response?.statusCode;
 
-    if (status == 401 || status == 403) {
-      final handled = await _attemptReauthAndRetry(
-        err,
-        handler,
-        retryFlag: 'authRetried',
-      );
-      if (handled) return;
+      if (status == 401 || status == 403) {
+        final handled = await _attemptReauthAndRetry(
+          err,
+          handler,
+          retryFlag: 'authRetried',
+        );
+        if (handled) return;
+      }
+
+      // Riot often returns 400 (not 401) when entitlement token is stale or desynced.
+      // On pd.*.a.pvp.net endpoints (storefront, wallet, MMR, etc.) a 400
+      // almost always means the entitlement token needs renewal.
+      if (status == 400 && _isLikelyAuthError(err)) {
+        // Step 1: Fast entitlement refresh if accessToken is still valid (< 200ms, no cookies needed)
+        final handledEntitlement = await _attemptEntitlementRefreshAndRetry(
+          err,
+          handler,
+        );
+        if (handledEntitlement) return;
+
+        // Step 2: Fallback to full reauth if fast entitlement refresh was unable to resolve
+        final handled = await _attemptReauthAndRetry(
+          err,
+          handler,
+          retryFlag: 'entitlementRetried',
+        );
+        if (handled) return;
+      }
+
+      handler.next(err);
+    } catch (_) {
+      // Ensure handler is always resolved even if SecureStorage or helper throws
+      // synchronously (e.g. platform channel failure) — otherwise request hangs.
+      try {
+        handler.next(err);
+      } catch (_) {}
     }
-
-    // Riot often returns 400 (not 401) when entitlement token is stale or desynced.
-    // On pd.*.a.pvp.net endpoints (storefront, wallet, MMR, etc.) a 400
-    // almost always means the entitlement token needs renewal.
-    if (status == 400 && _isLikelyAuthError(err)) {
-      // Step 1: Fast entitlement refresh if accessToken is still valid (< 200ms, no cookies needed)
-      final handledEntitlement = await _attemptEntitlementRefreshAndRetry(
-        err,
-        handler,
-      );
-      if (handledEntitlement) return;
-
-      // Step 2: Fallback to full reauth if fast entitlement refresh was unable to resolve
-      final handled = await _attemptReauthAndRetry(
-        err,
-        handler,
-        retryFlag: 'entitlementRetried',
-      );
-      if (handled) return;
-    }
-
-    handler.next(err);
   }
 
   /// Determines whether a 400 response is likely caused by expired auth tokens.
@@ -310,12 +318,11 @@ class ValorantInterceptor extends Interceptor {
     if (alreadyRetried) return false;
     if (onRefreshEntitlement == null) return false;
 
-    final creds = await _credentials.load();
-    if (creds == null || creds.isExpired) return false;
-
     debugPrint(
         '[ValorantInterceptor] Got 400 on PD endpoint — attempting fast entitlement refresh...');
     try {
+      final creds = await _credentials.load();
+      if (creds == null || creds.isExpired) return false;
       err.requestOptions.extra['entitlementRefreshRetried'] = true;
       await onRefreshEntitlement!();
 

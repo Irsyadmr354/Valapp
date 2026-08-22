@@ -200,7 +200,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Icon(Icons.storefront_outlined,
-                                color: Color(0xFFFF4655), size: 48),
+                                color: AppColors.red, size: 48),
                             const SizedBox(height: 12),
                             const Text('Unable to load shop catalog',
                                 style: TextStyle(
@@ -218,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             FilledButton.icon(
                               onPressed: _refresh,
                               style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFF4655)),
+                                  backgroundColor: AppColors.red),
                               icon: const Icon(Icons.refresh, size: 18),
                               label: const Text('RETRY SHOP'),
                             ),
@@ -297,6 +297,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       child: cardIconUrl != null && cardIconUrl.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: cardIconUrl,
+                              memCacheWidth: 80,
                               fit: BoxFit.cover,
                               placeholder: (_, __) => Container(
                                 color: AppColors.bg,
@@ -404,7 +405,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           padding: const EdgeInsets.only(right: 4),
           child: IconButton(
             icon: const Icon(Icons.bookmarks_outlined,
-                color: Color(0xFFFF4655), size: 20),
+                color: AppColors.red, size: 20),
             tooltip: 'Skin Catalog & Wishlist',
             onPressed: () => context.push('/wishlist'),
           ),
@@ -469,10 +470,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: const Color(0xFF090D15),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                  color: const Color(0xFFFF4655).withAlpha(70), width: 1.0),
+                  color: AppColors.red.withAlpha(70), width: 1.0),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFF4655).withAlpha(15),
+                  color: AppColors.red.withAlpha(15),
                   blurRadius: 8,
                 ),
               ],
@@ -482,16 +483,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF4655).withAlpha(30),
+                    color: AppColors.red.withAlpha(30),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.timer_outlined,
-                      color: Color(0xFFFF4655), size: 14),
+                      color: AppColors.red, size: 14),
                 ),
                 const SizedBox(width: 8),
                 const Text('REFRESHES IN ',
                     style: TextStyle(
-                        color: Color(0xFFFF4655),
+                        color: AppColors.red,
                         fontSize: 10.5,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.0)),
@@ -580,7 +581,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Future<void> _refresh({bool isScheduledRotation = false}) async {
+  Future<void> _refresh({bool isScheduledRotation = false, bool forceAssetRefresh = false}) async {
     if (_isRefreshing) {
       if (isScheduledRotation) _pendingScheduledRotation = true;
       return;
@@ -618,14 +619,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ref.invalidate(displayNameProvider);
       ref.invalidate(accountXpProvider);
 
-      // Force background asset cache refresh on explicit user pull-to-refresh
-      final assets = ref.read(valorantAssetsProvider);
-      unawaited(assets
-          .getBundlesMap(forceRefresh: true)
-          .catchError((_) => <String, dynamic>{}));
-      unawaited(assets
-          .getAllStoreItemsMap(forceRefresh: true)
-          .catchError((_) => <String, dynamic>{}));
+      // Asset refresh only on explicit pull or scheduled rotation; resume uses TTL cache
+      if (forceAssetRefresh || useRotationBuffer) {
+        final assets = ref.read(valorantAssetsProvider);
+        unawaited(assets
+            .getBundlesMap(forceRefresh: true)
+            .catchError((_) => <String, dynamic>{}));
+        unawaited(assets
+            .getAllStoreItemsMap(forceRefresh: true)
+            .catchError((_) => <String, dynamic>{}));
+      }
 
       try {
         await ref.read(_storefrontProvider.future);
@@ -818,7 +821,7 @@ class _FeaturedBundlesSectionState extends State<_FeaturedBundlesSection> {
               width: isSelected ? 20 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFFF4655) : Colors.white24,
+                color: isSelected ? AppColors.red : Colors.white24,
                 borderRadius: BorderRadius.circular(3),
               ),
             );
@@ -918,10 +921,10 @@ class _FeaturedBundleCard extends ConsumerWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-                color: const Color(0xFFFF4655).withAlpha(110), width: 1.2),
+                color: AppColors.red.withAlpha(110), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF4655).withAlpha(25),
+                color: AppColors.red.withAlpha(25),
                 blurRadius: 14,
                 spreadRadius: 1,
               ),
@@ -957,8 +960,8 @@ class _FeaturedBundleCard extends ConsumerWidget {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          const Color(0xFF070A10).withAlpha(245),
-                          const Color(0xFF070A10).withAlpha(120),
+                          AppColors.bgDeep.withAlpha(245),
+                          AppColors.bgDeep.withAlpha(120),
                           Colors.transparent,
                         ],
                         stops: const [0.0, 0.55, 1.0],
@@ -981,7 +984,7 @@ class _FeaturedBundleCard extends ConsumerWidget {
                                   horizontal: 8, vertical: 3),
                               margin: const EdgeInsets.only(right: 8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFF4655),
+                                color: AppColors.red,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text('-$discountInt% OFF',
@@ -1108,7 +1111,7 @@ class _FeaturedBundleCard extends ConsumerWidget {
                                 SizedBox(width: 4),
                                 Icon(
                                   Icons.arrow_forward_rounded,
-                                  color: Color(0xFFFF4655),
+                                  color: AppColors.red,
                                   size: 13,
                                 ),
                               ],
@@ -1212,7 +1215,7 @@ class _DailyShopCarouselState extends State<_DailyShopCarousel> {
                 width: isSelected ? 20 : 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFFF4655) : Colors.white24,
+                  color: isSelected ? AppColors.red : Colors.white24,
                   borderRadius: BorderRadius.circular(3),
                 ),
               );

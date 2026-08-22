@@ -581,7 +581,7 @@ class _MatchHistoryTab extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                      width: 3, height: 14, color: const Color(0xFFFF4655)),
+                      width: 3, height: 14, color: AppColors.red),
                   const SizedBox(width: 8),
                   const Text('RECENT COMPETITIVE UPDATES',
                       style: TextStyle(

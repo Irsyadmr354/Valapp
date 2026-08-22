@@ -3,7 +3,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.3.0+-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.0+-0175C2?logo=dart)](https://dart.dev)
 [![Analyze](https://img.shields.io/badge/Flutter_Analyze-Clean-brightgreen)](https://flutter.dev)
-[![Tests](https://img.shields.io/badge/Unit_Tests-18%2F18_Passed-brightgreen)](test/)
+[![Tests](https://img.shields.io/badge/Unit_Tests-133%2F133_Passed-brightgreen)](test/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A high-performance, feature-packed, and beautifully designed Flutter mobile application (iOS & Android) for monitoring your Valorant account — Daily Shop, Featured Bundles, Night Market, Skin Catalog & Wishlist, Account Health & Penalty Dashboard, Interactive Chromas & Video Inspector, Multi-Account Manager, Competitive Rank & 10-Game Net RR Trend, Match Scoreboards with MVP Badges, Battle Pass Carousel, Equipped Loadout Inspector, and Native Wishlist Push Notifications — directly from your smartphone without opening the game client.
@@ -43,7 +43,7 @@ A high-performance, feature-packed, and beautifully designed Flutter mobile appl
 - **🚀 Rolling Cache Memory Optimization:** `MatchDetailLocalCache` employs a rolling eviction strategy (capped at 30 recent matches) to prevent unbounded local storage growth and main-thread lag.
 - **⏱️ Rate Limit Compliance (`RateLimitInterceptor`):** Enforces a minimum 500ms request spacing across API calls to prevent Riot rate limits (HTTP 429).
 - **🎨 Unified Valorant Theme Token System (`AppColors`):** Single source of truth for Valorant signature red (`#FF4655`), dark slate card surfaces (`#0D1117`, `#111823`), and semantic match outcome colors.
-- **🔄 Auto-Updated Client Version:** Automated 24h version synchronization with `valorant-api.com/v1/version` and updated fallback string (`release-13.02-shipping-7-5092570`).
+- **🔄 Auto-Updated Client Version:** Automated 24h version synchronization with `valorant-api.com/v1/version` and updated fallback string (`release-11.02-shipping-14-3407743`).
 
 ---
 
@@ -52,14 +52,14 @@ A high-performance, feature-packed, and beautifully designed Flutter mobile appl
 | Component | Technology / Package |
 |-----------|----------------------|
 | **Framework** | [Flutter](https://flutter.dev) (Dart 3+) — Cross-platform iOS & Android |
-| **State Management** | [flutter_riverpod](https://pub.dev/packages/flutter_riverpod) (2.6+) |
+| **State Management** | [flutter_riverpod](https://pub.dev/packages/flutter_riverpod) (2.5+) |
 | **Navigation & Routing** | [go_router](https://pub.dev/packages/go_router) (13.2+) |
 | **HTTP Network Client** | [dio](https://pub.dev/packages/dio) + `dio_cookie_manager` + `cookie_jar` |
 | **Authentication** | [webview_flutter](https://pub.dev/packages/webview_flutter) + native `ssid` cookie persistence |
 | **Security & Storage** | [flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage) (Android Keystore / iOS Keychain) |
 | **Background Service** | [workmanager](https://pub.dev/packages/workmanager) (Periodic background worker tasks) |
 | **Notifications** | [flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications) (Native push alerts) |
-| **Video Player** | [video_player](https://pub.dev/packages/video_player) (Streamed MP4 level VFX & finisher videos) |
+| **Video Player** | [webview_flutter](https://pub.dev/packages/webview_flutter) (WebView-based MP4 level VFX & finisher videos) |
 | **Local Cache** | [shared_preferences](https://pub.dev/packages/shared_preferences) |
 | **Image Caching** | [cached_network_image](https://pub.dev/packages/cached_network_image) |
 | **Asset Metadata** | [valorant-api.com](https://valorant-api.com) API (Skins, Chromas, Levels, Rank Badges, Maps & Bundles) |
@@ -80,17 +80,20 @@ lib/
 │   ├── utils/                        # AsyncLock (key-based async mutex lock)
 │   └── exceptions/                   # AuthException & ApiException
 ├── shared/
+│   ├── constants/                    # ValorantConstants (RiotEndpoints, Currencies, ContentTiers)
+│   ├── navigation/                   # NavigatorKey
 │   ├── utils/                        # ValorantAssets (valorant-api.com fetcher & cache), AppColors, TierColors, VersionService
-│   └── widgets/                      # SkinCard, RankBadge, CountdownTimer, LoadingShimmer
+│   └── widgets/                      # SkinCard, CountdownTimer, LoadingShimmer, ValorantErrorDisplay, CacheDataBanner
 └── features/
     ├── auth/                         # WebView login, AccountSwitcherModal, SilentWebviewReauth & token extraction
-    ├── shop/                         # ShopScreen, WishlistCatalogScreen, SkinDetailModal, SkinVideoDialog, StoreRemoteSource
-    ├── match/                        # MatchHistoryScreen, MatchDetailScreen, MatchLocalCache & scoreboard models
+    ├── shop/                         # HomeScreen (shop), WishlistCatalogScreen, SkinDetailModal, SkinVideoDialog, StoreRemoteSource
+    ├── match/                        # MatchHistoryScreen, MatchDetailScreen, MatchHistoryLocalCache, MatchDetailLocalCache & scoreboard models
     ├── rank/                         # RankScreen, MMR remote source, net RR trend & sparkline painter
     ├── contracts/                    # ContractsScreen, BattlepassCarouselModal & mission models
     ├── loadout/                      # LoadoutScreen, LoadoutLocalCache & equipped gear models
     ├── news/                         # NewsRemoteSource & news model
-    └── profile/                      # ProfileScreen, AccountHealthModal, RestrictionsRemoteSource & AccountLocalCache
+    ├── profile/                      # ProfileScreen, AccountHealthModal, RestrictionsRemoteSource & AccountLocalCache
+    └── debug/                        # NotificationDebugScreen (debug route)
 ```
 
 ---
@@ -100,7 +103,7 @@ lib/
 The project includes unit & integration tests covering core business logic and Riot API model serialization:
 
 ```bash
-# Run full automated test suite (18 test cases)
+# Run full automated test suite (133 test cases)
 flutter test
 ```
 
@@ -126,7 +129,7 @@ Test coverage includes:
 ## 🚀 Build & Local Setup
 
 ### Prerequisites
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (>= 3.3.0)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (>= 3.19.0 / Dart >=3.3.0, CI pinned 3.44.8 via codemagic.yaml)
 - Android Studio / Xcode for device deployment
 
 ### Installation

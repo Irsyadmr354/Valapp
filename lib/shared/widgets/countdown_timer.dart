@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/app_colors.dart';
 
 /// Displays a live hh:mm:ss countdown from [remainingSeconds].
 /// Calls [onExpired] when the timer reaches zero.
@@ -122,7 +123,7 @@ class _CountdownTimerState extends State<CountdownTimer>
       formatted,
       style: widget.style ??
           const TextStyle(
-            color: Color(0xFFFF4655),
+            color: AppColors.red,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             fontFeatures: [FontFeature.tabularFigures()],

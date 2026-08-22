@@ -1,8 +1,6 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 import '../network/auth_dio.dart';
 import '../network/api_dio.dart';
@@ -11,17 +9,24 @@ import '../network/valorant_headers.dart';
 import '../network/interceptors/valorant_interceptor.dart';
 import '../storage/secure_storage.dart';
 import '../storage/cache_storage.dart';
+import '../storage/cached_fetch_helper.dart';
 import '../storage/cached_fetch_result.dart';
-import '../utils/async_lock.dart';
 import '../../shared/utils/version_service.dart';
 import '../../shared/utils/valorant_assets.dart';
 import '../../shared/utils/display_name_util.dart';
 
 // ── Auth & Session ─────────────────────────────────────────────────────────────
 
+import '../../features/auth/application/session_actions.dart';
 import '../../features/auth/data/auth_remote_source.dart';
 import '../../features/auth/data/credentials_local_source.dart';
 import '../../features/auth/domain/auth_repository.dart';
+
+// Public API preserved (ARCH-02): SessionActions moved to
+// features/auth/application/session_actions.dart but stays importable from
+// here so existing screens keep working unchanged.
+export '../../features/auth/application/session_actions.dart'
+    show SessionActions;
 
 // ── Shop ───────────────────────────────────────────────────────────────────────
 
@@ -182,7 +187,10 @@ final storeRepositoryProvider = FutureProvider<StoreRepository>((ref) async {
   final local = ref.watch(storeLocalCacheProvider);
   final assets = ref.watch(valorantAssetsProvider);
   return StoreRepository(
-      remoteSource: remote, localCache: local, assets: assets);
+      remoteSource: remote,
+      localCache: local,
+      assets: assets,
+      cacheStorage: ref.watch(cacheStorageProvider));
 });
 
 // ── Match ──────────────────────────────────────────────────────────────────
@@ -279,173 +287,6 @@ final currentCredentialsProvider = FutureProvider((ref) async {
 /// as one operation. Widgets should not perform these steps independently.
 final sessionActionsProvider = Provider<SessionActions>(SessionActions.new);
 
-class SessionActions {
-  SessionActions(this._ref);
-
-  final Ref _ref;
-
-  /// Restores saved Riot session cookies for [puuid] into the native
-  /// WebView cookie store. Caller must have cleared stale cookies first.
-  Future<void> _restoreWebViewCookies(String puuid) async {
-    try {
-      final savedRaw = await SecureStorage.instance.read(
-        SecureStorage.keyRiotCookiesFor(puuid),
-      );
-      if (savedRaw != null && savedRaw.isNotEmpty) {
-        final cookieMgr = WebViewCookieManager();
-        final pairs = savedRaw.split(';');
-        for (final pair in pairs) {
-          final parts = pair.split('=');
-          if (parts.length >= 2) {
-            final name = parts[0].trim();
-            final value = parts.sublist(1).join('=').trim();
-            if (name.isNotEmpty && value.isNotEmpty) {
-              await cookieMgr.setCookie(
-                WebViewCookie(
-                  name: name,
-                  value: value,
-                  domain: 'auth.riotgames.com',
-                  path: '/',
-                ),
-              );
-              await cookieMgr.setCookie(
-                WebViewCookie(
-                  name: name,
-                  value: value,
-                  domain: '.riotgames.com',
-                  path: '/',
-                ),
-              );
-            }
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
-  /// Purges every cookie source so no previous account's session can leak
-  /// into a silent reauth for the new account.
-  Future<void> _purgeCookieStores() async {
-    try {
-      final jar = await _ref.read(cookieJarProvider.future);
-      await jar.deleteAll();
-    } catch (_) {}
-    // Clear native cookies BEFORE restoring the target's backup — otherwise a
-    // leftover `ssid` from the previous account can authenticate the WRONG
-    // account when the target has no stored backup.
-    try {
-      await WebViewCookieManager().clearCookies();
-    } catch (_) {}
-  }
-
-  /// Shared activation pipeline for explicit switches AND the auto-switch
-  /// after removing the active account: purge cookie stores → restore the
-  /// target's backup cookies → optional entitlement refresh → persist snapshot.
-  Future<void> _activateProfile(
-    SavedAccountProfile account,
-    CredentialsLocalSource local,
-  ) async {
-    await _purgeCookieStores();
-    await _restoreWebViewCookies(account.puuid);
-
-    var creds = account.credentials;
-    // If accessToken is still valid, proactively refresh entitlement token to sync with Riot PD
-    if (!creds.isExpired) {
-      try {
-        final authRepo = await _ref.read(authRepositoryProvider.future);
-        creds = await authRepo.refreshEntitlementOnly(creds);
-      } catch (e) {
-        debugPrint(
-            '[SessionActions] Proactive entitlement refresh warning: $e');
-      }
-    }
-
-    await local.save(
-      creds,
-      displayName: account.displayName,
-      playerCardId: account.playerCardId,
-      avatarUrl: account.avatarUrl,
-    );
-  }
-
-  Future<void> switchAccount(SavedAccountProfile account) {
-    return AsyncLock.run('active_session_action', () async {
-      final local = _ref.read(credentialsLocalSourceProvider);
-      final current = await local.load();
-      if (current?.puuid == account.puuid) return;
-
-      await _activateProfile(account, local);
-      invalidateSession();
-    });
-  }
-
-  Future<void> removeAccount(String puuid) {
-    return AsyncLock.run('active_session_action', () async {
-      final local = _ref.read(credentialsLocalSourceProvider);
-      final current = await local.load();
-      final wasActive = current?.puuid == puuid;
-      // Capture the next candidate BEFORE removal (list minus removed entry).
-      final remaining = (await local.getSavedAccounts())
-          .where((a) => a.puuid != puuid)
-          .toList();
-
-      // Tears down profile + caches; if it was active it also clears the
-      // active-session keys (activation of the next account happens below).
-      await local.removeAccount(puuid);
-
-      // Purge file-backed match details so removed accounts leave nothing
-      // behind on disk either.
-      try {
-        await _ref.read(matchDetailLocalCacheProvider).purgeAccount(puuid);
-      } catch (_) {}
-
-      if (wasActive && remaining.isNotEmpty) {
-        await _activateProfile(remaining.first, local);
-      }
-      invalidateSession();
-    });
-  }
-
-  Future<void> logout() {
-    return AsyncLock.run('active_session_action', () async {
-      try {
-        final jar = await _ref.read(cookieJarProvider.future);
-        await jar.deleteAll();
-      } catch (_) {}
-      try {
-        await WebViewCookieManager().clearCookies();
-      } catch (_) {}
-      try {
-        await CacheStorage.instance.clearAll();
-      } catch (_) {}
-      await _ref.read(credentialsLocalSourceProvider).clear();
-      invalidateSession();
-    });
-  }
-
-  void invalidateSession() {
-    _ref.invalidate(currentCredentialsProvider);
-    _ref.invalidate(apiDioProvider);
-    _ref.invalidate(storeRemoteSourceProvider);
-    _ref.invalidate(storeRepositoryProvider);
-    _ref.invalidate(matchRemoteSourceProvider);
-    _ref.invalidate(matchRepositoryProvider);
-    _ref.invalidate(mmrRemoteSourceProvider);
-    _ref.invalidate(contractsRemoteSourceProvider);
-    _ref.invalidate(contractsRepositoryProvider);
-    _ref.invalidate(accountRemoteSourceProvider);
-    _ref.invalidate(restrictionsRemoteSourceProvider);
-    _ref.invalidate(loadoutRemoteSourceProvider);
-    _ref.invalidate(loadoutRepositoryProvider);
-    _ref.invalidate(accountXpProvider);
-    _ref.invalidate(displayNameProvider);
-    _ref.invalidate(playerMmrProvider);
-    _ref.invalidate(competitiveUpdatesProvider);
-    _ref.invalidate(playerCardArtProvider);
-    _ref.invalidate(enrichedMatchHistoryProvider);
-  }
-}
-
 // ── Loadout ────────────────────────────────────────────────────────────────
 
 final loadoutRemoteSourceProvider =
@@ -467,12 +308,13 @@ final loadoutRepositoryProvider =
 
 // ── News ───────────────────────────────────────────────────────────────────
 
+// DI consistent: Dio injected via provider, no singleton.
 final newsRemoteSourceProvider = Provider<NewsRemoteSource>((ref) {
   final dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 20),
   ));
-  return NewsRemoteSource(dio);
+  return NewsRemoteSource(dio, cacheStorage: ref.watch(cacheStorageProvider));
 });
 
 // ── Shared account data pipelines ──────────────────────────────────────────
@@ -483,24 +325,15 @@ final accountXpProvider =
   if (creds == null) return null;
   final source = await ref.watch(accountRemoteSourceProvider.future);
   final cache = ref.watch(accountLocalCacheProvider);
-  final transaction =
-      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
-  try {
-    final raw = await source.fetchAccountXpRaw(creds.shard, creds.puuid);
-    final value = AccountXp.fromJson(raw);
-    if (transaction != null) {
-      await cache.saveAccountXp(raw,
-          puuid: creds.puuid, transaction: transaction);
-    }
-    if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
-      return null;
-    }
-    return CachedFetchResult(value);
-  } catch (_) {
-    final value = await cache.loadAccountXp(puuid: creds.puuid);
-    if (value != null) return CachedFetchResult(value, fromCache: true);
-    rethrow;
-  }
+  return cachedFetch<AccountXp>(
+    puuid: creds.puuid,
+    cache: ref.read(cacheStorageProvider),
+    fetchRaw: () => source.fetchAccountXpRaw(creds.shard, creds.puuid),
+    fromJson: AccountXp.fromJson,
+    saveRaw: (raw, tx) =>
+        cache.saveAccountXp(raw, puuid: creds.puuid, transaction: tx),
+    loadCached: () => cache.loadAccountXp(puuid: creds.puuid),
+  );
 });
 
 final displayNameProvider =
@@ -563,23 +396,15 @@ final playerMmrProvider =
   if (creds == null) return null;
   final source = await ref.watch(mmrRemoteSourceProvider.future);
   final cache = ref.watch(mmrLocalCacheProvider);
-  final transaction =
-      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
-  try {
-    final raw = await source.fetchMmrRaw(creds.shard, creds.puuid);
-    final value = PlayerMmr.fromJson(raw);
-    if (transaction != null) {
-      await cache.saveMmr(raw, puuid: creds.puuid, transaction: transaction);
-    }
-    if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
-      return null;
-    }
-    return CachedFetchResult(value);
-  } catch (_) {
-    final value = await cache.loadMmr(puuid: creds.puuid);
-    if (value != null) return CachedFetchResult(value, fromCache: true);
-    rethrow;
-  }
+  return cachedFetch<PlayerMmr>(
+    puuid: creds.puuid,
+    cache: ref.read(cacheStorageProvider),
+    fetchRaw: () => source.fetchMmrRaw(creds.shard, creds.puuid),
+    fromJson: PlayerMmr.fromJson,
+    saveRaw: (raw, tx) =>
+        cache.saveMmr(raw, puuid: creds.puuid, transaction: tx),
+    loadCached: () => cache.loadMmr(puuid: creds.puuid),
+  );
 });
 
 final competitiveUpdatesProvider =
@@ -588,25 +413,17 @@ final competitiveUpdatesProvider =
   if (creds == null) return const CachedFetchResult([]);
   final source = await ref.watch(mmrRemoteSourceProvider.future);
   final cache = ref.watch(mmrLocalCacheProvider);
-  final transaction =
-      ref.read(cacheStorageProvider).beginUserTransaction(creds.puuid);
-  try {
-    final raw =
-        await source.fetchCompetitiveUpdatesRaw(creds.shard, creds.puuid);
-    final list = source.parseCompetitiveUpdates(raw);
-    if (transaction != null) {
-      await cache.saveCompetitiveUpdates(raw,
-          puuid: creds.puuid, transaction: transaction);
-    }
-    if (!ref.read(cacheStorageProvider).isActiveSession(creds.puuid)) {
-      return const CachedFetchResult([]);
-    }
-    return CachedFetchResult(list);
-  } catch (_) {
-    final cached = await cache.loadCompetitiveUpdates(puuid: creds.puuid);
-    if (cached != null) return CachedFetchResult(cached, fromCache: true);
-    rethrow;
-  }
+  final result = await cachedFetch<List<CompetitiveUpdate>>(
+    puuid: creds.puuid,
+    cache: ref.read(cacheStorageProvider),
+    fetchRaw: () =>
+        source.fetchCompetitiveUpdatesRaw(creds.shard, creds.puuid),
+    fromJson: source.parseCompetitiveUpdates,
+    saveRaw: (raw, tx) =>
+        cache.saveCompetitiveUpdates(raw, puuid: creds.puuid, transaction: tx),
+    loadCached: () => cache.loadCompetitiveUpdates(puuid: creds.puuid),
+  );
+  return result ?? const CachedFetchResult([]);
 });
 
 /// Resolves the equipped player card art URLs from the player's loadout.

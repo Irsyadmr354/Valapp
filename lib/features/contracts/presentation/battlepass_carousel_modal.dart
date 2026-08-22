@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
+import '../../../shared/utils/app_colors.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/modal_drag_handle.dart';
 import '../domain/models/contracts.dart';
@@ -67,9 +68,9 @@ class _BattlepassCarouselModalState
         color: Color(0xFF0E1622),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(
-          top: BorderSide(color: Color(0xFFFF4655), width: 1.5),
-          left: BorderSide(color: Color(0xFFFF4655), width: 1.5),
-          right: BorderSide(color: Color(0xFFFF4655), width: 1.5),
+          top: BorderSide(color: AppColors.red, width: 1.5),
+          left: BorderSide(color: AppColors.red, width: 1.5),
+          right: BorderSide(color: AppColors.red, width: 1.5),
         ),
       ),
       child: Column(
@@ -118,7 +119,7 @@ class _BattlepassCarouselModalState
                     .clamp(0.0, 1.0),
                 backgroundColor: const Color(0xFF141F2D),
                 valueColor:
-                    const AlwaysStoppedAnimation<Color>(Color(0xFFFF4655)),
+                    const AlwaysStoppedAnimation<Color>(AppColors.red),
                 minHeight: 6,
               ),
             ),
@@ -134,7 +135,7 @@ class _BattlepassCarouselModalState
   Widget _buildBody() {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF4655)));
+          child: CircularProgressIndicator(color: AppColors.red));
     }
 
     final content = _contractData?['content'] as Map<String, dynamic>?;
@@ -174,12 +175,12 @@ class _BattlepassCarouselModalState
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFFFF4655)
+                        ? AppColors.red
                         : const Color(0xFF141F2D),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color:
-                          isSelected ? const Color(0xFFFF4655) : Colors.white10,
+                          isSelected ? AppColors.red : Colors.white10,
                     ),
                   ),
                   child: Text(
@@ -226,7 +227,7 @@ class _BattlepassCarouselModalState
                         Container(
                             width: 3,
                             height: 14,
-                            color: const Color(0xFFFF4655)),
+                            color: AppColors.red),
                         const SizedBox(width: 8),
                         Text(
                           isEpilogue
@@ -329,7 +330,7 @@ class _RewardTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isUnlocked ? const Color(0xFF141F2D) : const Color(0xFF070A10),
+        color: isUnlocked ? const Color(0xFF141F2D) : AppColors.bgDeep,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isUnlocked

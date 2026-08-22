@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'core/utils/app_logger.dart';
+import 'shared/widgets/valorant_error_display.dart';
 
 import 'core/di/providers.dart';
 import 'core/navigation/navigator_key.dart';
@@ -40,6 +44,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) async {
       final credsAsync = ref.read(currentCredentialsProvider);
       if (credsAsync.isLoading) return null;
+      if (credsAsync.hasError) {
+        AppLogger.warn('currentCredentials error: ');
+        // Do not redirect to login on storage error — surface error via errorBuilder
+        return null;
+      }
 
       final creds = credsAsync.value;
       final location = state.matchedLocation;
@@ -50,6 +59,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
       if (creds != null && location == '/login') return '/shop';
       return null;
     },
+    errorBuilder: (context, state) => ValorantErrorDisplay(
+      error: AppLogger.sanitizeUrl(state.error?.toString() ?? 'Route not found'),
+      onRetry: () => context.go('/shop'),
+    ),
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(
@@ -57,9 +70,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const WebViewLoginScreen()),
       GoRoute(
           path: '/wishlist', builder: (_, __) => const WishlistCatalogScreen()),
-      GoRoute(
-          path: '/debug/notifications',
-          builder: (_, __) => const NotificationDebugScreen()),
+      if (kDebugMode)
+        GoRoute(
+            path: '/debug/notifications',
+            builder: (_, __) => const NotificationDebugScreen()),
       GoRoute(path: '/loadout', builder: (_, __) => const LoadoutScreen()),
       GoRoute(
         path: '/match/:id',
@@ -203,7 +217,7 @@ class _ScaffoldWithNav extends StatelessWidget {
     final currentIndex = _tabs.indexWhere((t) => t.$1 == location).clamp(0, 4);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF070A10),
+      backgroundColor: AppColors.bgDeep,
       body: child,
       bottomNavigationBar: _BottomNav(
         currentIndex: currentIndex,
@@ -231,7 +245,7 @@ class _BottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.bgPanel,
         border: Border(
-          top: BorderSide(color: Color(0xFF1F2937), width: 1.0),
+          top: BorderSide(color: AppColors.borderAlt, width: 1.0),
         ),
         boxShadow: [
           BoxShadow(
@@ -305,7 +319,7 @@ class _BottomNav extends StatelessWidget {
                                 size: 21,
                                 color: isSelected
                                     ? AppColors.red
-                                    : const Color(0xFF6B7280),
+                                    : AppColors.mutedGrey,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -318,7 +332,7 @@ class _BottomNav extends StatelessWidget {
                                     : FontWeight.w600,
                                 color: isSelected
                                     ? Colors.white
-                                    : const Color(0xFF6B7280),
+                                    : AppColors.mutedGrey,
                                 letterSpacing: 0.8,
                               ),
                             ),

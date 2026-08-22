@@ -22,6 +22,11 @@ class LoadingShimmer extends StatefulWidget {
 
 class _LoadingShimmerState extends State<LoadingShimmer>
     with SingleTickerProviderStateMixin {
+  // perf: per-block controller — intentional. Each LoadingShimmer block owns
+  // its AnimationController (vs ~1 shared controller for 25+ blocks) so blocks
+  // can be disposed independently as skeletons scroll in/out without a
+  // shared-ticker registry. Controllers are lightweight; the tradeoff favors
+  // simpler lifecycle over marginal ticker savings.
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 

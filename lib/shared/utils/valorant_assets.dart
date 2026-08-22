@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../core/storage/cache_storage.dart';
+import '../../core/storage/file_cache.dart';
 
 /// Fetches and caches metadata from `valorant-api.com`.
 /// All data is refreshed once every 24 hours.
@@ -26,13 +27,19 @@ class ValorantAssets {
   // (`{'_compact': 1, 'entries': {...}}`); variant keys are rebuilt on load.
   // Callers' lookups always chain exact → toLowerCase → stripped-dash, so
   // lowercase + stripped variants fully cover them.
+  //
+  // The three big blobs (skin_metadata_v5, unified_store_items_v5,
+  // bundles_metadata_v5) are persisted via [FileCache] (one JSON file per key)
+  // instead of SharedPreferences, whose whole backing file is rewritten on
+  // every write. The legacy prefs blob is still read once as a fallback, then
+  // migrated: the next successful write lands in the file and removes it from
+  // prefs. Timestamps stay in [CacheStorage] — they are tiny strings.
 
   /// Marks whether [raw] uses the compact on-disk format.
   static bool _isCompact(Map<String, dynamic> raw) => raw['_compact'] != null;
 
   /// Persists [map] in compact (deduplicated) form under [key].
   static Future<void> _persistCompact(
-    CacheStorage cache,
     String key,
     Map<String, dynamic> map,
   ) async {
@@ -41,11 +48,39 @@ class ValorantAssets {
       final canonical = k.toLowerCase();
       entries.putIfAbsent(canonical, () => v);
     });
-    await cache.setJson(key, {'_compact': 1, 'entries': entries});
+    await FileCache.instance.setJson(key, {'_compact': 1, 'entries': entries});
+  }
+
+  /// perf: multi-key index (exact / lowercase / dash-stripped-lowercase) is
+  /// INTENTIONAL. It keeps every lookup O(1) via `lookupByUuid`
+  /// (uuid_lookup.dart) instead of normalizing keys on every read.
+  /// RAM cost is bounded: keys are tiny strings sharing ONE value reference;
+  /// with the dedup below a typical lowercase-hyphenated Riot UUID stores
+  /// 2 real keys, so ~600 skins * 2 ≈ 1200 entries ≈ a few KB total —
+  /// negligible vs the metadata payloads themselves. Do not "optimize" this
+  /// away without re-auditing every reader for normalization gaps.
+  static void _indexUuid(
+    Map<String, dynamic> map,
+    String? uuid,
+    Map<String, dynamic> value,
+  ) {
+    if (uuid == null || uuid.isEmpty) return;
+    map[uuid] = value;
+    final lower = uuid.toLowerCase();
+    // Dedup: writing the same value under an identical key string is a no-op,
+    // so skip redundant inserts (most Riot UUIDs are already lowercase and/or
+    // dash-free, making 1-2 of the 3 variants literal duplicates).
+    if (lower != uuid) map[lower] = value;
+    final stripped = lower.replaceAll('-', '');
+    if (stripped.isNotEmpty && stripped != lower) map[stripped] = value;
   }
 
   /// Rebuilds the full lookup map (canonical + stripped-dash variants) from a
   /// compact blob. Legacy plain-map blobs are returned untouched.
+  ///
+  /// perf: expanding to 2 keys per entry (canonical + stripped) is
+  /// intentional for O(1) reads — same tradeoff as [_indexUuid]; the compact
+  /// blob on disk stays deduplicated to 1 canonical key per entry.
   static Map<String, dynamic> _expandCompact(Map<String, dynamic> raw) {
     if (!_isCompact(raw)) return raw;
     final entries = raw['entries'];
@@ -66,10 +101,9 @@ class ValorantAssets {
 
   /// Reads a metadata blob from [key], expanding compact form transparently.
   static Future<Map<String, dynamic>?> _readExpanded(
-    CacheStorage cache,
     String key,
   ) async {
-    final raw = await cache.getJson(key);
+    final raw = await FileCache.instance.getJson(key);
     if (raw == null) return null;
     return _expandCompact(raw);
   }
@@ -101,7 +135,7 @@ class ValorantAssets {
     );
 
     if (!forceRefresh && !isStale) {
-      final cached = await _readExpanded(cache, CacheStorage.keySkinMetadata);
+      final cached = await _readExpanded(CacheStorage.keySkinMetadata);
       if (cached != null && cached.isNotEmpty) {
         _memorySkinLevelsMap = cached;
         return cached;
@@ -169,10 +203,7 @@ class ValorantAssets {
               'weaponType': weaponType,
               'itemType': 'Skin',
             };
-            map[uuid] = levelInfo;
-            map[uuid.toLowerCase()] = levelInfo;
-            final raw = uuid.replaceAll('-', '').toLowerCase();
-            if (raw.isNotEmpty) map[raw] = levelInfo;
+            _indexUuid(map, uuid, levelInfo);
           }
         }
 
@@ -189,13 +220,10 @@ class ValorantAssets {
             'chromas': skin['chromas'],
             'levels': skin['levels'],
             'weaponType': weaponType,
-            'itemType': 'Skin',
-          };
-          map[skinUuid] = skinInfo;
-          map[skinUuid.toLowerCase()] = skinInfo;
-          final raw = skinUuid.replaceAll('-', '').toLowerCase();
-          if (raw.isNotEmpty) map[raw] = skinInfo;
-        }
+              'itemType': 'Skin',
+            };
+            _indexUuid(map, skinUuid, skinInfo);
+          }
 
         // Also index by each chroma UUID
         for (final chroma in chromas) {
@@ -215,20 +243,17 @@ class ValorantAssets {
               'weaponType': weaponType,
               'itemType': 'Skin',
             };
-            map[cuuid] = chromaInfo;
-            map[cuuid.toLowerCase()] = chromaInfo;
-            final raw = cuuid.replaceAll('-', '').toLowerCase();
-            if (raw.isNotEmpty) map[raw] = chromaInfo;
+            _indexUuid(map, cuuid, chromaInfo);
           }
         }
       }
 
       _memorySkinLevelsMap = map;
-      await _persistCompact(cache, CacheStorage.keySkinMetadata, map);
+      await _persistCompact(CacheStorage.keySkinMetadata, map);
       await cache.setTimestamp(CacheStorage.keySkinMetadataFetchedAt);
       return map;
     } catch (_) {
-      final cached = await _readExpanded(cache, CacheStorage.keySkinMetadata);
+      final cached = await _readExpanded(CacheStorage.keySkinMetadata);
       if (cached != null && cached.isNotEmpty) {
         _memorySkinLevelsMap = cached;
         return cached;
@@ -308,7 +333,8 @@ class ValorantAssets {
       _cacheDuration,
     );
     if (!forceRefresh && !isStale) {
-      final cached = await cache.getJson(CacheStorage.keyBundles);
+      final cached =
+          await FileCache.instance.getJson(CacheStorage.keyBundles);
       if (cached != null && cached.isNotEmpty) {
         _memoryBundlesMap = cached;
         return cached;
@@ -334,12 +360,7 @@ class ValorantAssets {
             'logoIcon': b['logoIcon'],
             'assetPath': b['assetPath'],
           };
-          map[uuid] = info;
-          map[uuid.toLowerCase()] = info;
-          final rawId = uuid.replaceAll('-', '').toLowerCase();
-          if (rawId.isNotEmpty) {
-            map[rawId] = info;
-          }
+          _indexUuid(map, uuid, info);
           final assetPath = b['assetPath'] as String?;
           if (assetPath != null && assetPath.isNotEmpty) {
             map[assetPath] = info;
@@ -349,11 +370,12 @@ class ValorantAssets {
       }
 
       _memoryBundlesMap = map;
-      await cache.setJson(CacheStorage.keyBundles, map);
+      await FileCache.instance.setJson(CacheStorage.keyBundles, map);
       await cache.setTimestamp(CacheStorage.keyBundlesFetchedAt);
       return map;
     } catch (_) {
-      final cached = await cache.getJson(CacheStorage.keyBundles);
+      final cached =
+          await FileCache.instance.getJson(CacheStorage.keyBundles);
       if (cached != null && cached.isNotEmpty) {
         _memoryBundlesMap = cached;
         return cached;
@@ -378,7 +400,8 @@ class ValorantAssets {
       _cacheDuration,
     );
     if (!forceRefresh && !isStale) {
-      final cached = await _readExpanded(cache, CacheStorage.keyUnifiedStoreItems);
+      final cached =
+          await _readExpanded(CacheStorage.keyUnifiedStoreItems);
       if (cached != null && cached.isNotEmpty) {
         _memoryUnifiedMap = cached;
         return cached;
@@ -404,12 +427,7 @@ class ValorantAssets {
     final unified = <String, dynamic>{};
 
     void addUnified(String uuid, Map<String, dynamic> entry) {
-      unified[uuid] = entry;
-      unified[uuid.toLowerCase()] = entry;
-      final raw = uuid.replaceAll('-', '').toLowerCase();
-      if (raw.isNotEmpty) {
-        unified[raw] = entry;
-      }
+      _indexUuid(unified, uuid, entry);
     }
 
     // Merge skins (levels, base skins, chromas)
@@ -488,13 +506,13 @@ class ValorantAssets {
 
     if (unified.isNotEmpty) {
       _memoryUnifiedMap = unified;
-      await _persistCompact(cache, CacheStorage.keyUnifiedStoreItems, unified);
+      await _persistCompact(CacheStorage.keyUnifiedStoreItems, unified);
       await cache.setTimestamp(CacheStorage.keyUnifiedStoreItemsFetchedAt);
       return unified;
     }
 
     final fallbackCached =
-        await _readExpanded(cache, CacheStorage.keyUnifiedStoreItems);
+        await _readExpanded(CacheStorage.keyUnifiedStoreItems);
     if (fallbackCached != null && fallbackCached.isNotEmpty) {
       _memoryUnifiedMap = fallbackCached;
       return fallbackCached;
@@ -716,10 +734,7 @@ class ValorantAssets {
             'largeArt': c['largeArt'],
             'displayIcon': c['displayIcon'],
           };
-          map[uuid] = info;
-          map[uuid.toLowerCase()] = info;
-          final raw = uuid.replaceAll('-', '').toLowerCase();
-          if (raw.isNotEmpty) map[raw] = info;
+          _indexUuid(map, uuid, info);
         }
       }
       _memoryCardsMap = map;
@@ -770,10 +785,7 @@ class ValorantAssets {
             'animationPng': s['animationPng'],
             'sprayUuid': uuid,
           };
-          map[uuid] = entry;
-          map[uuid.toLowerCase()] = entry;
-          final raw = uuid.replaceAll('-', '').toLowerCase();
-          if (raw.isNotEmpty) map[raw] = entry;
+          _indexUuid(map, uuid, entry);
         }
 
         for (final level in levels) {
@@ -786,10 +798,7 @@ class ValorantAssets {
               'animationPng': s['animationPng'],
               'sprayUuid': uuid,
             };
-            map[luuid] = entry;
-            map[luuid.toLowerCase()] = entry;
-            final raw = luuid.replaceAll('-', '').toLowerCase();
-            if (raw.isNotEmpty) map[raw] = entry;
+            _indexUuid(map, luuid, entry);
           }
         }
       }
@@ -837,10 +846,7 @@ class ValorantAssets {
             'displayName': t['displayName'] ?? t['titleText'],
             'titleText': t['titleText'],
           };
-          map[uuid] = entry;
-          map[uuid.toLowerCase()] = entry;
-          final raw = uuid.replaceAll('-', '').toLowerCase();
-          if (raw.isNotEmpty) map[raw] = entry;
+          _indexUuid(map, uuid, entry);
         }
       }
       _memoryTitlesMap = map;
@@ -1303,10 +1309,7 @@ class ValorantAssets {
               'displayIcon': level['displayIcon'],
               'buddyUuid': b['uuid'],
             };
-            map[uuid] = entry;
-            map[uuid.toLowerCase()] = entry;
-            final raw = uuid.replaceAll('-', '').toLowerCase();
-            if (raw.isNotEmpty) map[raw] = entry;
+            _indexUuid(map, uuid, entry);
           }
         }
         // Also index by parent buddy UUID for convenience
@@ -1318,10 +1321,7 @@ class ValorantAssets {
             'displayIcon': firstLevel['displayIcon'],
             'buddyUuid': buddyUuid,
           };
-          map[buddyUuid] = entry;
-          map[buddyUuid.toLowerCase()] = entry;
-          final raw = buddyUuid.replaceAll('-', '').toLowerCase();
-          if (raw.isNotEmpty) map[raw] = entry;
+          _indexUuid(map, buddyUuid, entry);
         }
       }
       _memoryBuddiesMap = map;
