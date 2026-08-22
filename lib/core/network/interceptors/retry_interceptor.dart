@@ -68,6 +68,15 @@ class RetryInterceptor extends Interceptor {
             // rather than replacing it with the original 429.
             handler.next(retryError);
             return;
+          } catch (e, st) {
+            handler.reject(
+              DioException(
+                requestOptions: err.requestOptions,
+                error: e,
+                stackTrace: st,
+              ),
+            );
+            return;
           }
         }
       }

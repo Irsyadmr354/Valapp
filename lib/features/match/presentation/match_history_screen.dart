@@ -22,12 +22,14 @@ import '../data/match_remote_source.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
-final _queueFilterProvider = StateProvider<String?>((ref) => null);
-final _resultFilterProvider = StateProvider<MatchResult?>((ref) => null);
+final _queueFilterProvider = StateProvider.autoDispose<String?>((ref) => null);
+final _resultFilterProvider =
+    StateProvider.autoDispose<MatchResult?>((ref) => null);
 
 /// Tracks matchIds that failed to fetch during this app session.
 /// Cleared when user performs a manual pull-to-refresh.
-final _failedEnrichmentIdsProvider = StateProvider<Set<String>>((ref) => {});
+final _failedEnrichmentIdsProvider =
+    StateProvider.autoDispose<Set<String>>((ref) => {});
 
 final _mapsMapProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {

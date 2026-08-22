@@ -95,7 +95,7 @@ class _BattlepassCarouselModalState
                       Text(
                         'TIER ${widget.contract.progressionLevelReached}  •  ${widget.contract.progressionTowardsNextLevel} / 10,000 XP',
                         style: const TextStyle(
-                            color: Color(0xFF00F0FF),
+                            color: AppColors.red,
                             fontSize: 12,
                             fontWeight: FontWeight.w700),
                       ),
@@ -139,7 +139,10 @@ class _BattlepassCarouselModalState
     }
 
     final content = _contractData?['content'] as Map<String, dynamic>?;
-    final chapters = (content?['chapters'] as List<dynamic>?) ?? [];
+    final chapters = ((content?['chapters'] as List<dynamic>?) ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
 
     if (chapters.isEmpty) {
       return const Center(
@@ -205,16 +208,20 @@ class _BattlepassCarouselModalState
             onPageChanged: (idx) => setState(() => _currentChapterIndex = idx),
             itemCount: chapters.length,
             itemBuilder: (context, chIdx) {
-              final chapter = chapters[chIdx] as Map<String, dynamic>;
-              final levels = (chapter['levels'] as List<dynamic>?) ?? [];
+              final chapter = chapters[chIdx];
+              final levels = ((chapter['levels'] as List<dynamic>?) ?? [])
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList();
               final isEpilogue = chIdx == chapters.length - 1;
 
               // Pre-compute tierOffset for this chapter
               int tierOffset = 0;
               for (int ci = 0; ci < chIdx; ci++) {
-                final prevChapter = chapters[ci] as Map<String, dynamic>;
-                tierOffset +=
-                    ((prevChapter['levels'] as List<dynamic>?) ?? []).length;
+                final prevChapter = chapters[ci];
+                tierOffset += ((prevChapter['levels'] as List<dynamic>?) ?? [])
+                    .whereType<Map>()
+                    .length;
               }
 
               return Padding(
@@ -246,9 +253,11 @@ class _BattlepassCarouselModalState
                       child: ListView.builder(
                         itemCount: levels.length,
                         itemBuilder: (context, lvlIdx) {
-                          final level = levels[lvlIdx] as Map<String, dynamic>;
-                          final reward =
-                              level['reward'] as Map<String, dynamic>?;
+                          final level = levels[lvlIdx];
+                          final rewardRaw = level['reward'];
+                          final reward = rewardRaw is Map
+                              ? Map<String, dynamic>.from(rewardRaw)
+                              : null;
                           final isFree = level['isFreeItem'] == true;
                           final tierNum = tierOffset + (lvlIdx + 1);
                           final isUnlocked =

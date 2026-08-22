@@ -201,7 +201,9 @@ class MatchHistoryResult {
 
   factory MatchHistoryResult.fromJson(Map<String, dynamic> json) {
     final matches = (json['History'] as List<dynamic>? ?? [])
-        .map((e) => MatchHistoryEntry.fromJson(e as Map<String, dynamic>))
+        .whereType<Map>()
+        .map((e) => MatchHistoryEntry.fromJson(
+            e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e)))
         .toList();
     matches.sort((a, b) => b.gameStartMillis.compareTo(a.gameStartMillis));
     return MatchHistoryResult(

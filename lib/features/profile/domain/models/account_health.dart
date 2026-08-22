@@ -111,8 +111,8 @@ class AccountHealth {
     ];
 
     final penalties = rawPenalties
-        .whereType<Map<String, dynamic>>()
-        .map((e) => AccountPenalty.fromJson(e))
+        .whereType<Map>()
+        .map((e) => AccountPenalty.fromJson(Map<String, dynamic>.from(e)))
         .where((p) => !p.isExpired)
         .toList();
 
@@ -121,8 +121,8 @@ class AccountHealth {
         [];
 
     final avoided = rawAvoid
-        .whereType<Map<String, dynamic>>()
-        .map((e) => AvoidedPlayer.fromJson(e))
+        .whereType<Map>()
+        .map((e) => AvoidedPlayer.fromJson(Map<String, dynamic>.from(e)))
         .toList();
 
     AccountHealthStatus status;

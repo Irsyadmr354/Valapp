@@ -256,6 +256,13 @@ class AuthRepository {
         // so interceptor/reactive reauth can retry when connectivity is restored.
         return creds;
       }
+    } else if (creds.isEntitlementExpired) {
+      try {
+        return await refreshEntitlementOnly(creds);
+      } catch (e) {
+        debugPrint('[AuthRepo] Proactive entitlement refresh warning: $e');
+        return creds;
+      }
     }
     return creds;
   }

@@ -15,6 +15,7 @@ import '../../../core/di/providers.dart';
 import '../../../core/storage/cache_storage.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/utils/async_lock.dart';
+import '../../../shared/utils/valorant_assets.dart';
 import '../data/credentials_local_source.dart';
 
 /// ARCH-04: every dependency whose cached state must not survive an account
@@ -30,6 +31,8 @@ final List<ProviderOrFamily> _sessionBoundProviders = [
   // Reactive session root + authenticated HTTP stack.
   currentCredentialsProvider,
   apiDioProvider,
+  authDioProvider,
+  cookieJarProvider,
   // Remote sources & repositories bound to the authenticated Dio.
   storeRemoteSourceProvider,
   storeRepositoryProvider,
@@ -206,6 +209,7 @@ class SessionActions {
   /// previous account leaks into the next one. See [_sessionBoundProviders]
   /// for the authoritative list and rationale.
   void invalidateSession() {
+    ValorantAssets.instance.clearMemoryCache();
     for (final provider in _sessionBoundProviders) {
       _ref.invalidate(provider);
     }

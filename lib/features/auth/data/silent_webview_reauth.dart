@@ -124,11 +124,12 @@ class SilentWebviewReauth {
       // Restore saved Riot session cookies strictly for the target account into WebViewCookieManager
       if (puuid != null && puuid.isNotEmpty) {
         try {
+          final cookieManager = WebViewCookieManager();
+          await cookieManager.clearCookies();
           final rawCookies = await SecureStorage.instance.read(
             SecureStorage.keyRiotCookiesFor(puuid),
           );
           if (rawCookies != null && rawCookies.isNotEmpty) {
-            final cookieManager = WebViewCookieManager();
             final pairs = rawCookies.split(';');
             for (final pair in pairs) {
               final parts = pair.split('=');

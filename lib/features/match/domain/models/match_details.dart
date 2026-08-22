@@ -200,8 +200,11 @@ class MatchDetails {
       }
     }
 
-    final players = (json['players'] as List<dynamic>? ?? []).map((e) {
-      final pMap = e as Map<String, dynamic>;
+    final players = (json['players'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) {
+      final pMap =
+          e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e);
       final player = PlayerStats.fromJson(pMap);
       if (player.displayName.isEmpty &&
           playerIdentitiesMap.containsKey(player.puuid)) {
@@ -222,7 +225,9 @@ class MatchDetails {
     }).toList();
 
     final rounds = (json['roundResults'] as List<dynamic>? ?? [])
-        .map((e) => RoundResult.fromJson(e as Map<String, dynamic>))
+        .whereType<Map>()
+        .map((e) => RoundResult.fromJson(
+            e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e)))
         .toList();
 
     return MatchDetails(

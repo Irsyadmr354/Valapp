@@ -190,8 +190,10 @@ class PlayerMmr {
     String? activeSeasonId;
 
     try {
-      final queueSkills = json['QueueSkills'] as Map<String, dynamic>?;
-      final competitive = queueSkills?['competitive'] as Map<String, dynamic>?;
+      final rawQueueSkills = json['QueueSkills'];
+      final queueSkills = rawQueueSkills is Map ? rawQueueSkills : null;
+      final rawComp = queueSkills?['competitive'];
+      final competitive = rawComp is Map ? rawComp : null;
 
       if (competitive != null) {
         gamesNeeded = (competitive['CurrentSeasonGamesNeededForRating'] as num?)

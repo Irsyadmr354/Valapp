@@ -8,5 +8,9 @@ T? lookupByUuid<T>(Map<String, dynamic> map, String uuid) {
       (map[uuid.replaceAll('-', '').toLowerCase()] as T?);
 }
 
-Map<String, dynamic>? lookupMap(Map<String, dynamic> map, String uuid) =>
-    lookupByUuid<Map<String, dynamic>>(map, uuid);
+Map<String, dynamic>? lookupMap(Map<String, dynamic> map, String uuid) {
+  final val = lookupByUuid<dynamic>(map, uuid);
+  if (val is Map<String, dynamic>) return val;
+  if (val is Map) return Map<String, dynamic>.from(val);
+  return null;
+}

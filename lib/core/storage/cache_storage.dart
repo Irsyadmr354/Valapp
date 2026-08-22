@@ -302,6 +302,13 @@ class CacheStorage {
     await AsyncLock.run('cache_match_map', () async {
       final current = await getMatchMaps();
       current[matchId] = mapId;
+      if (current.length > 100) {
+        final excess = current.length - 100;
+        final keysToRemove = current.keys.take(excess).toList();
+        for (final k in keysToRemove) {
+          current.remove(k);
+        }
+      }
       await setJson(keyMatchMapCache, current);
     });
   }

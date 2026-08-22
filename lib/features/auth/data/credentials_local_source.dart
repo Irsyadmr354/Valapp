@@ -109,6 +109,11 @@ class CredentialsLocalSource {
     return fresh;
   }
 
+  void _invalidateHotMemo() {
+    _hotMemo = null;
+    _hotMemoAt = DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
   Credentials? _hotMemo;
   DateTime _hotMemoAt = DateTime.fromMillisecondsSinceEpoch(0);
   static const hotMemoTtl = Duration(milliseconds: 2000);
@@ -317,6 +322,7 @@ class CredentialsLocalSource {
         'entitlementExpiresAt': creds.entitlementExpiresAt.toIso8601String(),
       }),
     );
+    _invalidateHotMemo();
     if (changesAccount) {
       await _cache.setActiveSession(creds.puuid);
     }
@@ -452,6 +458,7 @@ class CredentialsLocalSource {
   /// Core teardown of active-session keys. Runs INSIDE an existing
   /// 'credentials_save' lock — do not wrap again (non-reentrant mutex).
   Future<void> _clearActiveSessionKeysInternal(String? currentPuuid) async {
+    _invalidateHotMemo();
     await _cache?.setActiveSession('', clearPrevious: true);
     final deletes = <Future<void>>[
       _storage.delete(SecureStorage.keyAccessToken),
@@ -474,6 +481,7 @@ class CredentialsLocalSource {
   }
 
   Future<void> clear() async {
+    _invalidateHotMemo();
     await _cache?.setActiveSession('', clearPrevious: true);
     await _storage.deleteAll();
   }

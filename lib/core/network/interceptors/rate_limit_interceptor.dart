@@ -30,8 +30,11 @@ class RateLimitInterceptor extends Interceptor {
     _tail = completer.future;
 
     try {
-      // Wait for all preceding requests to finish their delay slots.
-      await previous;
+      // Wait for all preceding requests to finish their delay slots, ignoring
+      // previous errors so one failing request never blocks the entire pipeline.
+      try {
+        await previous;
+      } catch (_) {}
 
       // Enforce only the REMAINING inter-request gap.
       final elapsed = DateTime.now().difference(_lastSentAt);
@@ -39,11 +42,20 @@ class RateLimitInterceptor extends Interceptor {
         await Future.delayed(_minInterval - elapsed);
       }
       _lastSentAt = DateTime.now();
+      handler.next(options);
+    } catch (e, st) {
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          error: e,
+          stackTrace: st,
+        ),
+      );
     } finally {
       // Release our slot so the next queued request can proceed.
-      completer.complete();
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
     }
-
-    handler.next(options);
   }
 }

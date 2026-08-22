@@ -26,7 +26,9 @@ class AccountXp {
   factory AccountXp.fromJson(Map<String, dynamic> json) {
     final progress = json['Progress'] as Map<String, dynamic>? ?? {};
     final history = (json['History'] as List<dynamic>? ?? [])
-        .map((e) => XpEntry.fromJson(e as Map<String, dynamic>))
+        .whereType<Map>()
+        .map((e) => XpEntry.fromJson(
+            e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e)))
         .toList();
     return AccountXp(
       puuid: json['Subject'] as String? ?? '',

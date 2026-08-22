@@ -117,6 +117,17 @@ class ValorantAssets {
   Map<String, dynamic>? _memoryTitlesMap;
   Map<String, dynamic>? _memoryUnifiedMap;
 
+  /// Clears in-memory caches to free RAM during logout or low-memory conditions.
+  void clearMemoryCache() {
+    _memorySkinLevelsMap = null;
+    _memoryBundlesMap = null;
+    _memoryBuddiesMap = null;
+    _memoryCardsMap = null;
+    _memorySpraysMap = null;
+    _memoryTitlesMap = null;
+    _memoryUnifiedMap = null;
+  }
+
   // ── Skin Levels ────────────────────────────────────────────────────────────
 
   /// Returns a map of skinLevel UUID → skin metadata.
@@ -1243,7 +1254,10 @@ class ValorantAssets {
     if (!isStale) {
       final cached = await cache.getJsonList(keyBorders);
       if (cached != null) {
-        return cached.whereType<Map<String, dynamic>>().toList();
+        return cached
+            .whereType<Map>()
+            .map((b) => Map<String, dynamic>.from(b))
+            .toList();
       }
     }
     try {
@@ -1251,7 +1265,7 @@ class ValorantAssets {
           await _dio.get<Map<String, dynamic>>('$_base/levelborders');
       final borders = (response.data?['data'] as List<dynamic>?) ?? [];
       final list = borders
-          .whereType<Map<String, dynamic>>()
+          .whereType<Map>()
           .map((b) => {
                 'uuid': b['uuid'],
                 'displayName': b['displayName'],
@@ -1272,7 +1286,10 @@ class ValorantAssets {
     } catch (_) {
       final cached = await cache.getJsonList(keyBorders);
       if (cached != null) {
-        return cached.whereType<Map<String, dynamic>>().toList();
+        return cached
+            .whereType<Map>()
+            .map((b) => Map<String, dynamic>.from(b))
+            .toList();
       }
       return [];
     }

@@ -114,6 +114,18 @@ class FeaturedBundle {
     final offerId = json['ID']?.toString().trim() ?? '';
     final bundleUuid = dataAssetId.isNotEmpty ? dataAssetId : offerId;
 
+    final rawBaseCost = json['TotalBaseCost'];
+    final totalBaseCost = rawBaseCost is Map
+        ? (rawBaseCost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0
+        : (rawBaseCost as num?)?.toInt() ??
+            (json['TotalCost'] as num?)?.toInt() ??
+            0;
+
+    final rawDiscountedCost = json['TotalDiscountedCost'];
+    final totalDiscountedCost = rawDiscountedCost is Map
+        ? (rawDiscountedCost[ValorantCurrency.vpUuid] as num?)?.toInt() ?? 0
+        : (rawDiscountedCost as num?)?.toInt() ?? 0;
+
     return FeaturedBundle(
       bundleUuid: bundleUuid,
       durationRemainingSeconds:
@@ -123,13 +135,8 @@ class FeaturedBundle {
       itemIds: itemIds,
       items: bundleItems,
       itemPrices: itemPrices,
-      totalBaseCost:
-          (json['TotalBaseCost']?[ValorantCurrency.vpUuid] as num?)?.toInt() ??
-              0,
-      totalDiscountedCost:
-          (json['TotalDiscountedCost']?[ValorantCurrency.vpUuid] as num?)
-                  ?.toInt() ??
-              0,
+      totalBaseCost: totalBaseCost,
+      totalDiscountedCost: totalDiscountedCost,
       totalDiscountPercent:
           (json['TotalDiscountPercent'] as num?)?.toDouble() ?? 0.0,
     );
@@ -409,9 +416,9 @@ class Storefront {
     }
 
     // Night market
-    final bonusStore = json['BonusStore'] as Map<String, dynamic>?;
-    final nightMarketOffers = (bonusStore?['BonusStoreOffers']
-                as List<dynamic>?)
+    final rawBonusStore = json['BonusStore'];
+    final bonusStore = rawBonusStore is Map ? rawBonusStore : null;
+    final nightMarketOffers = (bonusStore?['BonusStoreOffers'] as List<dynamic>?)
             ?.whereType<Map>()
             .map((e) => NightMarketOffer.fromJson(Map<String, dynamic>.from(e)))
             .toList() ??
@@ -419,9 +426,12 @@ class Storefront {
 
     // Accessory store
     AccessoryStore? accessoryStore;
-    if (json['AccessoryStore'] != null) {
+    final rawAccessory = json['AccessoryStore'];
+    if (rawAccessory is Map) {
       accessoryStore = AccessoryStore.fromJson(
-          json['AccessoryStore'] as Map<String, dynamic>);
+          rawAccessory is Map<String, dynamic>
+              ? rawAccessory
+              : Map<String, dynamic>.from(rawAccessory));
     }
 
     return Storefront(

@@ -6,15 +6,17 @@ class AppLogger {
   static const _redacted = '[REDACTED]';
 
   static void info(String msg) {
-    if (kDebugMode) debugPrint('[INFO] $msg');
+    if (kDebugMode) debugPrint('[INFO] ${sanitize(msg)}');
   }
 
   static void warn(String msg) {
-    debugPrint('[WARN] $msg');
+    if (kDebugMode) debugPrint('[WARN] ${sanitize(msg)}');
   }
 
   static void error(String msg, [Object? err, StackTrace? st]) {
-    debugPrint('[ERROR] $msg${err != null ? ": $err" : ""}');
+    final sanitizedMsg = sanitize(msg);
+    final sanitizedErr = err != null ? ': ${sanitize(err.toString())}' : '';
+    debugPrint('[ERROR] $sanitizedMsg$sanitizedErr');
     if (st != null && kDebugMode) debugPrint(st.toString());
   }
 

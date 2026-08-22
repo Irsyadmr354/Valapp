@@ -373,7 +373,7 @@ class _ProfileHeaderBanner extends StatelessWidget {
                         children: [
                           IconButton(
                             constraints: const BoxConstraints(
-                                minWidth: 44, minHeight: 44),
+                                minWidth: 48, minHeight: 48),
                             icon: const Icon(Icons.health_and_safety_outlined,
                                 color: AppColors.win, size: 20),
                             onPressed: () => AccountHealthModal.show(context),
@@ -381,7 +381,7 @@ class _ProfileHeaderBanner extends StatelessWidget {
                           ),
                           IconButton(
                             constraints: const BoxConstraints(
-                                minWidth: 44, minHeight: 44),
+                                minWidth: 48, minHeight: 48),
                             icon: const Icon(Icons.settings_outlined,
                                 color: Colors.white70, size: 20),
                             onPressed: onSettingsPressed,
@@ -389,7 +389,7 @@ class _ProfileHeaderBanner extends StatelessWidget {
                           ),
                           IconButton(
                             constraints: const BoxConstraints(
-                                minWidth: 44, minHeight: 44),
+                                minWidth: 48, minHeight: 48),
                             icon: const Icon(Icons.logout_rounded,
                                 color: AppColors.red, size: 20),
                             onPressed: onLogoutPressed,

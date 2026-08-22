@@ -7,6 +7,8 @@ import '../../../features/auth/data/credentials_local_source.dart';
 import '../../../shared/utils/version_service.dart';
 
 import '../valorant_headers.dart';
+import 'rate_limit_interceptor.dart';
+import 'retry_interceptor.dart';
 
 /// Automatically injects Valorant auth headers on every API request:
 /// - Authorization: Bearer <access_token>
@@ -43,10 +45,18 @@ class ValorantInterceptor extends Interceptor {
   /// Created lazily and reused to avoid allocating a new instance per retry.
   /// Timeouts mirror createApiDio — a bare Dio() would default to no timeout
   /// and let a hung retry connection block forever.
-  late final Dio _retryDio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  late final Dio _retryDio = () {
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+    ));
+    dio.interceptors.addAll([
+      RateLimitInterceptor(),
+      RetryInterceptor(dio),
+    ]);
+    return dio;
+  }();
 
   /// Tracks when we last ran the proactive reauth check so we don't re-read
   /// SecureStorage on every single API request. The check is skipped if it

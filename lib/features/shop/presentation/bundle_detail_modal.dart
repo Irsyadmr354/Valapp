@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../shared/utils/price_utils.dart' as price_utils;
+import '../../../shared/utils/uuid_lookup.dart';
 import '../../../shared/utils/app_colors.dart';
 import '../../../shared/utils/tier_colors.dart';
 import '../../../shared/widgets/countdown_timer.dart';
@@ -55,7 +56,7 @@ class BundleDetailModal extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final skinMapAsync = ref.watch(_bundleSkinMapProvider);
     final discountInt =
-        price_utils.discountPercent(bundle.totalDiscountPercent);
+        price_utils.normalizeDiscountPercent(bundle.totalDiscountPercent);
 
     return Container(
       constraints: BoxConstraints(
@@ -265,10 +266,7 @@ class _BundleItemList extends StatelessWidget {
 
         // Grid of Skins inside the Bundle
         ...bundle.itemIds.map((itemId) {
-          final meta = skinMap[itemId] as Map<String, dynamic>? ??
-              skinMap[itemId.toLowerCase()] as Map<String, dynamic>? ??
-              skinMap[itemId.replaceAll('-', '').toLowerCase()]
-                  as Map<String, dynamic>?;
+          final meta = lookupMap(skinMap, itemId);
 
           final skinName = meta?['displayName'] as String? ??
               meta?['skinName'] as String? ??
